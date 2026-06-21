@@ -4,11 +4,12 @@ import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkMobileNav } from '@shared/components/organisms/mobile-nav/hk-mobile-nav';
+import { HkCommandPalette } from '@shared/components/organisms/command-palette/hk-command-palette';
 
 // Header sticky : drawer mobile (< lg), titre dérivé de la route, notifications.
 @Component({
   selector: 'hk-header',
-  imports: [HkIconButton, HkMobileNav],
+  imports: [HkIconButton, HkMobileNav, HkCommandPalette],
   template: `
     <header
       class="bg-background border-border sticky top-0 flex h-14 items-center gap-3 border-b px-4"
@@ -19,6 +20,7 @@ import { HkMobileNav } from '@shared/components/organisms/mobile-nav/hk-mobile-n
       </span>
       <h1 class="text-text-strong truncate text-base font-semibold">{{ title() }}</h1>
       <div class="flex-1"></div>
+      <hk-command-palette />
       <div class="relative">
         <hk-icon-button icon="lucideBell" label="Notifications" />
         <span class="bg-primary absolute top-1.5 right-1.5 size-2 rounded-full"></span>
