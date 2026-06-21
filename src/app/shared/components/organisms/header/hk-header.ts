@@ -3,25 +3,21 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
-import { LayoutService } from '@core/services/layout.service';
+import { HkMobileNav } from '@shared/components/organisms/mobile-nav/hk-mobile-nav';
 
-// Header sticky : bouton menu (mobile), titre dérivé de la route, notifications.
+// Header sticky : drawer mobile (< lg), titre dérivé de la route, notifications.
 @Component({
   selector: 'hk-header',
-  imports: [HkIconButton],
+  imports: [HkIconButton, HkMobileNav],
   template: `
     <header
       class="bg-background border-border sticky top-0 flex h-14 items-center gap-3 border-b px-4"
       style="z-index: var(--z-sticky-header)"
     >
       <span class="lg:hidden">
-        <hk-icon-button
-          icon="lucideMenu"
-          label="Ouvrir le menu"
-          (click)="layout.openMobileDrawer()"
-        />
+        <hk-mobile-nav />
       </span>
-      <h1 class="text-text-strong text-base font-semibold">{{ title() }}</h1>
+      <h1 class="text-text-strong truncate text-base font-semibold">{{ title() }}</h1>
       <div class="flex-1"></div>
       <div class="relative">
         <hk-icon-button icon="lucideBell" label="Notifications" />
@@ -32,7 +28,6 @@ import { LayoutService } from '@core/services/layout.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkHeader {
-  protected readonly layout = inject(LayoutService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 

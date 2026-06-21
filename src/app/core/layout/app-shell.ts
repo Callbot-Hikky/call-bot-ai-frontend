@@ -16,7 +16,7 @@ import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
 
       <div class="flex min-w-0 flex-1 flex-col">
         <hk-header />
-        <main class="flex-1 overflow-auto p-8">
+        <main class="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           <div class="mx-auto max-w-[1440px]">
             <router-outlet />
           </div>
