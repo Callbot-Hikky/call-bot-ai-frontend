@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
@@ -13,7 +13,11 @@ import { HkSectionHeader } from '@shared/components/molecules/section-header/hk-
 import { HkStatCard } from '@shared/components/molecules/stat-card/hk-stat-card';
 import { HkEmptyState } from '@shared/components/molecules/empty-state/hk-empty-state';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
-import { ReservationStatus } from '@core/models/reservation.model';
+import { HkFilterBar } from '@shared/components/molecules/filter-bar/hk-filter-bar';
+import { HkReservationRow } from '@shared/components/molecules/reservation-row/hk-reservation-row';
+import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
+import { ToastService } from '@core/services/toast.service';
+import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 
 // Page temporaire de validation (tokens + atoms). À supprimer ensuite.
 @Component({
@@ -33,11 +37,16 @@ import { ReservationStatus } from '@core/models/reservation.model';
     HkStatCard,
     HkEmptyState,
     HkNavItem,
+    HkFilterBar,
+    HkReservationRow,
+    HkToaster,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TokensDemo {
+  private readonly toastService = inject(ToastService);
+
   protected readonly greens = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
   protected readonly statuses: ReservationStatus[] = [
     'pending',
@@ -54,4 +63,30 @@ export class TokensDemo {
     'lucideSettings',
     'lucideBell',
   ];
+
+  protected readonly demoReservations: Reservation[] = [
+    {
+      id: 'r-1',
+      customerName: 'Camille Durand',
+      phone: '+33 6 12 34 56 78',
+      dateTime: '2026-06-21T20:00:00+02:00',
+      partySize: 4,
+      table: { id: 't1', name: 'T1', capacity: 4 },
+      status: 'confirmed',
+      source: 'callbot',
+    },
+    {
+      id: 'r-2',
+      customerName: 'Yanis Bensaïd',
+      phone: '+33 7 98 76 54 32',
+      dateTime: '2026-06-21T21:30:00+02:00',
+      partySize: 2,
+      status: 'pending',
+      source: 'manual',
+    },
+  ];
+
+  protected showToast(): void {
+    this.toastService.show('Réservation confirmée', 'success');
+  }
 }

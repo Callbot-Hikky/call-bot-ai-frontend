@@ -248,6 +248,31 @@
           </hk-empty-state>
         </hk-card>
       </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-filter-bar</h3>
+        <hk-filter-bar />
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-reservation-row</h3>
+        <hk-card>
+          <div class="divide-border flex flex-col divide-y">
+            @for (r of demoReservations; track r.id) {
+              <hk-reservation-row [reservation]="r" />
+            }
+          </div>
+        </hk-card>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-toast</h3>
+        <div>
+          <hk-button variant="secondary" (click)="showToast()">Afficher un toast</hk-button>
+        </div>
+      </section>
     </div>
   </div>
+
+  <hk-toaster />
 </main>
