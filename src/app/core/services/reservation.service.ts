@@ -23,17 +23,19 @@ const MOCK_RESERVATIONS: Reservation[] = [
   {
     id: 'r-001',
     customerName: 'Camille Durand',
-    phoneNumber: '+33 6 12 34 56 78',
+    phone: '+33 6 12 34 56 78',
     partySize: 4,
     dateTime: '2026-06-21T20:00:00+02:00',
     status: 'confirmed',
+    source: 'callbot',
   },
   {
     id: 'r-002',
     customerName: 'Yanis Bensaïd',
-    phoneNumber: '+33 7 98 76 54 32',
+    phone: '+33 7 98 76 54 32',
     partySize: 2,
     dateTime: '2026-06-21T21:30:00+02:00',
     status: 'pending',
+    source: 'manual',
   },
 ];
