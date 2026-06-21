@@ -1,0 +1,65 @@
+{
+  "name": "call-bot-ai-frontend",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "lint": "ng lint",
+    "format": "prettier --write \"src/**/*.{ts,html,scss}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,html,scss}\"",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,html}": [
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{scss,json,md,js}": [
+      "prettier --write"
+    ]
+  },
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "dependencies": {
+    "@angular/cdk": "21.0.0",
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "@ng-icons/core": "^33.2.4",
+    "@ng-icons/lucide": "^33.2.4",
+    "@spartan-ng/brain": "0.0.1-alpha.718",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "rxjs": "~7.8.0",
+    "tailwind-merge": "^3.5.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular-eslint/builder": "21.4.0",
+    "@angular/build": "^21.2.16",
+    "@angular/cli": "^21.2.16",
+    "@angular/compiler-cli": "^21.2.0",
+    "@eslint/js": "^10.0.1",
+    "@spartan-ng/cli": "0.0.1-alpha.718",
+    "@tailwindcss/postcss": "^4.3.1",
+    "angular-eslint": "21.4.0",
+    "eslint": "^10.3.0",
+    "husky": "^9.1.7",
+    "jsdom": "^28.0.0",
+    "lint-staged": "^17.0.7",
+    "postcss": "^8.5.15",
+    "prettier": "^3.8.1",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "tailwindcss": "^4.3.1",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "8.59.2",
+    "vitest": "^4.0.8"
+  }
+}

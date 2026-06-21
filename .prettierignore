@@ -1,0 +1,8 @@
+# Composants Spartan générés
+src/app/shared/ui/
+
+# Build et dépendances
+dist/
+node_modules/
+.angular/
+pnpm-lock.yaml
