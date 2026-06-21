@@ -19,7 +19,8 @@
       "@core/*": ["./src/app/core/*"],
       "@shared/*": ["./src/app/shared/*"],
       "@features/*": ["./src/app/features/*"],
-      "@env/*": ["./src/environments/*"]
+      "@env/*": ["./src/environments/*"],
+      "@spartan-ng/helm/tooltip": ["./src/app/shared/ui/tooltip/src/index.ts"]
     }
   },
   "angularCompilerOptions": {

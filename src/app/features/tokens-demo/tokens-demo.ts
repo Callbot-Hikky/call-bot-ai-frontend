@@ -8,6 +8,7 @@ import { HkAvatar } from '@shared/components/atoms/avatar/hk-avatar';
 import { HkCard } from '@shared/components/atoms/card/hk-card';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkSpinner } from '@shared/components/atoms/spinner/hk-spinner';
+import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
 import { ReservationStatus } from '@core/models/reservation.model';
 
 // Page temporaire de validation (tokens + atoms). À supprimer ensuite.
@@ -23,6 +24,7 @@ import { ReservationStatus } from '@core/models/reservation.model';
     HkCard,
     HkSkeleton,
     HkSpinner,
+    HkTooltip,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
