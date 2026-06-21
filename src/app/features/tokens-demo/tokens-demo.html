@@ -182,6 +182,15 @@
           <hk-spinner [size]="24" />
         </div>
       </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-tooltip</h3>
+        <p class="text-muted-foreground text-sm">Survole le bouton pour voir l'infobulle.</p>
+        <div class="flex items-center gap-3">
+          <hk-icon-button icon="lucidePhone" label="Appeler" hkTooltip="Appeler le client" />
+          <hk-button variant="secondary" hkTooltip="Action secondaire">Survole-moi</hk-button>
+        </div>
+      </section>
     </div>
   </div>
 </main>
