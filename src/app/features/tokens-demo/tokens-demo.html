@@ -1,123 +1,131 @@
 <main class="bg-background min-h-screen p-8">
-  <div class="mx-auto flex max-w-4xl flex-col gap-10">
+  <div class="mx-auto flex max-w-4xl flex-col gap-12">
     <header class="flex flex-col gap-1">
-      <h1 class="text-text-strong text-2xl font-semibold">Hikky - Design tokens</h1>
-      <p class="text-muted-foreground text-sm">Validation visuelle des couleurs, typo, ombres.</p>
+      <h1 class="text-text-strong text-2xl font-semibold">Hikky - Design system</h1>
+      <p class="text-muted-foreground text-sm">Page de validation (tokens et atoms).</p>
     </header>
 
-    <!-- Palette de marque -->
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">Vert de marque</h2>
-      <div class="flex flex-wrap gap-2">
-        @for (g of greens; track g) {
-          <div class="flex flex-col items-center gap-1">
-            <div
-              class="border-border size-14 rounded-md border"
-              [style.background]="'var(--green-' + g + ')'"
-            ></div>
-            <span class="text-muted-foreground font-mono text-xs">{{ g }}</span>
+    <!-- ============================ TOKENS ============================ -->
+    <div class="flex flex-col gap-10">
+      <h2 class="text-text-strong border-border border-b pb-2 text-xl font-semibold">Tokens</h2>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">Vert de marque</h3>
+        <div class="flex flex-wrap gap-2">
+          @for (g of greens; track g) {
+            <div class="flex flex-col items-center gap-1">
+              <div
+                class="border-border size-14 rounded-md border"
+                [style.background]="'var(--green-' + g + ')'"
+              ></div>
+              <span class="text-muted-foreground font-mono text-xs">{{ g }}</span>
+            </div>
+          }
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">Neutres</h3>
+        <div class="flex flex-wrap gap-4">
+          <div
+            class="bg-background border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
+          >
+            background
           </div>
-        }
-      </div>
-    </section>
+          <div
+            class="bg-card border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
+          >
+            card / surface
+          </div>
+          <div
+            class="bg-muted border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
+          >
+            muted
+          </div>
+        </div>
+        <div class="flex flex-col gap-1">
+          <p class="text-foreground">Texte principal (foreground)</p>
+          <p class="text-muted-foreground">Texte secondaire (muted-foreground)</p>
+        </div>
+      </section>
 
-    <!-- Neutres -->
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">Neutres</h2>
-      <div class="flex flex-wrap gap-4">
-        <div
-          class="bg-background border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
-        >
-          background
-        </div>
-        <div
-          class="bg-card border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
-        >
-          card / surface
-        </div>
-        <div
-          class="bg-muted border-border flex h-14 w-32 items-center justify-center rounded-md border text-xs"
-        >
-          muted
-        </div>
-      </div>
-      <div class="flex flex-col gap-1">
-        <p class="text-foreground">Texte principal (foreground)</p>
-        <p class="text-muted-foreground">Texte secondaire (muted-foreground)</p>
-      </div>
-    </section>
+      <section class="flex flex-col gap-2">
+        <h3 class="text-lg font-semibold">Typographie</h3>
+        <p class="text-4xl font-semibold tracking-tight tabular-nums">36 - Display (KPI)</p>
+        <p class="text-2xl font-semibold">24 - Titre de page</p>
+        <p class="text-lg font-semibold">18 - Titre de section</p>
+        <p class="text-sm">14 - Texte courant</p>
+        <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">12 - Label</p>
+        <p class="font-mono text-sm tabular-nums">
+          20:30 · +33 6 12 34 56 78 · 4 couverts (Geist Mono)
+        </p>
+      </section>
 
-    <!-- Badges de statut -->
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">Statuts</h2>
-      <div class="flex flex-wrap gap-2 text-xs font-medium">
-        <span class="bg-st-pending-bg text-st-pending-fg rounded-full px-2.5 py-1">En attente</span>
-        <span class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2.5 py-1"
-          >Confirmée</span
-        >
-        <span class="bg-st-seated-bg text-st-seated-fg rounded-full px-2.5 py-1">Installée</span>
-        <span class="bg-st-completed-bg text-st-completed-fg rounded-full px-2.5 py-1"
-          >Terminée</span
-        >
-        <span class="bg-st-cancelled-bg text-st-cancelled-fg rounded-full px-2.5 py-1"
-          >Annulée</span
-        >
-        <span class="bg-st-noshow-bg text-st-noshow-fg rounded-full px-2.5 py-1"
-          >Non présentée</span
-        >
-      </div>
-    </section>
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">Ombres</h3>
+        <div class="flex flex-wrap gap-6">
+          <div
+            class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-xs"
+          >
+            xs
+          </div>
+          <div
+            class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-sm"
+          >
+            sm
+          </div>
+          <div
+            class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-md"
+          >
+            md
+          </div>
+          <div
+            class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-lg"
+          >
+            lg
+          </div>
+        </div>
+      </section>
+    </div>
 
-    <!-- Typographie -->
-    <section class="flex flex-col gap-2">
-      <h2 class="text-lg font-semibold">Typographie</h2>
-      <p class="text-4xl font-semibold tracking-tight tabular-nums">36 - Display (KPI)</p>
-      <p class="text-2xl font-semibold">24 - Titre de page</p>
-      <p class="text-lg font-semibold">18 - Titre de section</p>
-      <p class="text-sm">14 - Texte courant</p>
-      <p class="text-muted-foreground text-xs font-medium tracking-wide uppercase">12 - Label</p>
-      <p class="font-mono text-sm tabular-nums">
-        20:30 · +33 6 12 34 56 78 · 4 couverts (Geist Mono)
-      </p>
-    </section>
+    <!-- ============================ ATOMS ============================ -->
+    <div class="flex flex-col gap-10">
+      <h2 class="text-text-strong border-border border-b pb-2 text-xl font-semibold">Atoms</h2>
 
-    <!-- Ombres -->
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">Ombres</h2>
-      <div class="flex flex-wrap gap-6">
-        <div
-          class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-xs"
-        >
-          xs
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-icon</h3>
+        <div class="text-foreground flex items-center gap-5">
+          @for (ic of icons; track ic) {
+            <hk-icon [name]="ic" [size]="24" />
+          }
+          <hk-icon name="lucideCheck" [size]="24" class="text-primary" />
         </div>
-        <div
-          class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-sm"
-        >
-          sm
-        </div>
-        <div
-          class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-md"
-        >
-          md
-        </div>
-        <div
-          class="bg-card flex h-16 w-24 items-center justify-center rounded-md text-xs shadow-lg"
-        >
-          lg
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Boutons -->
-    <section class="flex flex-col gap-3">
-      <h2 class="text-lg font-semibold">Boutons</h2>
-      <div class="flex flex-wrap items-center gap-3">
-        <button hlmBtn>Action principale (Spartan)</button>
-        <button hlmBtn variant="outline">Secondaire</button>
-        <button class="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-medium">
-          bg-primary
-        </button>
-      </div>
-    </section>
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-badge</h3>
+        <div class="flex flex-wrap gap-2">
+          @for (s of statuses; track s) {
+            <hk-badge [status]="s" />
+          }
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-4">
+        <h3 class="text-lg font-semibold">hk-button</h3>
+        <div class="flex flex-wrap items-center gap-3">
+          <hk-button variant="primary">Confirmer</hk-button>
+          <hk-button variant="secondary">Secondaire</hk-button>
+          <hk-button variant="ghost">Ghost</hk-button>
+          <hk-button variant="danger">Annuler</hk-button>
+          <hk-button variant="primary" [disabled]="true">Désactivé</hk-button>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <hk-button size="sm">Small</hk-button>
+          <hk-button size="md">Medium</hk-button>
+          <hk-button size="lg">Large</hk-button>
+        </div>
+      </section>
+    </div>
   </div>
 </main>
