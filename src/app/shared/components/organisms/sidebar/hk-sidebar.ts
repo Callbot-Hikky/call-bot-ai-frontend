@@ -4,6 +4,7 @@ import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-prof
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { LayoutService } from '@core/services/layout.service';
 import { ToastService } from '@core/services/toast.service';
+import { NAV_ITEMS } from '@core/layout/nav-items';
 
 // Sidebar du shell : logo, navigation, profil en bas, bouton replier/déplier.
 @Component({
@@ -26,25 +27,14 @@ import { ToastService } from '@core/services/toast.service';
       </div>
 
       <nav class="flex flex-1 flex-col gap-1 p-2" aria-label="Navigation principale">
-        <hk-nav-item
-          icon="lucideLayoutDashboard"
-          label="Tableau de bord"
-          route="/dashboard"
-          [collapsed]="collapsed()"
-        />
-        <hk-nav-item
-          icon="lucideCalendar"
-          label="Réservations"
-          route="/reservations"
-          [collapsed]="collapsed()"
-        />
-        <hk-nav-item icon="lucidePhone" label="Appels" route="/appels" [collapsed]="collapsed()" />
-        <hk-nav-item
-          icon="lucideSettings"
-          label="Paramètres"
-          route="/parametres"
-          [collapsed]="collapsed()"
-        />
+        @for (item of navItems; track item.route) {
+          <hk-nav-item
+            [icon]="item.icon"
+            [label]="item.label"
+            [route]="item.route"
+            [collapsed]="collapsed()"
+          />
+        }
       </nav>
 
       <div class="border-border border-t p-2">
@@ -62,6 +52,7 @@ import { ToastService } from '@core/services/toast.service';
 export class HkSidebar {
   protected readonly layout = inject(LayoutService);
   protected readonly collapsed = this.layout.sidebarCollapsed;
+  protected readonly navItems = NAV_ITEMS;
   private readonly toast = inject(ToastService);
 
   protected onLogout(): void {
