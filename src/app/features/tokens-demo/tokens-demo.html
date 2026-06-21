@@ -126,6 +126,62 @@
           <hk-button size="lg">Large</hk-button>
         </div>
       </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-icon-button</h3>
+        <div class="flex items-center gap-3">
+          <hk-icon-button icon="lucidePhone" label="Appeler" />
+          <hk-icon-button icon="lucideCheck" label="Confirmer" variant="secondary" />
+          <hk-icon-button icon="lucideEllipsis" label="Plus d'actions" />
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-input</h3>
+        <div class="max-w-sm">
+          <hk-input icon="lucideSearch" placeholder="Rechercher un client..." />
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-avatar</h3>
+        <div class="flex items-center gap-3">
+          <hk-avatar name="Camille Durand" size="sm" />
+          <hk-avatar name="Yanis Bensaïd" />
+          <hk-avatar name="Sofia Lopez" size="lg" />
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-card</h3>
+        <div class="flex flex-wrap gap-4">
+          <hk-card>
+            <p class="font-medium">Carte simple</p>
+            <p class="text-muted-foreground text-sm">Surface, bordure, ombre douce.</p>
+          </hk-card>
+          <hk-card [interactive]="true">
+            <p class="font-medium">Carte interactive</p>
+            <p class="text-muted-foreground text-sm">Survol = ombre renforcée.</p>
+          </hk-card>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-skeleton</h3>
+        <div class="flex max-w-sm flex-col gap-2">
+          <hk-skeleton width="60%" height="1rem" />
+          <hk-skeleton height="1rem" />
+          <hk-skeleton width="40%" height="1rem" />
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-spinner</h3>
+        <div class="text-primary flex items-center gap-3">
+          <hk-spinner />
+          <hk-spinner [size]="24" />
+        </div>
+      </section>
     </div>
   </div>
 </main>
