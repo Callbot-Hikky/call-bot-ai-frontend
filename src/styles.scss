@@ -6,73 +6,168 @@
 
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
-/* Styles globaux applicatifs à ajouter ici si besoin */
+/* Polices Geist (variable), servies en local via fontsource */
+@import '@fontsource-variable/geist/index.css';
+@import '@fontsource-variable/geist-mono/index.css';
 
+/* =========================================================================
+   Tokens Hikky : source de vérité unique.
+   Pour recalibrer une couleur (ex. le vert), on change ici et nulle part ailleurs.
+   ========================================================================= */
 :root {
   color-scheme: light;
 
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
-    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  /* Marque : vert frais et confiant (OKLCH), pas néon */
+  --green-50: oklch(0.97 0.02 158);
+  --green-100: oklch(0.94 0.04 158);
+  --green-200: oklch(0.88 0.07 158);
+  --green-300: oklch(0.81 0.1 158);
+  --green-400: oklch(0.75 0.13 158);
+  --green-500: oklch(0.69 0.15 158);
+  --green-600: oklch(0.62 0.14 159);
+  --green-700: oklch(0.53 0.12 160);
+  --green-800: oklch(0.44 0.1 161);
+  --green-900: oklch(0.37 0.08 162);
+  --primary-fg: oklch(1 0 0);
+  --primary-hover: var(--green-600);
+  --primary-active: var(--green-700);
 
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-primary: oklch(0.21 0.006 285.885);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.705 0.015 286.067);
+  /* Neutres : gris très légèrement chauds (hue ~95) */
+  --bg: oklch(0.99 0.004 95);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.975 0.004 95);
+  --border: oklch(0.92 0.005 95);
+  --border-strong: oklch(0.87 0.006 95);
+  --text: oklch(0.27 0.01 95);
+  --text-strong: oklch(0.2 0.01 95);
+  --text-muted: oklch(0.55 0.01 95);
+  --text-subtle: oklch(0.66 0.008 95);
+
+  /* Statuts : paire (texte, fond pâle de badge) */
+  --st-pending-fg: oklch(0.55 0.12 70);
+  --st-pending-bg: oklch(0.96 0.04 75);
+  --st-confirmed-fg: oklch(0.5 0.13 158);
+  --st-confirmed-bg: oklch(0.95 0.04 158);
+  --st-seated-fg: oklch(0.52 0.13 250);
+  --st-seated-bg: oklch(0.95 0.03 250);
+  --st-completed-fg: oklch(0.45 0.01 95);
+  --st-completed-bg: oklch(0.95 0.004 95);
+  --st-cancelled-fg: oklch(0.55 0.16 25);
+  --st-cancelled-bg: oklch(0.96 0.03 25);
+  --st-noshow-fg: oklch(0.5 0.15 12);
+  --st-noshow-bg: oklch(0.95 0.03 12);
+
+  /* Espacements (base 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Durées de motion (les easings sont dans @theme) */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+  --dur-slower: 320ms;
+
+  /* Ombre d'anneau de focus Hikky (Spartan garde --ring en couleur, voir remap) */
+  --focus-ring: 0 0 0 3px oklch(0.69 0.15 158 / 0.25);
+
+  /* Z-index */
+  --z-dropdown: 1000;
+  --z-sticky-header: 1010;
+  --z-drawer: 1020;
+  --z-modal: 1030;
+  --z-popover: 1040;
+  --z-tooltip: 1050;
+  --z-toast: 1060;
+
+  /* ---- Variables Spartan remappées sur les tokens Hikky (pointeurs) ----
+     Une seule source de vérité par couleur : ces variables ne dupliquent pas
+     les valeurs OKLCH, elles pointent vers les tokens ci-dessus. */
+  --radius: var(--radius-md);
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--surface);
+  --card-foreground: var(--text);
+  --popover: var(--surface);
+  --popover-foreground: var(--text);
+  --primary: var(--green-500);
+  --primary-foreground: var(--primary-fg);
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--text);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--surface-2);
+  --accent-foreground: var(--text);
+  --destructive: var(--st-cancelled-fg);
+  --input: var(--border);
+  --ring: var(--green-500);
+  --sidebar: var(--bg);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--green-500);
+  --sidebar-primary-foreground: var(--primary-fg);
+  --sidebar-accent: var(--green-100);
+  --sidebar-accent-foreground: var(--green-700);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--green-500);
 }
 
-:root.dark {
-  color-scheme: dark;
+/* =========================================================================
+   Exposition à Tailwind v4 : on n'expose que ce qui manque (les utilitaires
+   sémantiques neutres viennent déjà du preset Spartan, désormais reliés à Hikky).
+   ========================================================================= */
+@theme {
+  /* Polices */
+  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.985 0 0);
-  --sidebar-primary-foreground: oklch(0.21 0.006 285.885);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.552 0.016 285.938);
+  /* Échelle de marque : bg-green-500, text-green-700, ... */
+  --color-green-50: var(--green-50);
+  --color-green-100: var(--green-100);
+  --color-green-200: var(--green-200);
+  --color-green-300: var(--green-300);
+  --color-green-400: var(--green-400);
+  --color-green-500: var(--green-500);
+  --color-green-600: var(--green-600);
+  --color-green-700: var(--green-700);
+  --color-green-800: var(--green-800);
+  --color-green-900: var(--green-900);
+
+  /* Statuts : bg-st-confirmed-bg, text-st-confirmed-fg, ... */
+  --color-st-pending-fg: var(--st-pending-fg);
+  --color-st-pending-bg: var(--st-pending-bg);
+  --color-st-confirmed-fg: var(--st-confirmed-fg);
+  --color-st-confirmed-bg: var(--st-confirmed-bg);
+  --color-st-seated-fg: var(--st-seated-fg);
+  --color-st-seated-bg: var(--st-seated-bg);
+  --color-st-completed-fg: var(--st-completed-fg);
+  --color-st-completed-bg: var(--st-completed-bg);
+  --color-st-cancelled-fg: var(--st-cancelled-fg);
+  --color-st-cancelled-bg: var(--st-cancelled-bg);
+  --color-st-noshow-fg: var(--st-noshow-fg);
+  --color-st-noshow-bg: var(--st-noshow-bg);
+
+  /* Rayons : rounded-sm/md/lg */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Ombres très douces, en couches : shadow-xs/sm/md/lg */
+  --shadow-xs: 0 1px 2px oklch(0.27 0.01 95 / 0.05);
+  --shadow-sm: 0 1px 3px oklch(0.27 0.01 95 / 0.06), 0 1px 2px oklch(0.27 0.01 95 / 0.04);
+  --shadow-md: 0 4px 12px oklch(0.27 0.01 95 / 0.06), 0 2px 4px oklch(0.27 0.01 95 / 0.04);
+  --shadow-lg: 0 12px 32px oklch(0.27 0.01 95 / 0.1), 0 4px 8px oklch(0.27 0.01 95 / 0.05);
+
+  /* Easings : ease-out (entrées), ease-in-out (déplacements), ease-spring (feedback) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 @layer base {
@@ -81,5 +176,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 }
