@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
@@ -19,8 +19,10 @@ import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
 import { HkReservationList } from '@shared/components/organisms/reservation-list/hk-reservation-list';
+import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import { BrnDialogState } from '@spartan-ng/brain/dialog';
 
 // Page temporaire de validation (tokens + atoms). À supprimer ensuite.
 @Component({
@@ -46,6 +48,7 @@ import { Reservation, ReservationStatus } from '@core/models/reservation.model';
     HkPageHeader,
     HkStatRow,
     HkReservationList,
+    HkReservationDetailDrawer,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -98,6 +101,14 @@ export class TokensDemo {
     { label: 'Captées par le bot', value: 9, delta: '+18%', trend: 'up' },
     { label: 'Confirmation', value: '86%', delta: '-3%', trend: 'down' },
   ];
+
+  protected readonly selectedReservation = signal<Reservation | null>(null);
+  protected readonly drawerState = signal<BrnDialogState>('closed');
+
+  protected openDetail(reservation: Reservation): void {
+    this.selectedReservation.set(reservation);
+    this.drawerState.set('open');
+  }
 
   protected showToast(): void {
     this.toastService.show('Réservation confirmée', 'success');
