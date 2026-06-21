@@ -192,5 +192,62 @@
         </div>
       </section>
     </div>
+
+    <!-- ============================ MOLECULES ============================ -->
+    <div class="flex flex-col gap-10">
+      <h2 class="text-text-strong border-border border-b pb-2 text-xl font-semibold">Molecules</h2>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-section-header</h3>
+        <hk-section-header title="Réservations du jour" subtitle="Samedi 21 juin 2026">
+          <hk-button size="sm">Nouvelle réservation</hk-button>
+        </hk-section-header>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-stat-card</h3>
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <hk-stat-card label="Réservations" [value]="14" icon="lucideCalendar" />
+          <hk-stat-card label="Couverts" [value]="42" icon="lucideUsers" />
+          <hk-stat-card label="Captées par le bot" [value]="9" delta="+18%" trend="up" />
+          <hk-stat-card label="Confirmation" value="86%" delta="-3%" trend="down" />
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-nav-item</h3>
+        <div class="flex gap-8">
+          <nav class="flex w-56 flex-col gap-1" aria-label="Démo navigation">
+            <hk-nav-item icon="lucideLayoutDashboard" label="Tableau de bord" />
+            <hk-nav-item icon="lucideCalendar" label="Réservations" [active]="true" />
+            <hk-nav-item icon="lucidePhone" label="Appels" />
+            <hk-nav-item icon="lucideSettings" label="Paramètres" />
+          </nav>
+          <nav class="flex flex-col gap-1" aria-label="Démo navigation repliée">
+            <hk-nav-item icon="lucideLayoutDashboard" label="Tableau de bord" [collapsed]="true" />
+            <hk-nav-item
+              icon="lucideCalendar"
+              label="Réservations"
+              [active]="true"
+              [collapsed]="true"
+            />
+            <hk-nav-item icon="lucidePhone" label="Appels" [collapsed]="true" />
+          </nav>
+        </div>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-empty-state</h3>
+        <hk-card>
+          <hk-empty-state
+            icon="lucideCalendar"
+            title="Aucune réservation pour cette date"
+            subtitle="Les nouvelles réservations prises par l'agent apparaîtront ici."
+          >
+            <hk-button size="sm">Ajouter</hk-button>
+          </hk-empty-state>
+        </hk-card>
+      </section>
+    </div>
   </div>
 </main>

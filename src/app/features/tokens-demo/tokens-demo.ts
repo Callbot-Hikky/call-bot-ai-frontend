@@ -9,6 +9,10 @@ import { HkCard } from '@shared/components/atoms/card/hk-card';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkSpinner } from '@shared/components/atoms/spinner/hk-spinner';
 import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
+import { HkSectionHeader } from '@shared/components/molecules/section-header/hk-section-header';
+import { HkStatCard } from '@shared/components/molecules/stat-card/hk-stat-card';
+import { HkEmptyState } from '@shared/components/molecules/empty-state/hk-empty-state';
+import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { ReservationStatus } from '@core/models/reservation.model';
 
 // Page temporaire de validation (tokens + atoms). À supprimer ensuite.
@@ -25,6 +29,10 @@ import { ReservationStatus } from '@core/models/reservation.model';
     HkSkeleton,
     HkSpinner,
     HkTooltip,
+    HkSectionHeader,
+    HkStatCard,
+    HkEmptyState,
+    HkNavItem,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
