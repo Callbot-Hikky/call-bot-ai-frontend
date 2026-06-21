@@ -4,7 +4,7 @@ type HkButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 type HkButtonSize = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<HkButtonVariant, string> = {
-  primary: 'bg-primary text-primary-foreground hover:bg-green-600 active:bg-green-700',
+  primary: 'bg-primary text-primary-foreground hover:bg-green-800 active:bg-green-900',
   secondary: 'bg-card text-foreground border border-border hover:bg-muted',
   ghost: 'text-foreground hover:bg-muted',
   danger: 'text-st-cancelled-fg border border-st-cancelled-fg hover:bg-st-cancelled-bg',

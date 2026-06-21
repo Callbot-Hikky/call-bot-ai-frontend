@@ -29,8 +29,8 @@
   --green-800: oklch(0.44 0.1 161);
   --green-900: oklch(0.37 0.08 162);
   --primary-fg: oklch(1 0 0);
-  --primary-hover: var(--green-600);
-  --primary-active: var(--green-700);
+  --primary-hover: var(--green-800);
+  --primary-active: var(--green-900);
 
   /* Neutres : gris très légèrement chauds (hue ~95) */
   --bg: oklch(0.99 0.004 95);
@@ -97,7 +97,7 @@
   --card-foreground: var(--text);
   --popover: var(--surface);
   --popover-foreground: var(--text);
-  --primary: var(--green-500);
+  --primary: var(--green-700);
   --primary-foreground: var(--primary-fg);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
