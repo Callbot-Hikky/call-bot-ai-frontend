@@ -20,7 +20,9 @@
       "@shared/*": ["./src/app/shared/*"],
       "@features/*": ["./src/app/features/*"],
       "@env/*": ["./src/environments/*"],
-      "@spartan-ng/helm/tooltip": ["./src/app/shared/ui/tooltip/src/index.ts"]
+      "@spartan-ng/helm/tooltip": ["./src/app/shared/ui/tooltip/src/index.ts"],
+      "@spartan-ng/helm/dropdown-menu": ["./src/app/shared/ui/dropdown-menu/src/index.ts"],
+      "@spartan-ng/helm/icon": ["./src/app/shared/ui/icon/src/index.ts"]
     }
   },
   "angularCompilerOptions": {
