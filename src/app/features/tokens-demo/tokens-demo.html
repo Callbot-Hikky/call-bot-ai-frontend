@@ -292,10 +292,12 @@
 
       <section class="flex flex-col gap-3">
         <h3 class="text-lg font-semibold">hk-reservation-list</h3>
-        <hk-reservation-list [reservations]="demoReservations" />
+        <p class="text-muted-foreground text-sm">Clique sur une ligne pour ouvrir le détail.</p>
+        <hk-reservation-list [reservations]="demoReservations" (open)="openDetail($event)" />
       </section>
     </div>
   </div>
 
+  <hk-reservation-detail-drawer [reservation]="selectedReservation()" [(state)]="drawerState" />
   <hk-toaster />
 </main>
