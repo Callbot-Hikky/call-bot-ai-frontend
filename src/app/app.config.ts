@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
 import {
@@ -23,6 +23,7 @@ import {
   lucideLogOut,
   lucideGrid2x2,
   lucideChartColumn,
+  lucideMenu,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -49,12 +50,13 @@ const ICONS = {
   lucideLogOut,
   lucideGrid2x2,
   lucideChartColumn,
+  lucideMenu,
 };
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(routes),
+    provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch()),
     provideIcons(ICONS),
   ],
