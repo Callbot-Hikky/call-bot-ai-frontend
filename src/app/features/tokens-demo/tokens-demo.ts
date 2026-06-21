@@ -16,6 +16,9 @@ import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkFilterBar } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkReservationRow } from '@shared/components/molecules/reservation-row/hk-reservation-row';
 import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
+import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
+import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
+import { HkReservationList } from '@shared/components/organisms/reservation-list/hk-reservation-list';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 
@@ -40,6 +43,9 @@ import { Reservation, ReservationStatus } from '@core/models/reservation.model';
     HkFilterBar,
     HkReservationRow,
     HkToaster,
+    HkPageHeader,
+    HkStatRow,
+    HkReservationList,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,6 +90,13 @@ export class TokensDemo {
       status: 'pending',
       source: 'manual',
     },
+  ];
+
+  protected readonly demoStats: StatItem[] = [
+    { label: 'Réservations', value: 14, icon: 'lucideCalendar' },
+    { label: 'Couverts', value: 42, icon: 'lucideUsers' },
+    { label: 'Captées par le bot', value: 9, delta: '+18%', trend: 'up' },
+    { label: 'Confirmation', value: '86%', delta: '-3%', trend: 'down' },
   ];
 
   protected showToast(): void {

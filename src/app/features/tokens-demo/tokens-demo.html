@@ -272,6 +272,29 @@
         </div>
       </section>
     </div>
+
+    <!-- ============================ ORGANISMS ============================ -->
+    <div class="flex flex-col gap-10">
+      <h2 class="text-text-strong border-border border-b pb-2 text-xl font-semibold">Organisms</h2>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-page-header</h3>
+        <hk-page-header title="Réservations du jour" subtitle="Samedi 21 juin 2026">
+          <hk-button variant="secondary" size="sm">Aujourd'hui</hk-button>
+          <hk-button size="sm">Nouvelle réservation</hk-button>
+        </hk-page-header>
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-stat-row</h3>
+        <hk-stat-row [stats]="demoStats" />
+      </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-reservation-list</h3>
+        <hk-reservation-list [reservations]="demoReservations" />
+      </section>
+    </div>
   </div>
 
   <hk-toaster />
