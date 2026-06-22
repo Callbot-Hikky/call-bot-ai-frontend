@@ -179,3 +179,16 @@
     font-family: var(--font-sans);
   }
 }
+
+/* Accessibilité : si l'utilisateur a demandé moins d'animations, on coupe
+   transitions et animations (on garde le contenu visible). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
