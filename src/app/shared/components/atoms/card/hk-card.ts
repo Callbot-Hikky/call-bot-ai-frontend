@@ -8,6 +8,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
       <ng-content />
     </div>
   `,
+  host: { class: 'block' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkCard {
