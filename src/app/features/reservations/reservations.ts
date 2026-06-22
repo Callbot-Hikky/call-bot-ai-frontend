@@ -2,13 +2,26 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
-import { HkReservationList } from '@shared/components/organisms/reservation-list/hk-reservation-list';
+import {
+  HkReservationList,
+  ReservationSort,
+} from '@shared/components/organisms/reservation-list/hk-reservation-list';
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { ReservationService } from '@core/services/reservation.service';
 import { ToastService } from '@core/services/toast.service';
-import { Reservation } from '@core/models/reservation.model';
+import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+
+// Ordre métier des statuts pour le tri.
+const STATUS_ORDER: Record<ReservationStatus, number> = {
+  pending: 0,
+  confirmed: 1,
+  seated: 2,
+  completed: 3,
+  cancelled: 4,
+  no_show: 5,
+};
 
 // Écran « Réservations du jour » (US 6.2). Assemble les organismes et branche le
 // ReservationService. Filtrage et KPI dérivés en computed signals.
@@ -32,9 +45,11 @@ import { Reservation } from '@core/models/reservation.model';
       <hk-stat-row [stats]="stats()" [loading]="service.loading()" />
       <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
       <hk-reservation-list
-        [reservations]="filtered()"
+        [reservations]="displayed()"
         [loading]="service.loading()"
         [error]="service.error()"
+        [sort]="sort()"
+        (sortChange)="sort.set($event)"
         (open)="openDetail($event)"
         (confirm)="onConfirm($event)"
         (cancelReservation)="onCancel($event)"
@@ -59,6 +74,7 @@ export class ReservationsPage {
 
   protected readonly statusFilter = signal<StatusFilter>('all');
   protected readonly search = signal('');
+  protected readonly sort = signal<ReservationSort | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
 
@@ -84,6 +100,23 @@ export class ReservationsPage {
         r.customerName.toLowerCase().includes(query) ||
         r.phone.replace(/\s/g, '').includes(phoneQuery);
       return matchStatus && matchSearch;
+    });
+  });
+
+  // Liste filtrée puis triée (si un tri est actif).
+  protected readonly displayed = computed(() => {
+    const sort = this.sort();
+    const list = this.filtered();
+    if (!sort) {
+      return list;
+    }
+    const factor = sort.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      const diff =
+        sort.key === 'time'
+          ? a.dateTime.localeCompare(b.dateTime)
+          : STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+      return diff * factor;
     });
   });
 
