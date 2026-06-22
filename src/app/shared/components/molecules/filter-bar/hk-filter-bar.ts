@@ -17,7 +17,7 @@ const OPTIONS: { value: StatusFilter; label: string }[] = [
   selector: 'hk-filter-bar',
   imports: [HkInput],
   template: `
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <div class="bg-muted inline-flex flex-wrap gap-1 rounded-sm p-1">
         @for (opt of options; track opt.value) {
           <button
@@ -34,7 +34,7 @@ const OPTIONS: { value: StatusFilter; label: string }[] = [
           </button>
         }
       </div>
-      <div class="w-64">
+      <div class="w-full sm:w-64">
         <hk-input
           icon="lucideSearch"
           placeholder="Rechercher (nom, téléphone)"
