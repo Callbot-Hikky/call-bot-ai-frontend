@@ -15,8 +15,8 @@ export class HkCard {
 
   protected readonly classes = computed(() =>
     [
-      'bg-card border-border rounded-md border p-6 shadow-sm',
-      this.interactive() ? 'cursor-pointer transition-shadow duration-150 hover:shadow-md' : '',
+      'bg-card border-border/70 rounded-lg border p-6 shadow-md',
+      this.interactive() ? 'cursor-pointer transition-shadow duration-150 hover:shadow-lg' : '',
     ].join(' '),
   );
 }
