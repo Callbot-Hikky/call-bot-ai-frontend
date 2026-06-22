@@ -9,6 +9,7 @@ export interface StatItem {
   icon?: string;
   delta?: string;
   trend?: 'up' | 'down' | 'neutral';
+  highlight?: boolean;
 }
 
 // Rangée de cartes KPI. Affiche des skeletons pendant le chargement.
@@ -34,6 +35,7 @@ export interface StatItem {
             [icon]="stat.icon"
             [delta]="stat.delta"
             [trend]="stat.trend ?? 'neutral'"
+            [highlight]="stat.highlight ?? false"
           />
         }
       }

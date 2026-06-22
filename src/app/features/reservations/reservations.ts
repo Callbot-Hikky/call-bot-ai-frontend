@@ -132,7 +132,7 @@ export class ReservationsPage {
     return [
       { label: 'Réservations', value: active.length, icon: 'lucideCalendar' },
       { label: 'Couverts', value: couverts, icon: 'lucideUsers' },
-      { label: 'Captées par le bot', value: bot, icon: 'lucidePhoneCall' },
+      { label: 'Captées par le bot', value: bot, icon: 'lucidePhoneCall', highlight: true },
       { label: 'Confirmation', value: `${rate}%` },
     ];
   });
