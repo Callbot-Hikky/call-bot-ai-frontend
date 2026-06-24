@@ -1,15 +1,21 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { delay, tap } from 'rxjs/operators';
+import { EMPTY, Observable, of } from 'rxjs';
+import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import {
+  ReservationDto,
+  mapReservation,
+  toRequest,
+} from '@core/models/reservation-dto.model';
+import { localDateKey } from '@core/utils/format';
 
-// Service des réservations. Tant que l'API n'est pas prête, les méthodes renvoient
-// des données de test avec la VRAIE signature HTTP : pour brancher le back, on
-// remplace le of(...) par l'appel this.http.get/patch correspondant, sans toucher
-// aux écrans. L'état est exposé en signals (reservations / loading / error).
+// Service des réservations. Deux modes selon environment.useMock :
+//  - mock : données de test (of(...).pipe(delay), aucun réseau) — pour la démo et les tests ;
+//  - réel : appels HTTP au backend (GET ?expand=table,customer, PUT pour le statut).
+// On ne change que l'intérieur du service : les écrans consomment toujours `reservations`.
 @Injectable({ providedIn: 'root' })
 export class ReservationService {
   private readonly http = inject(HttpClient);
@@ -18,6 +24,8 @@ export class ReservationService {
   private readonly _reservations = signal<Reservation[]>([]);
   private readonly _loading = signal(false);
   private readonly _error = signal(false);
+  // DTO bruts du back (mode réel), nécessaires pour reconstruire le corps d'un PUT.
+  private readonly _raw = signal<ReservationDto[]>([]);
 
   readonly reservations = this._reservations.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -40,10 +48,19 @@ export class ReservationService {
   }
 
   getToday(date?: string): Observable<Reservation[]> {
-    // Implémentation finale :
-    // return this.http.get<Reservation[]>(this.baseUrl, { params: date ? { date } : {} });
-    void date;
-    return of(MOCK_RESERVATIONS).pipe(delay(500));
+    if (environment.useMock) {
+      void date;
+      return of(MOCK_RESERVATIONS).pipe(delay(500));
+    }
+    // Le back filtre par restaurant ; le filtre "du jour" est fait côté front (POC),
+    // en jour LOCAL pour rester cohérent avec l'en-tête et les heures affichées.
+    const target = date ?? localDateKey();
+    const url = `${this.baseUrl}?expand=table,customer&restaurantId=${environment.restaurantId}`;
+    return this.http.get<ReservationDto[]>(url).pipe(
+      map((dtos) => dtos.filter((d) => localDateKey(new Date(d.startsAt)) === target)),
+      tap((dtos) => this._raw.set(dtos)),
+      map((dtos) => dtos.map(mapReservation)),
+    );
   }
 
   confirm(id: string): Observable<Reservation> {
@@ -55,14 +72,27 @@ export class ReservationService {
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {
-    // Implémentation finale :
-    // return this.http.patch<Reservation>(`${this.baseUrl}/${id}`, { status })
-    //   .pipe(tap((updated) => this.applyUpdate(updated)));
-    const current = this._reservations().find((r) => r.id === id);
-    const updated: Reservation = { ...(current as Reservation), status };
-    return of(updated).pipe(
-      delay(200),
-      tap((res) => this.applyUpdate(res)),
+    if (environment.useMock) {
+      const current = this._reservations().find((r) => r.id === id);
+      const updated: Reservation = { ...(current as Reservation), status };
+      return of(updated).pipe(
+        delay(200),
+        tap((res) => this.applyUpdate(res)),
+      );
+    }
+    // Réel : le back n'a pas de PATCH statut, on envoie un PUT complet (ReservationRequest).
+    const dto = this._raw().find((d) => d.id === id);
+    if (!dto) {
+      return EMPTY;
+    }
+    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, status)).pipe(
+      map(() => {
+        const patched: ReservationDto = { ...dto, status };
+        this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
+        const updated = mapReservation(patched);
+        this.applyUpdate(updated);
+        return updated;
+      }),
     );
   }
 
