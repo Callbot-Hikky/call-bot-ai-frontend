@@ -49,8 +49,11 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       <hk-stat-row [stats]="stats()" [loading]="service.loading()" />
       <hk-callback-requests
         [requests]="callbacks.callbacks()"
+        [loading]="callbacks.loading()"
+        [error]="callbacks.error()"
         (callBack)="onCallBack($event)"
         (handled)="onHandled($event)"
+        (retry)="callbacks.loadPending()"
       />
       <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
       <hk-reservation-list
