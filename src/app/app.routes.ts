@@ -14,8 +14,12 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardPage, data: { title: 'Tableau de bord' } },
       { path: 'reservations', component: ReservationsPage, data: { title: 'Réservations' } },
-      { path: 'appels', component: ComingSoonPage, data: { title: 'Appels' } },
-      { path: 'parametres', component: ComingSoonPage, data: { title: 'Paramètres' } },
+      { path: 'appels', component: ComingSoonPage, data: { title: 'Appels', icon: 'lucidePhone' } },
+      {
+        path: 'parametres',
+        component: ComingSoonPage,
+        data: { title: 'Paramètres', icon: 'lucideSettings' },
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

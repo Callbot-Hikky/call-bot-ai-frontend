@@ -6,14 +6,17 @@ import { HkEmptyState } from '@shared/components/molecules/empty-state/hk-empty-
   selector: 'app-coming-soon',
   imports: [HkEmptyState],
   template: `
-    <hk-empty-state
-      icon="lucideSettings"
-      title="Bientôt disponible"
-      [subtitle]="title() + ' arrivera dans une prochaine version.'"
-    />
+    <div class="flex min-h-[60vh] items-center justify-center">
+      <hk-empty-state
+        [icon]="icon()"
+        title="Bientôt disponible"
+        [subtitle]="'« ' + title() + ' » sera disponible dans une prochaine version.'"
+      />
+    </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ComingSoonPage {
   readonly title = input('');
+  readonly icon = input('lucideSettings');
 }

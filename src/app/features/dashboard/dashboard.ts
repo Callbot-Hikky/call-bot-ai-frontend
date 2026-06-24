@@ -4,7 +4,7 @@ import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-st
 import { HkBarChart, BarDatum } from '@shared/components/molecules/bar-chart/hk-bar-chart';
 import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { ReservationService } from '@core/services/reservation.service';
-import { Reservation } from '@core/models/reservation.model';
+import { formatTime } from '@core/utils/format';
 
 @Component({
   selector: 'app-dashboard',
@@ -28,10 +28,10 @@ import { Reservation } from '@core/models/reservation.model';
             <hk-bar-chart [bars]="affluence()" />
           </section>
 
-          <section class="bg-card border-border/70 rounded-lg border p-6 shadow-md">
+          <section class="bg-card border-border/70 flex flex-col rounded-lg border p-6 shadow-md">
             <h2 class="text-text-strong text-lg font-semibold">Origine des réservations</h2>
-            <p class="text-muted-foreground mb-6 text-sm">Agent vocal vs saisie manuelle</p>
-            <div class="flex flex-col gap-5">
+            <p class="text-muted-foreground text-sm">Agent vocal vs saisie manuelle</p>
+            <div class="flex flex-1 flex-col justify-center gap-5 pt-6">
               <div>
                 <div class="mb-2 flex items-center justify-between text-sm">
                   <span class="flex items-center gap-2">
@@ -73,9 +73,9 @@ import { Reservation } from '@core/models/reservation.model';
           <div class="divide-border/70 flex flex-col divide-y">
             @for (r of upcoming(); track r.id) {
               <div class="flex items-center gap-3 py-2.5">
-                <span class="text-foreground w-12 font-mono text-sm tabular-nums">{{
-                  time(r)
-                }}</span>
+                <span class="text-foreground w-12 font-mono text-sm tabular-nums">
+                  {{ formatTime(r.dateTime) }}
+                </span>
                 <span class="text-foreground flex-1 truncate text-sm font-medium">
                   {{ r.customerName }}
                 </span>
@@ -110,7 +110,7 @@ export class DashboardPage {
       { label: 'Réservations', value: active.length, icon: 'lucideCalendar' },
       { label: 'Couverts', value: couverts, icon: 'lucideUsers' },
       { label: 'Captées par le bot', value: bot, icon: 'lucidePhoneCall', highlight: true },
-      { label: 'Confirmation', value: `${rate}%` },
+      { label: 'Confirmation', value: `${rate}%`, icon: 'lucideCircleCheck' },
     ];
   });
 
@@ -120,7 +120,7 @@ export class DashboardPage {
       if (r.status === 'cancelled' || r.status === 'no_show') {
         continue;
       }
-      const slot = this.time(r);
+      const slot = formatTime(r.dateTime);
       slots.set(slot, (slots.get(slot) ?? 0) + r.partySize);
     }
     return [...slots.entries()]
@@ -149,14 +149,9 @@ export class DashboardPage {
       .slice(0, 6),
   );
 
+  protected readonly formatTime = formatTime;
+
   constructor() {
     this.service.loadToday();
-  }
-
-  protected time(reservation: Reservation): string {
-    return new Date(reservation.dateTime).toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   }
 }
