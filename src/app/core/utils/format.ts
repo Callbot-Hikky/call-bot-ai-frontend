@@ -9,3 +9,14 @@ export function formatTime(iso: string): string {
 export function telHref(phone: string): string {
   return `tel:${phone.replace(/\s/g, '')}`;
 }
+
+/**
+ * Jour au format YYYY-MM-DD en heure LOCALE (cohérent avec l'affichage des heures
+ * et de la date du jour). À privilégier pour comparer des jours, vs un slice ISO
+ * qui raisonne en UTC et décale autour de minuit.
+ */
+export function localDateKey(d: Date = new Date()): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
