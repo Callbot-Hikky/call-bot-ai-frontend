@@ -30,4 +30,15 @@ describe('CallbackService', () => {
     expect(service.callbacks().length).toBe(before - 1);
     expect(service.callbacks().find((c) => c.id === target.id)).toBeUndefined();
   });
+
+  it('restore réinsère une demande annulée et en attente', async () => {
+    service.loadPending();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const target = service.callbacks()[0];
+    await firstValueFrom(service.markHandled(target.id));
+    service.restore(target);
+    const restored = service.callbacks().find((c) => c.id === target.id);
+    expect(restored).toBeDefined();
+    expect(restored?.status).toBe('pending');
+  });
 });

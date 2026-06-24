@@ -1,10 +1,14 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { EMPTY, Observable, of } from 'rxjs';
 import { delay, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { CallbackRequest } from '@core/models/callback-request.model';
+
+// Tri chronologique des demandes (cohérent au chargement comme à la restauration).
+const byRequestedAt = (a: CallbackRequest, b: CallbackRequest): number =>
+  a.requestedAt.localeCompare(b.requestedAt);
 
 // Service des demandes de rappel (US 1.7). Mêmes conventions que ReservationService :
 // données de test avec la VRAIE signature HTTP (on remplace le of(...) par l'appel
@@ -28,7 +32,7 @@ export class CallbackService {
     this._error.set(false);
     this.getPending().subscribe({
       next: (list) => {
-        this._callbacks.set(list);
+        this._callbacks.set([...list].sort(byRequestedAt));
         this._loading.set(false);
       },
       error: () => {
@@ -50,7 +54,11 @@ export class CallbackService {
     // return this.http.patch<CallbackRequest>(`${this.baseUrl}/${id}`, { status: 'handled' })
     //   .pipe(tap((updated) => this.remove(updated.id)));
     const current = this._callbacks().find((c) => c.id === id);
-    const updated: CallbackRequest = { ...(current as CallbackRequest), status: 'handled' };
+    if (!current) {
+      // Id inconnu (ne peut pas arriver depuis l'UI) : aucune émission, aucun effet.
+      return EMPTY;
+    }
+    const updated: CallbackRequest = { ...current, status: 'handled' };
     return of(updated).pipe(
       delay(200),
       tap((res) => this.remove(res.id)),
@@ -59,6 +67,15 @@ export class CallbackService {
 
   private remove(id: string): void {
     this._callbacks.update((list) => list.filter((c) => c.id !== id));
+  }
+
+  // Réinsère une demande retirée (annulation d'un « traité »), à sa place chronologique.
+  restore(request: CallbackRequest): void {
+    if (this._callbacks().some((c) => c.id === request.id)) {
+      return;
+    }
+    const restored: CallbackRequest = { ...request, status: 'pending' };
+    this._callbacks.update((list) => [...list, restored].sort(byRequestedAt));
   }
 }
 

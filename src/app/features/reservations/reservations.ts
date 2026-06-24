@@ -146,7 +146,7 @@ export class ReservationsPage {
       { label: 'Réservations', value: active.length, icon: 'lucideCalendar' },
       { label: 'Couverts', value: couverts, icon: 'lucideUsers' },
       { label: 'Captées par le bot', value: bot, icon: 'lucidePhoneCall', highlight: true },
-      { label: 'Confirmation', value: `${rate}%` },
+      { label: 'Confirmation', value: `${rate}%`, icon: 'lucideCircleCheck' },
     ];
   });
 
@@ -179,8 +179,11 @@ export class ReservationsPage {
   }
 
   protected onHandled(request: CallbackRequest): void {
-    this.callbacks
-      .markHandled(request.id)
-      .subscribe(() => this.toast.show('Demande de rappel traitée', 'success'));
+    this.callbacks.markHandled(request.id).subscribe(() =>
+      this.toast.show('Demande de rappel traitée', 'success', {
+        label: 'Annuler',
+        run: () => this.callbacks.restore(request),
+      }),
+    );
   }
 }
