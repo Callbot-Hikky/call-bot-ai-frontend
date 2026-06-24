@@ -298,11 +298,7 @@
 
       <section class="flex flex-col gap-3">
         <h3 class="text-lg font-semibold">hk-callback-requests</h3>
-        <hk-callback-requests
-          [requests]="demoCallbacks"
-          (callBack)="showToast()"
-          (handled)="showToast()"
-        />
+        <hk-callback-requests [requests]="demoCallbacks" />
       </section>
     </div>
   </div>

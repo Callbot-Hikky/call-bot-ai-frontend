@@ -4,6 +4,7 @@ import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { CallbackRequest } from '@core/models/callback-request.model';
+import { formatTime, telHref } from '@core/utils/format';
 
 // Bloc « tâches urgentes » : demandes de rappel à traiter par le staff (US 1.7).
 // Volontairement distinct de la liste des réservations et mis en avant en ambre.
@@ -53,7 +54,7 @@ import { CallbackRequest } from '@core/models/callback-request.model';
                     {{ req.customerName }}
                   </span>
                   <span class="text-muted-foreground truncate text-xs">
-                    {{ req.reason }} · demandé à {{ time(req.requestedAt) }}
+                    {{ req.reason }} · demandé à {{ formatTime(req.requestedAt) }}
                   </span>
                 </div>
                 <span class="text-muted-foreground hidden font-mono text-sm tabular-nums sm:block">
@@ -61,7 +62,7 @@ import { CallbackRequest } from '@core/models/callback-request.model';
                 </span>
                 <a
                   class="bg-primary text-primary-foreground focus-visible:ring-primary focus-visible:ring-offset-background inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors duration-150 hover:bg-green-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:bg-green-900"
-                  [href]="'tel:' + req.phone"
+                  [href]="telHref(req.phone)"
                   (click)="callBack.emit(req)"
                 >
                   <hk-icon name="lucidePhone" [size]="14" />
@@ -90,9 +91,8 @@ export class HkCallbackRequests {
   readonly handled = output<CallbackRequest>();
   readonly retry = output<void>();
 
-  protected readonly placeholders = [1, 2];
+  protected readonly placeholders = [1, 2, 3];
 
-  protected time(iso: string): string {
-    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  }
+  protected readonly formatTime = formatTime;
+  protected readonly telHref = telHref;
 }
