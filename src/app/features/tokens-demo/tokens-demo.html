@@ -295,6 +295,15 @@
         <p class="text-muted-foreground text-sm">Clique sur une ligne pour ouvrir le détail.</p>
         <hk-reservation-list [reservations]="demoReservations" (open)="openDetail($event)" />
       </section>
+
+      <section class="flex flex-col gap-3">
+        <h3 class="text-lg font-semibold">hk-callback-requests</h3>
+        <hk-callback-requests
+          [requests]="demoCallbacks"
+          (callBack)="showToast()"
+          (handled)="showToast()"
+        />
+      </section>
     </div>
   </div>
 

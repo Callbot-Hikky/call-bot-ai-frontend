@@ -20,8 +20,10 @@ import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-h
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
 import { HkReservationList } from '@shared/components/organisms/reservation-list/hk-reservation-list';
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
+import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import { CallbackRequest } from '@core/models/callback-request.model';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 
 // Page temporaire de validation (tokens + atoms). À supprimer ensuite.
@@ -49,6 +51,7 @@ import { BrnDialogState } from '@spartan-ng/brain/dialog';
     HkStatRow,
     HkReservationList,
     HkReservationDetailDrawer,
+    HkCallbackRequests,
   ],
   templateUrl: './tokens-demo.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -100,6 +103,17 @@ export class TokensDemo {
     { label: 'Couverts', value: 42, icon: 'lucideUsers' },
     { label: 'Captées par le bot', value: 9, delta: '+18%', trend: 'up' },
     { label: 'Confirmation', value: '86%', delta: '-3%', trend: 'down' },
+  ];
+
+  protected readonly demoCallbacks: CallbackRequest[] = [
+    {
+      id: 'cb-1',
+      customerName: 'Karim Haddad',
+      phone: '+33 6 98 76 54 32',
+      requestedAt: '2026-06-21T18:30:00+02:00',
+      reason: "L'agent n'a pas pu confirmer une table pour 12 personnes",
+      status: 'pending',
+    },
   ];
 
   protected readonly selectedReservation = signal<Reservation | null>(null);
