@@ -7,6 +7,7 @@ import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkAvatar } from '@shared/components/atoms/avatar/hk-avatar';
 import { Reservation } from '@core/models/reservation.model';
+import { telHref } from '@core/utils/format';
 
 // Détail d'une réservation dans un drawer (depuis la droite), via la primitive sheet.
 @Component({
@@ -62,7 +63,7 @@ import { Reservation } from '@core/models/reservation.model';
                 >
                   <hk-icon name="lucidePhone" [size]="16" />
                 </span>
-                <a class="text-primary font-mono text-sm tabular-nums" [href]="'tel:' + r.phone">
+                <a class="text-primary font-mono text-sm tabular-nums" [href]="telHref(r.phone)">
                   {{ r.phone }}
                 </a>
               </div>
@@ -92,6 +93,8 @@ export class HkReservationDetailDrawer {
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
+
+  protected readonly telHref = telHref;
 
   protected formattedDate(iso: string): string {
     return new Date(iso).toLocaleString('fr-FR', {
