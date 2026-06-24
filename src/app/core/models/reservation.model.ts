@@ -25,5 +25,5 @@ export interface Reservation {
   status: ReservationStatus;
   notes?: string;
   // Origine de la réservation (utile pour valoriser le bot)
-  source?: 'callbot' | 'manual';
+  source?: 'callbot' | 'manual' | 'web';
 }
