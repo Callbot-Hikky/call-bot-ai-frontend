@@ -8,10 +8,13 @@ import {
 } from '@shared/components/organisms/reservation-list/hk-reservation-list';
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
+import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { ReservationService } from '@core/services/reservation.service';
+import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import { CallbackRequest } from '@core/models/callback-request.model';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -30,6 +33,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   imports: [
     HkPageHeader,
     HkStatRow,
+    HkCallbackRequests,
     HkFilterBar,
     HkReservationList,
     HkReservationDetailDrawer,
@@ -43,6 +47,11 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 
     <div class="flex flex-col gap-6">
       <hk-stat-row [stats]="stats()" [loading]="service.loading()" />
+      <hk-callback-requests
+        [requests]="callbacks.callbacks()"
+        (callBack)="onCallBack($event)"
+        (handled)="onHandled($event)"
+      />
       <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
       <hk-reservation-list
         [reservations]="displayed()"
@@ -70,6 +79,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 })
 export class ReservationsPage {
   protected readonly service = inject(ReservationService);
+  protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
 
   protected readonly statusFilter = signal<StatusFilter>('all');
@@ -139,6 +149,7 @@ export class ReservationsPage {
 
   constructor() {
     this.service.loadToday();
+    this.callbacks.loadPending();
   }
 
   protected openDetail(reservation: Reservation): void {
@@ -158,5 +169,15 @@ export class ReservationsPage {
 
   protected onCall(reservation: Reservation): void {
     this.toast.show(`Appel de ${reservation.customerName}...`);
+  }
+
+  protected onCallBack(request: CallbackRequest): void {
+    this.toast.show(`Rappel de ${request.customerName}...`);
+  }
+
+  protected onHandled(request: CallbackRequest): void {
+    this.callbacks
+      .markHandled(request.id)
+      .subscribe(() => this.toast.show('Demande de rappel traitée', 'success'));
   }
 }
