@@ -6,9 +6,10 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 @Component({
   selector: 'hk-stat-card',
   imports: [HkIcon],
+  host: { class: 'block h-full' },
   template: `
     <div [class]="cardClasses()">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex min-h-9 items-start justify-between gap-3">
         <span class="text-xs font-medium tracking-wide uppercase" [class]="labelClasses()">
           {{ label() }}
         </span>
@@ -44,8 +45,8 @@ export class HkStatCard {
 
   protected readonly cardClasses = computed(() =>
     this.highlight()
-      ? 'rounded-lg border border-green-800 bg-gradient-to-br from-green-700 to-green-800 p-6 shadow-md'
-      : 'bg-card border-border/70 rounded-lg border p-6 shadow-md',
+      ? 'flex h-full flex-col rounded-lg border border-green-800 bg-gradient-to-br from-green-700 to-green-800 p-6 shadow-md'
+      : 'bg-card border-border/70 flex h-full flex-col rounded-lg border p-6 shadow-md',
   );
 
   protected readonly labelClasses = computed(() =>
