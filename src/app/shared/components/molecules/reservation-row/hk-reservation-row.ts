@@ -4,6 +4,7 @@ import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-butto
 import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { Reservation } from '@core/models/reservation.model';
+import { formatTime } from '@core/utils/format';
 
 // La zone d'ouverture est un bouton (focusable au clavier). Les actions sont des
 // boutons frères, donc cliquer une action n'ouvre pas le détail.
@@ -50,10 +51,12 @@ import { Reservation } from '@core/models/reservation.model';
           {{ reservation().table?.name ?? '-' }}
         </span>
 
-        <hk-badge [status]="reservation().status" />
+        <span class="sm:w-28">
+          <hk-badge [status]="reservation().status" />
+        </span>
       </button>
 
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-1 sm:w-[120px] sm:justify-end">
         <hk-icon-button
           icon="lucideCheck"
           label="Confirmer la réservation"
@@ -84,10 +87,5 @@ export class HkReservationRow {
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
 
-  protected readonly time = computed(() =>
-    new Date(this.reservation().dateTime).toLocaleTimeString('fr-FR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-  );
+  protected readonly time = computed(() => formatTime(this.reservation().dateTime));
 }

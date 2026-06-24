@@ -39,7 +39,7 @@ export interface ReservationSort {
         <span class="hidden w-20 sm:block">Table</span>
         <button
           type="button"
-          class="hover:text-foreground flex w-28 cursor-pointer items-center gap-1 uppercase"
+          class="hover:text-foreground flex cursor-pointer items-center gap-1 uppercase sm:w-28"
           (click)="toggleSort('status')"
         >
           Statut
@@ -50,7 +50,7 @@ export interface ReservationSort {
             />
           }
         </button>
-        <span class="w-[120px]"></span>
+        <span class="sm:w-[120px]"></span>
       </div>
 
       @if (loading()) {
