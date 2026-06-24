@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { ToastService, ToastVariant } from '@core/services/toast.service';
+import { Toast, ToastService, ToastVariant } from '@core/services/toast.service';
 
 const ICON: Record<ToastVariant, string> = {
   default: 'lucideBell',
@@ -30,6 +30,14 @@ const ICON_COLOR: Record<ToastVariant, string> = {
         >
           <hk-icon [name]="icon(t.variant)" [size]="18" [class]="iconColor(t.variant)" />
           <p class="text-foreground flex-1 text-sm">{{ t.message }}</p>
+          @if (t.action; as action) {
+            <button
+              class="text-primary cursor-pointer text-sm font-semibold hover:text-green-800"
+              (click)="runAction(t)"
+            >
+              {{ action.label }}
+            </button>
+          }
           <button
             class="text-text-subtle hover:text-foreground cursor-pointer"
             aria-label="Fermer"
@@ -55,5 +63,10 @@ export class HkToaster {
   }
   protected dismiss(id: number): void {
     this.toastService.dismiss(id);
+  }
+
+  protected runAction(toast: Toast): void {
+    toast.action?.run();
+    this.toastService.dismiss(toast.id);
   }
 }
