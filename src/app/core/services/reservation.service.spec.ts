@@ -24,7 +24,12 @@ function dto(id: string, status: string, startsAt = '2026-06-24T12:00:00Z'): Res
     updatedAt: '2026-06-24T10:00:00Z',
     cancelledAt: null,
     table: { id: 'tbl-1', name: 'T1', capacity: 4 },
-    customer: { id: 'cust-1', phone: '+33 6 12 34 56 78', firstName: 'Camille', lastName: 'Durand' },
+    customer: {
+      id: 'cust-1',
+      phone: '+33 6 12 34 56 78',
+      firstName: 'Camille',
+      lastName: 'Durand',
+    },
   };
 }
 

@@ -5,11 +5,7 @@ import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
-import {
-  ReservationDto,
-  mapReservation,
-  toRequest,
-} from '@core/models/reservation-dto.model';
+import { ReservationDto, mapReservation, toRequest } from '@core/models/reservation-dto.model';
 import { localDateKey } from '@core/utils/format';
 
 // Service des réservations. Deux modes selon environment.useMock :
