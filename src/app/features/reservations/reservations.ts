@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
@@ -10,7 +17,13 @@ import { HkReservationDetailDrawer } from '@shared/components/organisms/reservat
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
+import {
+  HkViewToggle,
+  ReservationView,
+} from '@shared/components/molecules/view-toggle/hk-view-toggle';
+import { AssignEvent, HkFloorPlan } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { ReservationService } from '@core/services/reservation.service';
+import { TableService } from '@core/services/table.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
@@ -38,6 +51,8 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
     HkReservationList,
     HkReservationDetailDrawer,
     HkButton,
+    HkViewToggle,
+    HkFloorPlan,
   ],
   template: `
     <hk-page-header [subtitle]="today">
@@ -55,41 +70,67 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (handled)="onHandled($event)"
         (retry)="callbacks.loadPending()"
       />
-      <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
-      <hk-reservation-list
-        [reservations]="displayed()"
-        [loading]="service.loading()"
-        [error]="service.error()"
-        [sort]="sort()"
-        (sortChange)="sort.set($event)"
-        (open)="openDetail($event)"
-        (confirm)="onConfirm($event)"
-        (cancelReservation)="onCancel($event)"
-        (call)="onCall($event)"
-        (retry)="service.loadToday()"
-      />
+
+      <div class="flex items-center justify-between">
+        <hk-view-toggle [(view)]="view" />
+      </div>
+
+      @if (view() === 'list') {
+        <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
+        <hk-reservation-list
+          [reservations]="displayed()"
+          [loading]="service.loading()"
+          [error]="service.error()"
+          [sort]="sort()"
+          (sortChange)="sort.set($event)"
+          (open)="openDetail($event, false)"
+          (confirm)="onConfirm($event)"
+          (cancelReservation)="onCancel($event)"
+          (call)="onCall($event)"
+          (retry)="service.loadToday()"
+        />
+      } @else {
+        <hk-floor-plan
+          [reservations]="service.reservations()"
+          [tables]="tables.tables()"
+          [loading]="service.loading() || tables.loading()"
+          [error]="service.error() || tables.error()"
+          (openReservation)="openDetail($event, true)"
+          (assign)="onAssign($event)"
+          (unassign)="onUnassign($event)"
+          (retry)="reload()"
+        />
+      }
     </div>
 
     <hk-reservation-detail-drawer
       [reservation]="selected()"
       [(state)]="drawerState"
+      [showUnassign]="drawerFromPlan()"
       (confirm)="onConfirm($event)"
       (cancelReservation)="onCancel($event)"
       (call)="onCall($event)"
+      (unassign)="onUnassign($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ReservationsPage {
   protected readonly service = inject(ReservationService);
+  protected readonly tables = inject(TableService);
   protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
 
+  protected readonly view = signal<ReservationView>('list');
   protected readonly statusFilter = signal<StatusFilter>('all');
   protected readonly search = signal('');
   protected readonly sort = signal<ReservationSort | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
+  // Vrai si le drawer a ete ouvert depuis le plan (active l'action "Liberer la table").
+  protected readonly drawerFromPlan = signal(false);
+  // Charge les tables une seule fois, au premier passage en vue Plan.
+  private tablesLoaded = false;
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -153,11 +194,38 @@ export class ReservationsPage {
   constructor() {
     this.service.loadToday();
     this.callbacks.loadPending();
+    // Chargement paresseux des tables au premier passage en vue Plan.
+    effect(() => {
+      if (this.view() === 'plan' && !this.tablesLoaded) {
+        this.tablesLoaded = true;
+        this.tables.loadTables();
+      }
+    });
   }
 
-  protected openDetail(reservation: Reservation): void {
+  protected openDetail(reservation: Reservation, fromPlan = false): void {
     this.selectedId.set(reservation.id);
+    this.drawerFromPlan.set(fromPlan);
     this.drawerState.set('open');
+  }
+
+  // Recharge tables + reservations (bouton Reessayer du plan).
+  protected reload(): void {
+    this.service.loadToday();
+    this.tables.loadTables();
+  }
+
+  protected onAssign(event: AssignEvent): void {
+    this.service.assign(event.reservationId, event.table).subscribe(() => {
+      this.toast.show(`Réservation placée en ${event.table.name}`, 'success');
+    });
+  }
+
+  protected onUnassign(reservation: Reservation): void {
+    this.service.unassign(reservation.id).subscribe(() => {
+      this.toast.show('Table libérée');
+    });
+    this.drawerState.set('closed');
   }
 
   protected onConfirm(reservation: Reservation): void {

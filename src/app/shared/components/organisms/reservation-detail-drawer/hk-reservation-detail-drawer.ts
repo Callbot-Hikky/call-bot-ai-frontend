@@ -26,7 +26,17 @@ import { telHref } from '@core/utils/format';
                 <h2 class="text-text-strong truncate text-xl font-semibold">
                   {{ r.customerName }}
                 </h2>
-                <div><hk-badge [status]="r.status" /></div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <hk-badge [status]="r.status" />
+                  @if (r.source === 'callbot') {
+                    <span
+                      class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700"
+                    >
+                      <hk-icon name="lucidePhoneCall" [size]="12" />
+                      Pris par le bot
+                    </span>
+                  }
+                </div>
               </div>
             </div>
 
@@ -77,6 +87,12 @@ import { telHref } from '@core/utils/format';
             <div class="border-border/70 mt-auto flex flex-col gap-2 border-t p-6">
               <hk-button (click)="confirm.emit(r)">Confirmer</hk-button>
               <hk-button variant="secondary" (click)="call.emit(r)">Appeler</hk-button>
+              @if (showUnassign() && r.table) {
+                <hk-button variant="secondary" (click)="unassign.emit(r)">
+                  <hk-icon name="lucideUnlink" [size]="16" />
+                  Libérer la table
+                </hk-button>
+              }
               <hk-button variant="danger" (click)="cancelReservation.emit(r)">Annuler</hk-button>
             </div>
           </div>
@@ -89,10 +105,13 @@ import { telHref } from '@core/utils/format';
 export class HkReservationDetailDrawer {
   readonly reservation = input<Reservation | null>(null);
   readonly state = model<BrnDialogState>('closed');
+  // Affiche l'action "Liberer la table" (uniquement depuis le plan de salle).
+  readonly showUnassign = input(false);
 
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
+  readonly unassign = output<Reservation>();
 
   protected readonly telHref = telHref;
 
