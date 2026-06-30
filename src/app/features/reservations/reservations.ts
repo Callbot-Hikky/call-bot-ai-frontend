@@ -1,11 +1,12 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
-  effect,
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
@@ -72,7 +73,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       />
 
       <div class="flex items-center justify-between">
-        <hk-view-toggle [(view)]="view" />
+        <hk-view-toggle [view]="view()" (viewChange)="onViewChange($event)" />
       </div>
 
       @if (view() === 'list') {
@@ -120,6 +121,7 @@ export class ReservationsPage {
   protected readonly tables = inject(TableService);
   protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly view = signal<ReservationView>('list');
   protected readonly statusFilter = signal<StatusFilter>('all');
@@ -194,13 +196,16 @@ export class ReservationsPage {
   constructor() {
     this.service.loadToday();
     this.callbacks.loadPending();
-    // Chargement paresseux des tables au premier passage en vue Plan.
-    effect(() => {
-      if (this.view() === 'plan' && !this.tablesLoaded) {
-        this.tablesLoaded = true;
-        this.tables.loadTables();
-      }
-    });
+  }
+
+  // Bascule de vue + chargement paresseux des tables au 1er passage en vue Plan
+  // (declenchement explicite plutot qu'un effect a effet de bord).
+  protected onViewChange(view: ReservationView): void {
+    this.view.set(view);
+    if (view === 'plan' && !this.tablesLoaded) {
+      this.tablesLoaded = true;
+      this.tables.loadTables();
+    }
   }
 
   protected openDetail(reservation: Reservation, fromPlan = false): void {
@@ -216,26 +221,40 @@ export class ReservationsPage {
   }
 
   protected onAssign(event: AssignEvent): void {
-    this.service.assign(event.reservationId, event.table).subscribe(() => {
-      this.toast.show(`Réservation placée en ${event.table.name}`, 'success');
-    });
+    this.service
+      .assign(event.reservationId, event.table)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
+        error: () => this.toast.show("Échec de l'affectation", 'error'),
+      });
   }
 
   protected onUnassign(reservation: Reservation): void {
-    this.service.unassign(reservation.id).subscribe(() => {
-      this.toast.show('Table libérée');
-    });
-    this.drawerState.set('closed');
+    this.service
+      .unassign(reservation.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.toast.show('Table libérée');
+          this.drawerState.set('closed');
+        },
+        error: () => this.toast.show('Échec de la libération', 'error'),
+      });
   }
 
   protected onConfirm(reservation: Reservation): void {
     this.service
       .confirm(reservation.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
   }
 
   protected onCancel(reservation: Reservation): void {
-    this.service.cancel(reservation.id).subscribe(() => this.toast.show('Réservation annulée'));
+    this.service
+      .cancel(reservation.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.toast.show('Réservation annulée'));
   }
 
   protected onCall(reservation: Reservation): void {

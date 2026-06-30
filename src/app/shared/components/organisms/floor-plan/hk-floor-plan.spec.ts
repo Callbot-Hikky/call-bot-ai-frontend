@@ -125,6 +125,23 @@ describe('HkFloorPlan', () => {
     expect(fixture.nativeElement.textContent).toContain('Client r2');
   });
 
+  it('exclut les reservations mortes (annulee/no_show/terminee) des non placees', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.reservations = [
+      reservation('r-cancel', 'cancelled', null),
+      reservation('r-done', 'completed', null),
+      reservation('r-noshow', 'no_show', null),
+      reservation('r-ok', 'pending', null),
+    ];
+    await fixture.whenStable();
+
+    const aside: HTMLElement = fixture.nativeElement.querySelector('aside');
+    expect(aside.textContent).toContain('Client r-ok');
+    expect(aside.textContent).not.toContain('Client r-cancel');
+    expect(aside.textContent).not.toContain('Client r-done');
+    expect(aside.textContent).not.toContain('Client r-noshow');
+  });
+
   it('affecte une non placee selectionnee a une table libre cliquee', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     fixture.componentInstance.reservations = [reservation('r2', 'pending', null)];

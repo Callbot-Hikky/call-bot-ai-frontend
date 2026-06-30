@@ -139,18 +139,27 @@ export class HkFloorPlan {
   // Reservation non placee selectionnee pour affectation (clic).
   protected readonly selectedUnplacedId = signal<string | null>(null);
 
-  // Tables positionnees (auto-grille) + statut derive des vraies reservations.
+  // Placement (auto-grille) : ne depend QUE des tables, pas des reservations,
+  // pour ne pas recalculer la grille a chaque changement de reservation.
+  private readonly placed = computed(() => autoGridLayout(this.tables()));
+
+  // Tables positionnees + statut derive des vraies reservations.
   protected readonly tableViews = computed<FloorTableView[]>(() => {
     const reservations = this.reservations();
-    const placed = autoGridLayout(this.tables());
-    return placed.map((p) => {
+    return this.placed().map((p) => {
       const { status, reservation } = deriveTableStatus(p.table.id, reservations);
       return { ...p, status, reservation };
     });
   });
 
-  // Reservations du jour sans table (callbot/web/manuel non placees).
-  protected readonly unplaced = computed(() => this.reservations().filter((r) => !r.table));
+  // Reservations du jour ACTIVES sans table (a placer). On exclut annulees /
+  // no_show / terminees : les "affecter" laisserait la table Libre (incoherent).
+  protected readonly unplaced = computed(() =>
+    this.reservations().filter(
+      (r) =>
+        !r.table && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
+    ),
+  );
 
   protected readonly selectedUnplaced = computed(() => {
     const id = this.selectedUnplacedId();

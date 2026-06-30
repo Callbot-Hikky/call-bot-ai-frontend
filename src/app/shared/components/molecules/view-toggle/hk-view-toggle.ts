@@ -14,12 +14,11 @@ const OPTIONS: { value: ReservationView; label: string; icon: string }[] = [
   selector: 'hk-view-toggle',
   imports: [HkIcon],
   template: `
-    <div class="bg-muted inline-flex gap-1 rounded-sm p-1" role="tablist" aria-label="Vue">
+    <div class="bg-muted inline-flex gap-1 rounded-sm p-1" role="group" aria-label="Vue">
       @for (opt of options; track opt.value) {
         <button
           type="button"
-          role="tab"
-          [attr.aria-selected]="view() === opt.value"
+          [attr.aria-pressed]="view() === opt.value"
           class="inline-flex cursor-pointer items-center gap-1.5 rounded-[6px] px-3 py-1 text-sm font-medium transition-colors duration-150"
           [class]="
             view() === opt.value

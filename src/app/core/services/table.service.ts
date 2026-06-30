@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
-import { delay, map, tap } from 'rxjs/operators';
+import { delay, map } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { FloorTable, TableDto, mapTable } from '@core/models/table.model';
@@ -44,11 +44,10 @@ export class TableService {
     if (environment.useMock) {
       return of(MOCK_TABLES).pipe(delay(400));
     }
+    // L'alimentation du signal est la responsabilite de loadTables (comme
+    // ReservationService.getToday) : getTables reste un simple flux de donnees.
     const url = `${this.baseUrl}?restaurantId=${environment.restaurantId}`;
-    return this.http.get<TableDto[]>(url).pipe(
-      map((dtos) => dtos.map(mapTable)),
-      tap((tables) => this._tables.set(tables)),
-    );
+    return this.http.get<TableDto[]>(url).pipe(map((dtos) => dtos.map(mapTable)));
   }
 }
 

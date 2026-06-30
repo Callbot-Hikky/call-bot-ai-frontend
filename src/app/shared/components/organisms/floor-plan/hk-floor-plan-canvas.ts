@@ -63,6 +63,8 @@ const ACCENT_FALLBACK = '#2f9e6f';
   template: `
     <div
       #host
+      role="img"
+      aria-label="Plan de salle (vue visuelle ; utilisez la vue Liste pour le detail accessible)"
       class="bg-surface-2 border-border relative w-full overflow-hidden rounded-md border"
       style="aspect-ratio: 16 / 10; min-height: 320px"
     ></div>
@@ -84,6 +86,7 @@ export class HkFloorPlanCanvas {
   private stage: Konva.Stage | null = null;
   private layer: Konva.Layer | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private resizeRaf = 0;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -101,7 +104,12 @@ export class HkFloorPlanCanvas {
       this.layer = new this.konva.Layer();
       this.stage.add(this.layer);
 
-      this.resizeObserver = new ResizeObserver(() => this.syncSize());
+      // Debounce via rAF : le ResizeObserver peut tirer en rafale pendant un
+      // redimensionnement de fenetre ; on ne resynchronise qu'une fois par frame.
+      this.resizeObserver = new ResizeObserver(() => {
+        cancelAnimationFrame(this.resizeRaf);
+        this.resizeRaf = requestAnimationFrame(() => this.syncSize());
+      });
       this.resizeObserver.observe(container);
       this.draw();
     });
@@ -115,6 +123,7 @@ export class HkFloorPlanCanvas {
     });
 
     destroyRef.onDestroy(() => {
+      cancelAnimationFrame(this.resizeRaf);
       this.resizeObserver?.disconnect();
       this.stage?.destroy();
     });
@@ -143,6 +152,7 @@ export class HkFloorPlanCanvas {
     const height = this.stage.height();
     const tables = this.tables();
     const highlight = this.highlightFree();
+    const font = this.hostFontFamily();
 
     // Taille des tables : fraction du petit cote, bornee pour rester lisible/tactile.
     const base = Math.min(width, height);
@@ -196,8 +206,8 @@ export class HkFloorPlanCanvas {
         new k.Text({
           text: view.table.name,
           fontSize: 14,
-          fontStyle: '600',
-          fontFamily: 'inherit',
+          fontStyle: 'bold',
+          fontFamily: font,
           fill: colors.text,
           width: size,
           align: 'center',
@@ -210,7 +220,7 @@ export class HkFloorPlanCanvas {
         new k.Text({
           text: `${view.table.capacity} couv.`,
           fontSize: 11,
-          fontFamily: 'inherit',
+          fontFamily: font,
           fill: colors.text,
           width: size,
           align: 'center',
@@ -255,6 +265,14 @@ export class HkFloorPlanCanvas {
 
   private accentColor(): string {
     return this.readVar(ACCENT_VAR, ACCENT_FALLBACK);
+  }
+
+  // Police du conteneur : Konva n'herite pas du CSS, on lit la vraie famille.
+  private hostFontFamily(): string {
+    const el = this.hostEl.nativeElement;
+    const view = el.ownerDocument?.defaultView;
+    const family = view?.getComputedStyle(el).fontFamily?.trim();
+    return family || 'sans-serif';
   }
 
   // Lit une variable CSS du theme (source de verite unique) ; repli si indisponible
