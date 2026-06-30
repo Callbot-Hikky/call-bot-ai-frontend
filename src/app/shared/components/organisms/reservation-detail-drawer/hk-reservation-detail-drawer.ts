@@ -57,16 +57,18 @@ import { telHref } from '@core/utils/format';
                   <span class="text-sm">Table {{ r.table.name }}</span>
                 </div>
               }
-              <div class="flex items-center gap-3">
-                <span
-                  class="bg-muted text-text-muted flex size-8 shrink-0 items-center justify-center rounded-lg"
-                >
-                  <hk-icon name="lucidePhone" [size]="16" />
-                </span>
-                <a class="text-primary font-mono text-sm tabular-nums" [href]="telHref(r.phone)">
-                  {{ r.phone }}
-                </a>
-              </div>
+              @if (displayedPhone(r); as phone) {
+                <div class="flex items-center gap-3">
+                  <span
+                    class="bg-muted text-text-muted flex size-8 shrink-0 items-center justify-center rounded-lg"
+                  >
+                    <hk-icon name="lucidePhone" [size]="16" />
+                  </span>
+                  <a class="text-primary font-mono text-sm tabular-nums" [href]="telHref(phone)">
+                    {{ phone }}
+                  </a>
+                </div>
+              }
               @if (r.notes) {
                 <p class="text-muted-foreground border-border/70 border-t pt-4 text-sm">
                   {{ r.notes }}
@@ -95,6 +97,14 @@ export class HkReservationDetailDrawer {
   readonly call = output<Reservation>();
 
   protected readonly telHref = telHref;
+
+  // Fallback: si le téléphone n'est pas en base, on l'extrait des notes
+  // (le numéro y est stocké sous la forme « Client : Nom — +33... »).
+  protected displayedPhone(r: Reservation): string | null {
+    if (r.phone?.trim()) return r.phone;
+    const match = r.notes?.match(/\+[\d\s().-]{6,}/);
+    return match ? match[0].trim() : null;
+  }
 
   protected formattedDate(iso: string): string {
     return new Date(iso).toLocaleString('fr-FR', {

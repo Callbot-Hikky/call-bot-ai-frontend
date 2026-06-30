@@ -5,7 +5,12 @@ import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
-import { ReservationDto, mapReservation, toRequest } from '@core/models/reservation-dto.model';
+import {
+  ReservationDto,
+  ReservationRequestDto,
+  mapReservation,
+  toRequest,
+} from '@core/models/reservation-dto.model';
 import { localDateKey } from '@core/utils/format';
 
 // Service des réservations. Deux modes selon environment.useMock :
@@ -59,12 +64,65 @@ export class ReservationService {
     );
   }
 
+  // Crée une nouvelle réservation et l'insère dans la liste locale.
+  create(request: ReservationRequestDto): Observable<Reservation> {
+    if (environment.useMock) {
+      const fakeDto: ReservationDto = {
+        id: `r-mock-${Date.now()}`,
+        restaurantId: request.restaurantId,
+        customerId: request.customerId ?? '',
+        tableId: request.tableId,
+        callId: request.callId,
+        startsAt: request.startsAt,
+        endsAt: request.endsAt,
+        partySize: request.partySize,
+        status: request.status,
+        source: request.source,
+        notes: request.notes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        cancelledAt: null,
+      };
+      return of(fakeDto).pipe(
+        delay(200),
+        tap((dto) => {
+          this._raw.update((list) => [...list, dto]);
+          this._reservations.update((list) => [...list, mapReservation(dto)]);
+        }),
+        map(mapReservation),
+      );
+    }
+    return this.http.post<ReservationDto>(this.baseUrl, request).pipe(
+      tap((dto) => {
+        this._raw.update((list) => [...list, dto]);
+        this._reservations.update((list) => [...list, mapReservation(dto)]);
+      }),
+      map(mapReservation),
+    );
+  }
+
   confirm(id: string): Observable<Reservation> {
     return this.mutateStatus(id, 'confirmed');
   }
 
   cancel(id: string): Observable<Reservation> {
     return this.mutateStatus(id, 'cancelled');
+  }
+
+  // Marque le client comme arrivé via PATCH /api/reservations/{id}/arrived.
+  // Endpoint dédié côté back, donc pas besoin de renvoyer un PUT complet.
+  markArrived(id: string): Observable<Reservation> {
+    if (environment.useMock) {
+      return this.mutateStatus(id, 'seated');
+    }
+    return this.http.patch<ReservationDto>(`${this.baseUrl}/${id}/arrived`, {}).pipe(
+      map((dto) => {
+        this._raw.update((list) => list.map((d) => (d.id === id ? dto : d)));
+        const updated = mapReservation(dto);
+        this.applyUpdate(updated);
+        return updated;
+      }),
+    );
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {

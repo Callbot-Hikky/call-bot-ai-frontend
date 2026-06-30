@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
+import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
@@ -10,7 +11,7 @@ import { formatTime } from '@core/utils/format';
 // boutons frères, donc cliquer une action n'ouvre pas le détail.
 @Component({
   selector: 'hk-reservation-row',
-  imports: [HkBadge, HkIconButton, HkTooltip, HkIcon],
+  imports: [HkBadge, HkButton, HkIconButton, HkTooltip, HkIcon],
   template: `
     <div
       class="hover:bg-muted flex items-center gap-4 rounded-sm px-3 py-2.5 transition-colors duration-150"
@@ -56,7 +57,7 @@ import { formatTime } from '@core/utils/format';
         </span>
       </button>
 
-      <div class="flex items-center gap-1 sm:w-[120px] sm:justify-end">
+      <div class="flex items-center gap-1 sm:w-[260px] sm:justify-end">
         <hk-icon-button
           icon="lucideCheck"
           label="Confirmer la réservation"
@@ -75,6 +76,9 @@ import { formatTime } from '@core/utils/format';
           hkTooltip="Appeler"
           (click)="call.emit(reservation())"
         />
+        @if (canMarkArrived()) {
+          <hk-button size="sm" (click)="markArrived.emit(reservation())">Client arrivé</hk-button>
+        }
       </div>
     </div>
   `,
@@ -86,6 +90,14 @@ export class HkReservationRow {
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
+  readonly markArrived = output<Reservation>();
 
   protected readonly time = computed(() => formatTime(this.reservation().dateTime));
+
+  // Le bouton "Client arrivé" n'a de sens que sur une résa qui attend encore le client.
+  // Une fois installée/terminée/annulée/absente, l'action ne s'applique plus.
+  protected readonly canMarkArrived = computed(() => {
+    const status = this.reservation().status;
+    return status === 'pending' || status === 'confirmed';
+  });
 }

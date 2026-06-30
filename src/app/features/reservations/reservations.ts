@@ -7,14 +7,20 @@ import {
   ReservationSort,
 } from '@shared/components/organisms/reservation-list/hk-reservation-list';
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
+import { HkReservationCreateDrawer } from '@shared/components/organisms/reservation-create-drawer/hk-reservation-create-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { ReservationService } from '@core/services/reservation.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
-import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import {
+  NewReservationPayload,
+  Reservation,
+  ReservationStatus,
+} from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
+import { environment } from '@env/environment';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -37,12 +43,13 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
     HkFilterBar,
     HkReservationList,
     HkReservationDetailDrawer,
+    HkReservationCreateDrawer,
     HkButton,
   ],
   template: `
     <hk-page-header [subtitle]="today">
       <hk-button variant="secondary" size="sm">Aujourd'hui</hk-button>
-      <hk-button size="sm">Nouvelle réservation</hk-button>
+      <hk-button size="sm" (click)="createDrawerState.set('open')">Nouvelle réservation</hk-button>
     </hk-page-header>
 
     <div class="flex flex-col gap-6">
@@ -66,6 +73,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (confirm)="onConfirm($event)"
         (cancelReservation)="onCancel($event)"
         (call)="onCall($event)"
+        (markArrived)="onMarkArrived($event)"
         (retry)="service.loadToday()"
       />
     </div>
@@ -76,6 +84,11 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       (confirm)="onConfirm($event)"
       (cancelReservation)="onCancel($event)"
       (call)="onCall($event)"
+    />
+
+    <hk-reservation-create-drawer
+      [(state)]="createDrawerState"
+      (create)="onCreateReservation($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -90,6 +103,7 @@ export class ReservationsPage {
   protected readonly sort = signal<ReservationSort | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
+  protected readonly createDrawerState = signal<BrnDialogState>('closed');
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -160,6 +174,35 @@ export class ReservationsPage {
     this.drawerState.set('open');
   }
 
+  protected onCreateReservation(payload: NewReservationPayload): void {
+    // Transforme le payload UI en ReservationRequest pour le backend.
+    const request = {
+      restaurantId: environment.restaurantId,
+      customerId: null,
+      tableId: payload.tableId,
+      callId: null,
+      startsAt: payload.startsAt,
+      endsAt: payload.endsAt,
+      partySize: payload.partySize,
+      status: 'pending',
+      source: 'manual',
+      // En attendant un customerId réel, on garde nom + téléphone dans les notes.
+      notes: this.buildNotes(payload),
+    };
+    this.service.create(request).subscribe({
+      next: () => this.toast.show('Réservation créée', 'success'),
+      error: () => this.toast.show('Échec de la création', 'error'),
+    });
+  }
+
+  private buildNotes(p: NewReservationPayload): string {
+    const lines = [`Client : ${p.customerName} — ${p.phone}`];
+    if (p.notes?.trim()) {
+      lines.push(p.notes.trim());
+    }
+    return lines.join('\n');
+  }
+
   protected onConfirm(reservation: Reservation): void {
     this.service
       .confirm(reservation.id)
@@ -172,6 +215,13 @@ export class ReservationsPage {
 
   protected onCall(reservation: Reservation): void {
     this.toast.show(`Appel de ${reservation.customerName}...`);
+  }
+
+  protected onMarkArrived(reservation: Reservation): void {
+    this.service.markArrived(reservation.id).subscribe({
+      next: () => this.toast.show(`${reservation.customerName} est arrivé`, 'success'),
+      error: () => this.toast.show('Échec de la mise à jour', 'error'),
+    });
   }
 
   protected onCallBack(request: CallbackRequest): void {

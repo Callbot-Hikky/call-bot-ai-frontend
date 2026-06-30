@@ -27,3 +27,19 @@ export interface Reservation {
   // Origine de la réservation (utile pour valoriser le bot)
   source?: 'callbot' | 'manual' | 'web';
 }
+
+// Payload émis à la soumission du drawer de création. Forme proche de
+// ReservationRequest côté backend, mais l'agrégation date+heure+durée →
+// startsAt/endsAt est faite par le drawer pour éviter au parent de refaire le travail.
+export interface NewReservationPayload {
+  customerName: string;
+  phone: string;
+  date: string; // 'YYYY-MM-DD'
+  startTime: string; // 'HH:mm'
+  durationMinutes: number;
+  partySize: number;
+  tableId: string | null;
+  notes: string;
+  startsAt: string;
+  endsAt: string;
+}
