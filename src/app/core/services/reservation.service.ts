@@ -4,7 +4,7 @@ import { EMPTY, Observable, of } from 'rxjs';
 import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
-import { Reservation, ReservationStatus } from '@core/models/reservation.model';
+import { Reservation, ReservationStatus, RestaurantTable } from '@core/models/reservation.model';
 import { ReservationDto, mapReservation, toRequest } from '@core/models/reservation-dto.model';
 import { localDateKey } from '@core/utils/format';
 
@@ -81,9 +81,53 @@ export class ReservationService {
     if (!dto) {
       return EMPTY;
     }
-    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, status)).pipe(
+    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { status })).pipe(
       map(() => {
         const patched: ReservationDto = { ...dto, status };
+        this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
+        const updated = mapReservation(patched);
+        this.applyUpdate(updated);
+        return updated;
+      }),
+    );
+  }
+
+  // Affecte une table a une reservation (plan de salle). PUT avec tableId rempli
+  // (corps complet reconstruit par toRequest). La table passe alors Reservee/Installee.
+  // On passe l'objet table pour mettre a jour la reference embarquee sans dependre
+  // d'un autre service (la reservation porte alors la bonne table pour la derivation).
+  assign(reservationId: string, table: RestaurantTable): Observable<Reservation> {
+    return this.mutateTable(reservationId, table);
+  }
+
+  // Desaffecte la table d'une reservation (tableId: null) : la table redevient Libre.
+  unassign(reservationId: string): Observable<Reservation> {
+    return this.mutateTable(reservationId, null);
+  }
+
+  private mutateTable(id: string, table: RestaurantTable | null): Observable<Reservation> {
+    const tableId = table?.id ?? null;
+    if (environment.useMock) {
+      const current = this._reservations().find((r) => r.id === id);
+      if (!current) {
+        return EMPTY;
+      }
+      const updated: Reservation = { ...current, table: table ?? undefined };
+      return of(updated).pipe(
+        delay(200),
+        tap((res) => this.applyUpdate(res)),
+      );
+    }
+    const dto = this._raw().find((d) => d.id === id);
+    if (!dto) {
+      return EMPTY;
+    }
+    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { tableId })).pipe(
+      map(() => {
+        const backTable = table
+          ? { id: table.id, name: table.name, capacity: table.capacity }
+          : null;
+        const patched: ReservationDto = { ...dto, tableId, table: backTable };
         this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
         const updated = mapReservation(patched);
         this.applyUpdate(updated);

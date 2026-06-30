@@ -50,6 +50,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      konva:
+        specifier: ^10.3.0
+        version: 10.3.0
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2
@@ -4159,6 +4162,9 @@ packages:
   kind-of@6.0.3:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
     engines: {node: '>=0.10.0'}
+
+  konva@10.3.0:
+    resolution: {integrity: sha512-gt19K2gzY4lHbnkvsku7eSmB+A9PTS2jG4F9coBMsdjM1UKfJNxJbDbXVpeCW1wjEGRwBD3nBamcHnqJhAeKlg==}
 
   less-loader@12.3.3:
     resolution: {integrity: sha512-F0+ErFFDj3Pt+nVrCN6VlEGEzocv9s7x/aR9v2riI+WM83UAfTYBDBjGPJnT55lBLR6JSI4fmWblt+aA2JN6/w==}
@@ -10724,6 +10730,8 @@ snapshots:
       json-buffer: 3.0.1
 
   kind-of@6.0.3: {}
+
+  konva@10.3.0: {}
 
   less-loader@12.3.3(@rspack/core@1.6.8)(less@4.5.1)(webpack@5.105.2(lightningcss@1.32.0)(postcss@8.5.15)):
     dependencies:

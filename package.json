@@ -38,6 +38,7 @@
     "@spartan-ng/brain": "0.0.1-alpha.718",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "konva": "^10.3.0",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.5.0",
     "tslib": "^2.3.0"
