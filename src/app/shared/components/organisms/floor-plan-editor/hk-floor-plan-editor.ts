@@ -35,8 +35,10 @@ import {
   seedMissingGeometry,
 } from '@core/models/floor-plan-editor.model';
 import { buildEditorTables } from '@core/models/floor-plan.model';
+import { PascalCandidate } from '@core/models/pascal-import.model';
 import { downloadDataUrl } from '@core/utils/download';
 import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-canvas';
+import { HkPascalImport } from './hk-pascal-import';
 
 // Choix de formes pour le panneau proprietes (1 table selectionnee).
 const SHAPE_OPTIONS: { value: TableShape; label: string }[] = [
@@ -73,7 +75,7 @@ interface CreateSpec {
 // Toute mutation de geometrie passe par FloorPlanService.commit() (1 geste = 1 undo).
 @Component({
   selector: 'hk-floor-plan-editor',
-  imports: [HkButton, HkIcon, HkFloorPlanEditorCanvas],
+  imports: [HkButton, HkIcon, HkFloorPlanEditorCanvas, HkPascalImport],
   template: `
     @if (store.isEmpty()) {
       <!-- Ecran de demarrage : aucun plan sauvegarde -> choix d'une mise en page. -->
@@ -99,6 +101,25 @@ interface CreateSpec {
             </button>
           }
         </div>
+        <!-- Import 3D : le plan peut aussi venir d'un scan (Pascal Capture) ou de
+             l'editeur Pascal, sans rien poser a la main. -->
+        <button
+          type="button"
+          data-testid="start-pascal-import"
+          class="border-border hover:border-primary hover:bg-muted focus-visible:ring-primary flex items-center gap-3 rounded-md border border-dashed p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
+          (click)="importOpen.set(true)"
+        >
+          <hk-icon name="lucideBox" [size]="20" class="text-text-subtle" />
+          <span class="flex flex-col gap-0.5">
+            <span class="text-text-strong text-sm font-semibold">
+              Importer depuis un scan 3D (Pascal)
+            </span>
+            <span class="text-text-subtle text-xs">
+              Scannez votre salle avec un iPhone ou dessinez-la sur editor.pascal.app, vos tables
+              sont créées automatiquement.
+            </span>
+          </span>
+        </button>
         <div>
           <hk-button variant="ghost" size="sm" (click)="closed.emit()">
             <hk-icon name="lucideChevronLeft" [size]="16" />
@@ -136,6 +157,17 @@ interface CreateSpec {
           <hk-button variant="ghost" size="sm" [disabled]="creating()" (click)="addRow()">
             <hk-icon name="lucideRows3" [size]="16" />
             Générer une rangée
+          </hk-button>
+
+          <hk-button
+            variant="ghost"
+            size="sm"
+            data-testid="toolbar-pascal-import"
+            [disabled]="creating()"
+            (click)="importOpen.set(true)"
+          >
+            <hk-icon name="lucideUpload" [size]="16" />
+            Importer 3D
           </hk-button>
 
           <hk-button
@@ -293,6 +325,10 @@ interface CreateSpec {
         </div>
       </div>
     }
+
+    @if (importOpen()) {
+      <hk-pascal-import (closed)="importOpen.set(false)" (imported)="onImported($event)" />
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -322,6 +358,8 @@ export class HkFloorPlanEditor implements OnInit {
   protected readonly snap = signal(true);
   // Creation(s) en cours (POST sequentiels) : evite les doubles clics.
   protected readonly creating = signal(false);
+  // Dialogue d'import Pascal (scan 3D / editeur web) ouvert.
+  protected readonly importOpen = signal(false);
 
   // Tables vues par le canvas : identite (nom/couverts) des tables REELLES +
   // geometrie du plan (repli auto-grille tant que la table n'a pas d'entree).
@@ -422,6 +460,29 @@ export class HkFloorPlanEditor implements OnInit {
       }),
     }));
     this.createTables(specs);
+  }
+
+  // --- Import Pascal (scan 3D / editeur web) ------------------------------------
+
+  // Applique l'import : chaque candidat retenu devient une VRAIE table (POST
+  // /api/tables, capacite estimee corrigeable ensuite) avec sa geometrie projetee.
+  // Les tables existantes ne sont ni modifiees ni supprimees.
+  protected onImported(candidates: PascalCandidate[]): void {
+    this.importOpen.set(false);
+    if (candidates.length === 0) {
+      return;
+    }
+    // Depuis l'ecran de demarrage : initialise un plan vide (persiste) pour
+    // basculer sur l'editeur ; les tables importees s'y posent ensuite.
+    if (this.store.isEmpty()) {
+      this.store.initFrom({});
+    }
+    const specs: CreateSpec[] = candidates.map((c) => ({
+      capacity: c.capacity,
+      geo: { x: c.x, y: c.y, w: c.w, h: c.h, rotation: c.rotation, shape: c.shape },
+    }));
+    this.createTables(specs);
+    this.toast.show(`${specs.length} table(s) importée(s) depuis Pascal.`);
   }
 
   // Cree N tables SEQUENTIELLEMENT (les noms « Tn » se suivent car le signal tables

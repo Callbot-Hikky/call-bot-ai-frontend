@@ -48,6 +48,8 @@ import {
   lucideAlignHorizontalJustifyCenter,
   lucideDownload,
   lucideMaximize,
+  lucideUpload,
+  lucideBox,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -90,6 +92,8 @@ const ICONS = {
   lucideAlignHorizontalJustifyCenter,
   lucideDownload,
   lucideMaximize,
+  lucideUpload,
+  lucideBox,
 };
 
 export const appConfig: ApplicationConfig = {
