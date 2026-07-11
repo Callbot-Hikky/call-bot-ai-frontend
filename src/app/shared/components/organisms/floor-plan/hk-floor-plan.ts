@@ -22,7 +22,10 @@ import {
   deriveTableStatus,
   layoutTables,
 } from '@core/models/floor-plan.model';
-import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
+import { from, of } from 'rxjs';
+import { catchError, concatMap } from 'rxjs/operators';
+import { GeometryMap, WallSegment, nextTableName } from '@core/models/floor-plan-editor.model';
+import { TableService } from '@core/services/table.service';
 import { ToastService } from '@core/services/toast.service';
 import { formatTime } from '@core/utils/format';
 import { downloadDataUrl } from '@core/utils/download';
@@ -81,46 +84,6 @@ const WALK_IN_GUARD_MIN = 90;
                   }
                 </span>
               </div>
-            } @else if (walkInTarget(); as w) {
-              <div
-                class="bg-st-pending-bg text-st-pending-fg flex flex-1 flex-wrap items-center gap-3 rounded-md px-3 py-2 text-sm"
-              >
-                <hk-icon name="lucideUsers" [size]="16" />
-                <span>
-                  Installer des clients sur
-                  <strong>{{ w.table.name }}</strong>
-                </span>
-                <span class="inline-flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    class="border-border bg-surface text-text-strong inline-flex size-6 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
-                    aria-label="Moins de couverts"
-                    [disabled]="walkInSize() <= 1"
-                    (click)="stepWalkIn(-1)"
-                  >
-                    −
-                  </button>
-                  <span class="min-w-6 text-center font-mono font-semibold tabular-nums">
-                    {{ walkInSize() }}
-                  </span>
-                  <button
-                    type="button"
-                    class="border-border bg-surface text-text-strong inline-flex size-6 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
-                    aria-label="Plus de couverts"
-                    [disabled]="walkInSize() >= w.table.capacity"
-                    (click)="stepWalkIn(1)"
-                  >
-                    +
-                  </button>
-                  couverts
-                </span>
-                <span class="ml-auto flex items-center gap-2">
-                  <hk-button size="sm" (click)="confirmWalkIn()">Installer</hk-button>
-                  <hk-button size="sm" variant="secondary" (click)="cancelWalkIn()">
-                    Annuler
-                  </hk-button>
-                </span>
-              </div>
             } @else {
               <p class="text-text-subtle flex-1 text-sm">
                 Cliquez une table libre pour installer des clients sans réservation, une table
@@ -157,11 +120,69 @@ const WALK_IN_GUARD_MIN = 90;
           </div>
 
           @if (tableViews().length === 0) {
+            <!-- ONBOARDING (nouveau restaurant, aucune table) : deux chemins au
+                 centre du plan, du plus guide au plus libre. -->
             <div
-              class="bg-surface-2 border-border text-text-subtle flex items-center justify-center rounded-md border px-4 text-center text-sm"
-              style="aspect-ratio: 16 / 10; min-height: 320px"
+              class="border-border flex flex-col items-center justify-center gap-6 rounded-md border px-6 py-8"
+              style="aspect-ratio: 16 / 10; min-height: 320px; background: #faf7f1"
+              data-testid="plan-onboarding"
             >
-              Aucune table n'est configurée pour ce restaurant.
+              <div class="flex flex-col items-center gap-1 text-center">
+                <h3 class="text-text-strong text-lg font-semibold">Créons votre salle</h3>
+                <p class="text-text-subtle text-sm">
+                  Deux minutes suffisent, tout reste modifiable ensuite.
+                </p>
+              </div>
+              <div class="grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+                <!-- Chemin 1 : configuration rapide guidee. -->
+                <div class="bg-card border-border flex flex-col gap-3 rounded-md border p-4">
+                  <span class="text-text-strong text-sm font-semibold">Configuration rapide</span>
+                  <label class="text-text-subtle flex items-center justify-between gap-2 text-sm">
+                    Combien de tables ?
+                    <input
+                      type="number"
+                      min="1"
+                      max="40"
+                      data-testid="quick-tables"
+                      class="border-border bg-background w-20 rounded-sm border px-2 py-1.5 text-right font-mono text-sm"
+                      [value]="quickTables()"
+                      (input)="onQuickTables($event)"
+                    />
+                  </label>
+                  <label class="text-text-subtle flex items-center justify-between gap-2 text-sm">
+                    Couverts par table ?
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      data-testid="quick-seats"
+                      class="border-border bg-background w-20 rounded-sm border px-2 py-1.5 text-right font-mono text-sm"
+                      [value]="quickSeats()"
+                      (input)="onQuickSeats($event)"
+                    />
+                  </label>
+                  <hk-button
+                    size="sm"
+                    data-testid="quick-create"
+                    [disabled]="quickCreating()"
+                    (click)="quickSetup()"
+                  >
+                    {{ quickCreating() ? 'Création…' : 'Créer ma salle' }}
+                  </hk-button>
+                </div>
+                <!-- Chemin 2 : construction libre (editeur, templates, scan 3D). -->
+                <div class="bg-card border-border flex flex-col gap-3 rounded-md border p-4">
+                  <span class="text-text-strong text-sm font-semibold">Construire moi-même</span>
+                  <p class="text-text-subtle flex-1 text-sm">
+                    Posez vos tables une à une, partez d'un modèle de salle, ou importez un scan 3D
+                    de votre restaurant (Pascal).
+                  </p>
+                  <hk-button size="sm" variant="secondary" (click)="edit.emit()">
+                    <hk-icon name="lucidePencil" [size]="16" />
+                    Ouvrir l'éditeur
+                  </hk-button>
+                </div>
+              </div>
             </div>
           } @else if (view3d()) {
             <!-- Vue 3D interactive (statuts live) : memes actions au clic que la 2D. -->
@@ -196,6 +217,49 @@ const WALK_IN_GUARD_MIN = 90;
         </div>
 
         <aside class="bg-card border-border flex flex-col rounded-md border">
+          <!-- WALK-IN : le panneau d'action vit A DROITE, comme le drawer d'une
+               table occupee -> un clic de table repond TOUJOURS au meme endroit. -->
+          @if (walkInTarget(); as w) {
+            <div
+              class="border-border bg-st-pending-bg flex flex-col gap-3 border-b p-4"
+              data-testid="walkin-panel"
+            >
+              <div class="text-st-pending-fg flex items-center gap-2 text-sm font-semibold">
+                <hk-icon name="lucideUsers" [size]="16" />
+                Installer des clients sur {{ w.table.name }}
+              </div>
+              <div class="flex items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                  aria-label="Moins de couverts"
+                  [disabled]="walkInSize() <= 1"
+                  (click)="stepWalkIn(-1)"
+                >
+                  −
+                </button>
+                <span class="min-w-7 text-center font-mono text-base font-semibold tabular-nums">
+                  {{ walkInSize() }}
+                </span>
+                <button
+                  type="button"
+                  class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                  aria-label="Plus de couverts"
+                  [disabled]="walkInSize() >= w.table.capacity"
+                  (click)="stepWalkIn(1)"
+                >
+                  +
+                </button>
+                <span class="text-text-subtle">couverts</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <hk-button size="sm" class="flex-1" (click)="confirmWalkIn()">Installer</hk-button>
+                <hk-button size="sm" variant="secondary" (click)="cancelWalkIn()">
+                  Annuler
+                </hk-button>
+              </div>
+            </div>
+          }
           <div class="border-border flex items-center justify-between border-b px-4 py-3">
             <h3 class="text-text-strong text-sm font-semibold">Réservations non placées</h3>
             <span
@@ -248,8 +312,11 @@ const WALK_IN_GUARD_MIN = 90;
 })
 export class HkFloorPlan {
   private readonly toast = inject(ToastService);
+  // Configuration rapide (onboarding) : creation directe de vraies tables.
+  private readonly tableService = inject(TableService);
   // Canvas Konva reel (undefined pendant loading/error/vide, ou stub en test).
   private readonly canvas = viewChild(HkFloorPlanCanvas);
+  private readonly canvas3d = viewChild(HkFloorPlan3d);
 
   readonly reservations = input<Reservation[]>([]);
   readonly tables = input<FloorTable[]>([]);
@@ -269,6 +336,64 @@ export class HkFloorPlan {
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
   protected readonly view3d = signal(false);
+
+  // --- Configuration rapide (onboarding, aucune table) --------------------------
+  // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
+  // (POST sequentiels), positions auto-grille ; l'editeur affine ensuite.
+  protected readonly quickTables = signal(10);
+  protected readonly quickSeats = signal(4);
+  protected readonly quickCreating = signal(false);
+
+  protected onQuickTables(event: Event): void {
+    const raw = Number((event.target as HTMLInputElement).value);
+    if (Number.isFinite(raw)) {
+      this.quickTables.set(Math.max(1, Math.min(40, Math.round(raw))));
+    }
+  }
+
+  protected onQuickSeats(event: Event): void {
+    const raw = Number((event.target as HTMLInputElement).value);
+    if (Number.isFinite(raw)) {
+      this.quickSeats.set(Math.max(1, Math.min(20, Math.round(raw))));
+    }
+  }
+
+  protected quickSetup(): void {
+    if (this.quickCreating()) {
+      return;
+    }
+    const count = this.quickTables();
+    const capacity = this.quickSeats();
+    this.quickCreating.set(true);
+    let failed = false;
+
+    from(Array.from({ length: count }))
+      .pipe(
+        concatMap(() =>
+          this.tableService
+            .create({
+              name: nextTableName(this.tableService.tables().map((t) => t.name)),
+              capacity,
+            })
+            .pipe(
+              catchError(() => {
+                failed = true;
+                return of(null);
+              }),
+            ),
+        ),
+      )
+      .subscribe({
+        complete: () => {
+          this.quickCreating.set(false);
+          if (failed) {
+            this.toast.show('Certaines tables n’ont pas pu être créées. Réessayez.', 'error');
+          } else {
+            this.toast.show(`${count} tables créées. Ouvrez l'éditeur pour organiser votre salle.`);
+          }
+        },
+      });
+  }
 
   readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
@@ -443,7 +568,8 @@ export class HkFloorPlan {
 
   // EXPORT PNG (LOT B4) : capture le stage Konva et declenche le telechargement.
   protected exportPng(): void {
-    const dataUrl = this.canvas()?.exportPng();
+    // Exporte la vue AFFICHEE : plan 2D (Konva) ou maquette 3D (WebGL).
+    const dataUrl = this.view3d() ? this.canvas3d()?.exportPng() : this.canvas()?.exportPng();
     if (dataUrl) {
       downloadDataUrl(dataUrl, 'plan-de-salle.png');
     }

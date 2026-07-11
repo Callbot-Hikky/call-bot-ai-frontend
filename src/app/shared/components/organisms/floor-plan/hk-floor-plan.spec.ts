@@ -404,6 +404,44 @@ describe('HkFloorPlan', () => {
     expect(fixture.componentInstance.walkIn).toBe('t2:4');
   });
 
+  // ONBOARDING : aucun restaurant configure -> deux chemins au centre du plan.
+  it('affiche l onboarding (config rapide + editeur) quand aucune table', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.tables = [];
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const onboarding = el.querySelector('[data-testid="plan-onboarding"]');
+    expect(onboarding).toBeTruthy();
+    expect(onboarding!.textContent).toContain('Créons votre salle');
+    expect(el.querySelector('[data-testid="quick-tables"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="quick-create"]')).toBeTruthy();
+    // Pas d'onboarding des qu'il y a des tables.
+    fixture.componentInstance.tables = TABLES;
+    fixture.changeDetectorRef.markForCheck();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-testid="plan-onboarding"]')).toBeNull();
+  });
+
+  // FLUX HARMONISE : le walk-in s'affiche dans le panneau de DROITE (comme le
+  // drawer d'une table occupee), pas en bandeau au-dessus du plan.
+  it('le panneau walk-in apparait dans la colonne de droite', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const stub: CanvasStub = fixture.debugElement.query(
+      (n) => n.componentInstance instanceof CanvasStub,
+    ).componentInstance;
+    stub.tableClick.emit(stub.tables().find((v) => v.table.id === 't2')!);
+    await fixture.whenStable();
+
+    const panel = el.querySelector('[data-testid="walkin-panel"]');
+    expect(panel).toBeTruthy();
+    // Bien DANS l'aside (colonne droite), pas dans l'en-tete du plan.
+    expect(panel!.closest('aside')).toBeTruthy();
+  });
+
   it('bascule entre la vue 2D et la vue 3D via le toggle', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     fixture.componentInstance.reservations = [reservation('r1', 'confirmed', 't1')];

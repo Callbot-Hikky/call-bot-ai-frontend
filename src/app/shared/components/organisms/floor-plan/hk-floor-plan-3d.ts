@@ -616,6 +616,16 @@ export class HkFloorPlan3d {
     return sprite;
   }
 
+  // EXPORT PNG de la maquette 3D. Le buffer WebGL n'est pas preserve entre les
+  // frames : on RE-rend la scene juste avant la capture (sinon image noire).
+  exportPng(): string | null {
+    if (!this.renderer || !this.scene || !this.camera) {
+      return null;
+    }
+    this.renderer.render(this.scene, this.camera);
+    return this.renderer.domElement.toDataURL('image/png');
+  }
+
   private animate(): void {
     const loop = (): void => {
       this.rafId = requestAnimationFrame(loop);
