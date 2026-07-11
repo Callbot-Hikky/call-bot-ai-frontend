@@ -11,7 +11,15 @@ import {
   viewChild,
 } from '@angular/core';
 import type Konva from 'konva';
-import { FloorTableStatus, FloorTableView } from '@core/models/floor-plan.model';
+import { FloorTableStatus, FloorTableView, tableTimeLabel } from '@core/models/floor-plan.model';
+import { tableSizePx } from '@core/models/floor-plan-editor.model';
+import {
+  applyTableShadow,
+  hoverTableShadow,
+  layoutSeats,
+  styleSeats,
+  syncSeatCount,
+} from './konva-table-style';
 
 // Type du namespace Konva (import dynamique a l'execution pour ne pas alourdir
 // le bundle initial : Konva n'est charge qu'a l'ouverture de la vue Plan).
@@ -19,7 +27,10 @@ type KonvaModule = typeof Konva;
 
 // Couleurs de statut pour le canvas (Konva = imperatif, pas de classes CSS).
 // On lit les tokens OKLCH du design system depuis le conteneur, avec repli.
-// Roles semantiques : libre=neutre, reservee=ambre/warning, installee=vert/success.
+// Semantique ALIGNEE sur les badges de la vue Liste (intuitif + coherent) :
+//  - libre     : blanc, contour discret (rien a signaler) ;
+//  - reservee  : VERT st-confirmed (creneau confirme, comme le badge « Confirmée ») ;
+//  - installee : BLEU st-seated (des clients sont a table, comme le badge « Installée »).
 interface StatusColors {
   fill: string;
   stroke: string;
@@ -28,36 +39,88 @@ interface StatusColors {
 
 const COLOR_VARS: Record<FloorTableStatus, { fill: string; stroke: string; text: string }> = {
   libre: {
-    fill: '--st-completed-bg',
+    fill: '--surface',
     stroke: '--border-strong',
     text: '--st-completed-fg',
   },
   reservee: {
-    fill: '--st-pending-bg',
-    stroke: '--st-pending-fg',
-    text: '--st-pending-fg',
-  },
-  installee: {
     fill: '--st-confirmed-bg',
     stroke: '--st-confirmed-fg',
     text: '--st-confirmed-fg',
   },
+  installee: {
+    fill: '--st-seated-bg',
+    stroke: '--st-seated-fg',
+    text: '--st-seated-fg',
+  },
 };
 
 const FALLBACK_COLORS: Record<FloorTableStatus, StatusColors> = {
-  libre: { fill: '#f1f1ef', stroke: '#d6d6d2', text: '#6f6f6a' },
-  reservee: { fill: '#fdf0db', stroke: '#a86a16', text: '#a86a16' },
-  installee: { fill: '#dcf2e6', stroke: '#1f7a52', text: '#1f7a52' },
+  libre: { fill: '#ffffff', stroke: '#d6d6d2', text: '#8a8a84' },
+  reservee: { fill: '#e8f4ee', stroke: '#37795d', text: '#37795d' },
+  installee: { fill: '#e9eef9', stroke: '#54719f', text: '#54719f' },
 };
 
 const ACCENT_VAR = '--green-600';
 const ACCENT_FALLBACK = '#2f9e6f';
+// Pastille d'heure en RETARD (reservee, +15 min sans installation) : couleur danger.
+const DANGER_VAR = '--st-cancelled-fg';
+const DANGER_FALLBACK = '#a33d2e';
+// « → 21:00 » sous une table libre reservee plus tard : texte discret (muted).
+const MUTED_VAR = '--text-muted';
+const MUTED_FALLBACK = '#8a8a84';
+// Nom de table : toujours sombre et lisible (le statut est porte par l'anneau,
+// les sieges et la pastille d'heure, pas par la couleur du nom).
+const NAME_VAR = '--text';
+const NAME_FALLBACK = '#26251f';
+// Nom du client (mode service) : ton discret sous le nom de table.
+const CUSTOMER_VAR = '--text-muted';
+const CUSTOMER_FALLBACK = '#8a8a84';
+
+// MODE SERVICE : au-dela de ce seuil de largeur (px), le conteneur est « grand »
+// (ecran mural) -> on grossit legerement les textes pour rester lisibles de loin.
+const BIG_CONTAINER_PX = 1000;
+const BIG_FONT_BUMP = 2;
+// Longueur max du nom client affiche sur une table (au-dela : troncature « … »).
+const CUSTOMER_MAX_CHARS = 14;
+
+function truncateName(name: string): string {
+  const trimmed = name.trim();
+  return trimmed.length > CUSTOMER_MAX_CHARS
+    ? `${trimmed.slice(0, CUSTOMER_MAX_CHARS - 1)}…`
+    : trimmed;
+}
+
+// Noeud Konva persistant pour une table : on cree le groupe + ses enfants UNE FOIS,
+// puis on les met a jour (layout + contenu) au lieu de tout detruire chaque frame.
+interface TableNode {
+  group: Konva.Group;
+  shape: Konva.Shape; // Circle (rond) ou Rect (autres).
+  // Sieges dessines autour de la table (derriere la forme).
+  seats: Konva.Group;
+  name: Konva.Text;
+  capacity: Konva.Text;
+  // Nom du client (mode service, table occupee) : petit texte sous le nom de table.
+  // Toujours cree ; vide (invisible) hors mode service ou table libre.
+  customer: Konva.Text;
+  // Heure de la reservation (LOT B5) : pastille posee sur le bord bas de la table.
+  timeTag: Konva.Label;
+  // Prochaine reservation d'une table LIBRE (« → 21:00 ») : texte discret sous
+  // la capacite (info de decision de l'hote).
+  nextTime: Konva.Text;
+  isRound: boolean;
+}
 
 // Canvas Konva du plan de salle (Phase 1, lecture seule + clic).
-// - cree le Stage via viewChild + afterNextRender (app zoneless) ;
-// - redessine via un effect() qui lit les inputs (signals) ;
-// - recalcule les positions pixel au resize (coords stockees normalisees 0..1) ;
-// - le clic Konva met a jour l'etat via l'output tableClick.
+//
+// REFACTOR (prerequis Phase 2) : noeuds Konva PERSISTANTS.
+// Auparavant draw() faisait layer.destroyChildren() puis recreait tout a chaque
+// frame — incompatible avec le drag/resize a venir. Desormais :
+//  - syncNodes()  : reconcilie la liste de tables avec une Map<id, TableNode>
+//                   (cree les nouveaux, supprime les disparus) — le « contenu » ;
+//  - layout()     : (re)positionne/dimensionne les noeuds en pixels — appele aussi
+//                   au resize (coords stockees normalisees 0..1).
+// Le mode service (lecture seule) reste identique cote API (inputs/outputs).
 @Component({
   selector: 'hk-floor-plan-canvas',
   template: `
@@ -65,8 +128,10 @@ const ACCENT_FALLBACK = '#2f9e6f';
       #host
       role="img"
       aria-label="Plan de salle (vue visuelle ; utilisez la vue Liste pour le detail accessible)"
-      class="bg-surface-2 border-border relative w-full overflow-hidden rounded-md border"
-      style="aspect-ratio: 16 / 10; min-height: 320px"
+      class="bg-surface border-border relative w-full overflow-hidden rounded-lg border"
+      [class.h-full]="fill()"
+      [style.aspect-ratio]="fill() ? null : '16 / 10'"
+      [style.min-height.px]="fill() ? 0 : 320"
     ></div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -79,52 +144,85 @@ export class HkFloorPlanCanvas {
   readonly tables = input<FloorTableView[]>([]);
   // Met en evidence les tables libres (pendant l'affectation d'une non placee).
   readonly highlightFree = input(false);
+  // MEILLEUR FIT (LOT B2) : id de la table recommandee -> surlignage RENFORCE
+  // (trait plein, plus epais). Calcule par hk-floor-plan (bestFitTableId).
+  readonly bestTableId = input<string | null>(null);
+  // Couverts de la reservation en cours d'affectation : les tables libres TROP
+  // PETITES ne sont PAS surlignees (decision B2 : elles restent cliquables — le
+  // garde-fou B1 intercepte — mais sans halo, pour ne pas suggerer un mauvais choix).
+  readonly requiredSeats = input<number | null>(null);
+  // MODE SERVICE : le host remplit son conteneur (h-full, pas d'aspect-ratio 16/10)
+  // pour occuper tout l'ecran mural au lieu d'un petit carre.
+  readonly fill = input(false);
+  // MODE SERVICE : affiche le nom du client sur chaque table occupee (lisibilite
+  // « poste d'accueil »). Vide hors mode service ou table libre.
+  readonly showNames = input(false);
 
   readonly tableClick = output<FloorTableView>();
 
   private konva: KonvaModule | null = null;
   private stage: Konva.Stage | null = null;
   private layer: Konva.Layer | null = null;
+  // Trame de points en fond (purement decorative, non interactive).
+  private dotsLayer: Konva.Layer | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private resizeRaf = 0;
+
+  // Noeuds persistants indexes par id de table + derniere vue connue (pour le clic).
+  private readonly nodes = new Map<string, TableNode>();
+  private viewsById = new Map<string, FloorTableView>();
 
   constructor() {
     const destroyRef = inject(DestroyRef);
 
     afterNextRender(async () => {
-      // Import dynamique : Konva n'entre pas dans le bundle initial.
-      const mod = await import('konva');
-      this.konva = mod.default;
-      const container = this.host().nativeElement;
-      this.stage = new this.konva.Stage({
-        container,
-        width: container.clientWidth || 1,
-        height: container.clientHeight || 1,
-      });
-      this.layer = new this.konva.Layer();
-      this.stage.add(this.layer);
+      try {
+        // Import dynamique : Konva n'entre pas dans le bundle initial.
+        const mod = await import('konva');
+        this.konva = mod.default;
+        const container = this.host().nativeElement;
+        this.stage = new this.konva.Stage({
+          container,
+          width: container.clientWidth || 1,
+          height: container.clientHeight || 1,
+        });
+        this.dotsLayer = new this.konva.Layer({ listening: false });
+        this.layer = new this.konva.Layer();
+        this.stage.add(this.dotsLayer);
+        this.stage.add(this.layer);
+        this.drawDots();
 
-      // Debounce via rAF : le ResizeObserver peut tirer en rafale pendant un
-      // redimensionnement de fenetre ; on ne resynchronise qu'une fois par frame.
-      this.resizeObserver = new ResizeObserver(() => {
-        cancelAnimationFrame(this.resizeRaf);
-        this.resizeRaf = requestAnimationFrame(() => this.syncSize());
-      });
-      this.resizeObserver.observe(container);
-      this.draw();
+        // Debounce via rAF : le ResizeObserver peut tirer en rafale pendant un
+        // redimensionnement de fenetre ; on ne resynchronise qu'une fois par frame.
+        this.resizeObserver = new ResizeObserver(() => {
+          cancelAnimationFrame(this.resizeRaf);
+          this.resizeRaf = requestAnimationFrame(() => this.syncSize());
+        });
+        this.resizeObserver.observe(container);
+        this.render();
+      } catch {
+        // Environnement sans <canvas> reel (jsdom en test) : le canvas Konva ne peut
+        // pas s'initialiser. On degrade sans casser (le host + ses classes restent).
+        this.konva = null;
+      }
     });
 
     // Redessine quand les inputs changent (lecture de signals = fonctionne sans zone).
     effect(() => {
-      // Dependances : tables + surlignage.
+      // Dependances : tables + surlignage + meilleur fit.
       this.tables();
       this.highlightFree();
-      this.draw();
+      this.bestTableId();
+      this.requiredSeats();
+      this.showNames();
+      this.fill();
+      this.render();
     });
 
     destroyRef.onDestroy(() => {
       cancelAnimationFrame(this.resizeRaf);
       this.resizeObserver?.disconnect();
+      this.stopPulse();
       this.stage?.destroy();
     });
   }
@@ -138,119 +236,373 @@ export class HkFloorPlanCanvas {
       width: container.clientWidth || 1,
       height: container.clientHeight || 1,
     });
-    this.draw();
+    // Resize = layout seul (le contenu n'a pas change), bien plus leger.
+    this.drawDots();
+    this.layout();
+    // draw() synchrone (scene + hit) : batchDraw laissait le hit-canvas jamais
+    // peint a l'initialisation (Konva 10) -> tables non cliquables tant qu'une
+    // mutation (ex. refresh du polling) ne declenchait pas d'autoDraw.
+    this.layer?.draw();
   }
 
-  private draw(): void {
+  // Trame de points discrete en fond (repere spatial, aspect « outil de plan »).
+  private drawDots(): void {
     const k = this.konva;
-    if (!k || !this.stage || !this.layer) {
+    const layer = this.dotsLayer;
+    const stage = this.stage;
+    if (!k || !layer || !stage) {
       return;
     }
-    this.layer.destroyChildren();
+    layer.destroyChildren();
+    const color = this.readVar('--border-strong', '#d6d6d2');
+    const step = 26;
+    for (let x = step; x < stage.width(); x += step) {
+      for (let y = step; y < stage.height(); y += step) {
+        layer.add(new k.Circle({ x, y, radius: 1, fill: color, opacity: 0.45 }));
+      }
+    }
+    layer.batchDraw();
+  }
 
-    const width = this.stage.width();
-    const height = this.stage.height();
+  // Pipeline complet : reconcilie les noeuds (contenu) puis les positionne (layout).
+  private render(): void {
+    if (!this.konva || !this.stage || !this.layer) {
+      return;
+    }
+    this.syncNodes();
+    this.layout();
+    // Voir syncSize() : draw() synchrone pour garantir le hit-canvas.
+    this.layer.draw();
+  }
+
+  // Reconcilie la Map de noeuds avec la liste de tables : cree les manquants,
+  // met a jour le contenu (couleurs/texte/surlignage), supprime les disparus.
+  private syncNodes(): void {
+    const k = this.konva;
+    const layer = this.layer;
+    if (!k || !layer) {
+      return;
+    }
     const tables = this.tables();
     const highlight = this.highlightFree();
+    const bestId = this.bestTableId();
+    const required = this.requiredSeats();
     const font = this.hostFontFamily();
 
-    // Taille des tables : fraction du petit cote, bornee pour rester lisible/tactile.
-    const base = Math.min(width, height);
-    const size = Math.max(44, Math.min(96, base * 0.16));
+    this.viewsById = new Map(tables.map((v) => [v.table.id, v]));
+    const seen = new Set<string>();
 
     for (const view of tables) {
-      const colors = this.colorsFor(view.status);
-      const cx = view.x * width;
-      const cy = view.y * height;
-      const isRound = view.table.capacity <= 2;
+      seen.add(view.table.id);
+      // Forme issue du plan edite (bridge LOT A) : rond = Circle, le reste = Rect.
+      const isRound = view.shape === 'round';
+      let node = this.nodes.get(view.table.id);
 
-      const group = new k.Group({
-        x: cx,
-        y: cy,
-        listening: true,
-      });
-
-      const showHint = highlight && view.status === 'libre';
-      const stroke = showHint ? this.accentColor() : colors.stroke;
-      const strokeWidth = showHint ? 3 : 1.5;
-      const dash = showHint ? [6, 4] : undefined;
-
-      if (isRound) {
-        group.add(
-          new k.Circle({
-            radius: size / 2,
-            fill: colors.fill,
-            stroke,
-            strokeWidth,
-            dash,
-          }),
-        );
-      } else {
-        group.add(
-          new k.Rect({
-            width: size,
-            height: size,
-            offsetX: size / 2,
-            offsetY: size / 2,
-            cornerRadius: 10,
-            fill: colors.fill,
-            stroke,
-            strokeWidth,
-            dash,
-          }),
-        );
+      // Recree le noeud si absent OU si la forme a change (rond <-> rect).
+      if (!node || node.isRound !== isRound) {
+        node?.group.destroy();
+        node = this.createNode(view, isRound, font);
+        this.nodes.set(view.table.id, node);
+        layer.add(node.group);
       }
 
-      // Nom de la table.
-      group.add(
-        new k.Text({
-          text: view.table.name,
-          fontSize: 14,
-          fontStyle: 'bold',
-          fontFamily: font,
-          fill: colors.text,
-          width: size,
-          align: 'center',
-          offsetX: size / 2,
-          offsetY: 12,
-        }),
-      );
-      // Capacite (couverts).
-      group.add(
-        new k.Text({
-          text: `${view.table.capacity} couv.`,
-          fontSize: 11,
-          fontFamily: font,
-          fill: colors.text,
-          width: size,
-          align: 'center',
-          offsetX: size / 2,
-          offsetY: -2,
-        }),
-      );
-
-      group.on('click tap', () => this.tableClick.emit(view));
-      group.on('mouseenter', () => {
-        const stage = this.stage;
-        if (stage) {
-          stage.container().style.cursor = 'pointer';
-        }
-        group.opacity(0.88);
-        this.layer?.batchDraw();
-      });
-      group.on('mouseleave', () => {
-        const stage = this.stage;
-        if (stage) {
-          stage.container().style.cursor = 'default';
-        }
-        group.opacity(1);
-        this.layer?.batchDraw();
-      });
-
-      this.layer.add(group);
+      this.updateNodeContent(node, view, highlight, bestId, required);
     }
 
-    this.layer.draw();
+    // Supprime les noeuds dont la table n'existe plus.
+    for (const [id, node] of this.nodes) {
+      if (!seen.has(id)) {
+        node.group.destroy();
+        this.nodes.delete(id);
+      }
+    }
+  }
+
+  // Cree un noeud Konva (sieges + forme ombree + textes + pastille d'heure)
+  // et branche ses interactions.
+  private createNode(view: FloorTableView, isRound: boolean, font: string): TableNode {
+    const k = this.konva!;
+    const group = new k.Group({ listening: true });
+
+    // Sieges DERRIERE la forme (les chaises depassent du plateau).
+    const seats = new k.Group({ listening: false });
+
+    const shape: Konva.Shape = isRound
+      ? new k.Circle({ radius: 1 })
+      : new k.Rect({ cornerRadius: 12 });
+    applyTableShadow(shape);
+
+    const name = new k.Text({
+      text: view.table.name,
+      fontSize: 15,
+      fontStyle: 'bold',
+      fontFamily: font,
+      align: 'center',
+      listening: false,
+    });
+    const capacity = new k.Text({
+      text: `${view.table.capacity} couv.`,
+      fontSize: 10.5,
+      fontFamily: font,
+      align: 'center',
+      listening: false,
+    });
+    const customer = new k.Text({
+      text: '',
+      fontSize: 11,
+      fontStyle: 'bold',
+      fontFamily: font,
+      align: 'center',
+      listening: false,
+      visible: false,
+    });
+    const nextTime = new k.Text({
+      text: '',
+      fontSize: 10,
+      fontFamily: font,
+      align: 'center',
+      listening: false,
+      visible: false,
+    });
+    // Pastille d'heure : posee a cheval sur le bord bas de la table (badge).
+    const timeTag = new k.Label({ listening: false, visible: false });
+    timeTag.add(new k.Tag({ cornerRadius: 9 }));
+    timeTag.add(
+      new k.Text({
+        text: '',
+        fontSize: 10,
+        fontStyle: 'bold',
+        fontFamily: font,
+        fill: '#ffffff',
+        padding: 4,
+      }),
+    );
+
+    group.add(seats);
+    group.add(shape);
+    group.add(name);
+    group.add(capacity);
+    group.add(customer);
+    group.add(nextTime);
+    group.add(timeTag);
+
+    const id = view.table.id;
+    group.on('click tap', () => {
+      const current = this.viewsById.get(id);
+      if (current) {
+        this.tableClick.emit(current);
+      }
+    });
+    group.on('mouseenter', () => {
+      const stage = this.stage;
+      if (stage) {
+        stage.container().style.cursor = 'pointer';
+      }
+      hoverTableShadow(shape, true);
+      this.layer?.batchDraw();
+    });
+    group.on('mouseleave', () => {
+      const stage = this.stage;
+      if (stage) {
+        stage.container().style.cursor = 'default';
+      }
+      hoverTableShadow(shape, false);
+      this.layer?.batchDraw();
+    });
+
+    return { group, shape, seats, name, capacity, customer, timeTag, nextTime, isRound };
+  }
+
+  // Met a jour le CONTENU d'un noeud (couleurs, texte, surlignage). Pas de geometrie
+  // ici : la taille/position pixel est calculee dans layout() (depend du conteneur).
+  // Surlignage a 3 niveaux pendant l'affectation (LOT B2) :
+  //  - table recommandee (bestId)      : trait PLEIN epais accent ;
+  //  - libre de capacite suffisante    : trait pointille accent (comme avant) ;
+  //  - libre trop petite               : AUCUN surlignage (mais reste cliquable, B1).
+  private updateNodeContent(
+    node: TableNode,
+    view: FloorTableView,
+    highlight: boolean,
+    bestId: string | null,
+    required: number | null,
+  ): void {
+    const colors = this.colorsFor(view.status);
+    const fits = required == null || view.table.capacity >= required;
+    const showHint = highlight && view.status === 'libre' && fits;
+    const isBest = showHint && view.table.id === bestId;
+    const stroke = showHint ? this.accentColor() : colors.stroke;
+    const strokeWidth = isBest ? 4 : showHint ? 3 : view.status === 'libre' ? 1.5 : 2;
+    const dash = showHint && !isBest ? [6, 4] : [];
+
+    node.shape.fill(colors.fill);
+    node.shape.stroke(stroke);
+    node.shape.strokeWidth(strokeWidth);
+    node.shape.dash(dash);
+
+    // Sieges : autant que de couverts, colores selon le statut.
+    const k = this.konva!;
+    syncSeatCount(k, node.seats, view.table.capacity);
+    styleSeats(node.seats, view.status === 'libre' ? colors.stroke : colors.stroke, 0.55);
+
+    // Nom toujours sombre (lisibilite) ; capacite en couleur de statut discrete.
+    node.name.text(view.table.name);
+    node.name.fill(this.readVar(NAME_VAR, NAME_FALLBACK));
+    node.capacity.text(`${view.table.capacity} couv.`);
+    node.capacity.fill(colors.text);
+
+    // MODE SERVICE : nom du client sous le nom de table (tables occupees seulement).
+    // Hors mode service ou table libre -> texte vide/masque (rendu normal preserve).
+    const customerName =
+      this.showNames() && view.status !== 'libre' && view.reservation
+        ? truncateName(view.reservation.customerName)
+        : '';
+    node.customer.text(customerName);
+    node.customer.fill(this.readVar(CUSTOMER_VAR, CUSTOMER_FALLBACK));
+    node.customer.visible(!!customerName);
+
+    // Pastille d'heure (LOT B5) : masquee pour une table libre.
+    // ALERTE RETARD : reservee depassee de +15 min sans installation -> la pastille
+    // passe en couleur DANGER (le label porte deja « 20:00 · +25 min »).
+    const label = tableTimeLabel(view);
+    const isLate = view.status === 'reservee' && view.lateMinutes !== null;
+    const tagText = node.timeTag.getText() as Konva.Text;
+    const tag = node.timeTag.getTag() as Konva.Tag;
+    tagText.text(label);
+    tag.fill(isLate ? this.readVar(DANGER_VAR, DANGER_FALLBACK) : colors.stroke);
+    node.timeTag.visible(!!label);
+
+    // Table LIBRE reservee plus tard : « → 21:00 » discret sous « N couv. ».
+    const next = view.status === 'libre' && view.nextTime ? `→ ${view.nextTime}` : '';
+    node.nextTime.text(next);
+    node.nextTime.fill(this.readVar(MUTED_VAR, MUTED_FALLBACK));
+    node.nextTime.visible(!!next);
+  }
+
+  // Positionne et dimensionne tous les noeuds en pixels (depuis coords 0..1).
+  // Appele au render ET au resize (le contenu ne change pas, seule la geometrie).
+  // ECHELLE UNIQUE (fix D2) : w/h sont des fractions du PETIT COTE du conteneur,
+  // comme dans l'editeur -> le plan edite s'affiche a l'identique en vue service
+  // (taille, forme ET rotation).
+  private layout(): void {
+    if (!this.stage) {
+      return;
+    }
+    const width = this.stage.width();
+    const height = this.stage.height();
+    // Ecran mural : textes legerement grossis pour rester lisibles de loin.
+    const bump = width > BIG_CONTAINER_PX ? BIG_FONT_BUMP : 0;
+
+    for (const view of this.tables()) {
+      const node = this.nodes.get(view.table.id);
+      if (!node) {
+        continue;
+      }
+      const { w: wPx, h: hPx } = tableSizePx(view.w, view.h, width, height);
+      node.group.position({ x: view.x * width, y: view.y * height });
+      node.group.rotation(view.rotation);
+
+      if (node.isRound) {
+        (node.shape as Konva.Circle).radius(wPx / 2);
+      } else {
+        const rect = node.shape as Konva.Rect;
+        rect.size({ width: wPx, height: hPx });
+        rect.offset({ x: wPx / 2, y: hPx / 2 });
+      }
+
+      // Sieges autour de la forme (rond = hPx sans objet, on passe wPx).
+      layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx);
+
+      node.name.fontSize(15 + bump);
+      node.name.width(wPx);
+      node.name.offset({ x: wPx / 2, y: 13 + bump });
+      node.capacity.fontSize(10.5 + bump);
+      node.capacity.width(wPx);
+      node.capacity.offset({ x: wPx / 2, y: -3 });
+      // Nom du client (mode service) et « → 21:00 » (table libre) partagent la meme
+      // ligne sous la capacite : ils ne coexistent jamais (occupee vs libre).
+      node.customer.fontSize(11 + bump);
+      node.customer.width(wPx);
+      node.customer.offset({ x: wPx / 2, y: -16 });
+      // « → 21:00 » juste sous la ligne de capacite.
+      node.nextTime.fontSize(10 + bump);
+      node.nextTime.width(wPx);
+      node.nextTime.offset({ x: wPx / 2, y: -16 });
+
+      // Pastille d'heure a cheval sur le bord bas (style badge).
+      const edgeY = (node.isRound ? wPx : hPx) / 2;
+      node.timeTag.position({
+        x: -node.timeTag.width() / 2,
+        y: edgeY - node.timeTag.height() / 2,
+      });
+    }
+  }
+
+  // --- Export PNG (LOT B4) -----------------------------------------------------
+
+  // Capture du plan en PNG (pixelRatio 2 = net sur ecrans retina / impression).
+  // null tant que le stage Konva n'est pas monte (import dynamique en cours).
+  exportPng(): string | null {
+    return this.stage?.toDataURL({ pixelRatio: 2 }) ?? null;
+  }
+
+  // --- Pulse (LOT B3) ------------------------------------------------------------
+
+  // Animation en cours (une seule a la fois ; nettoyee au destroy et entre 2 pulses).
+  private pulseTween: Konva.Tween | null = null;
+  private pulsedGroup: Konva.Group | null = null;
+
+  // Pulse DOUX d'une table (nouvelle reservation placee, detectee par le polling) :
+  // scale 1 -> 1.08 -> 1, deux cycles (~1 s au total), via Konva.Tween chaines.
+  pulseTable(id: string): void {
+    const k = this.konva;
+    const node = this.nodes.get(id);
+    if (!k || !node) {
+      return;
+    }
+    this.stopPulse();
+    const group = node.group;
+    this.pulsedGroup = group;
+    let cycle = 0;
+
+    const grow = (): void => {
+      this.pulseTween = new k.Tween({
+        node: group,
+        scaleX: 1.08,
+        scaleY: 1.08,
+        duration: 0.25,
+        easing: k.Easings.EaseInOut,
+        onFinish: shrink,
+      });
+      this.pulseTween.play();
+    };
+    const shrink = (): void => {
+      this.pulseTween = new k.Tween({
+        node: group,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 0.25,
+        easing: k.Easings.EaseInOut,
+        onFinish: () => {
+          cycle += 1;
+          if (cycle < 2) {
+            grow();
+          } else {
+            this.pulseTween = null;
+            this.pulsedGroup = null;
+          }
+        },
+      });
+      this.pulseTween.play();
+    };
+    grow();
+  }
+
+  // Interrompt proprement le pulse en cours et remet la table a l'echelle 1.
+  private stopPulse(): void {
+    this.pulseTween?.destroy();
+    this.pulseTween = null;
+    this.pulsedGroup?.scale({ x: 1, y: 1 });
+    this.pulsedGroup = null;
   }
 
   private colorsFor(status: FloorTableStatus): StatusColors {

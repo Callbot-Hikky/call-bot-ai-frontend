@@ -17,9 +17,11 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkFloorPlanLegend {
+  // Semantique alignee sur les badges de la vue Liste :
+  // Reservee = vert (st-confirmed), Installee = bleu (st-seated).
   protected readonly items = [
-    { label: 'Libre', classes: 'bg-st-completed-bg border-border-strong' },
-    { label: 'Réservée', classes: 'bg-st-pending-bg border-st-pending-fg' },
-    { label: 'Installée', classes: 'bg-st-confirmed-bg border-st-confirmed-fg' },
+    { label: 'Libre', classes: 'bg-surface border-border-strong' },
+    { label: 'Réservée', classes: 'bg-st-confirmed-bg border-st-confirmed-fg' },
+    { label: 'Installée', classes: 'bg-st-seated-bg border-st-seated-fg' },
   ];
 }
