@@ -16,6 +16,7 @@ import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
   applyTableShadow,
   hoverTableShadow,
+  layoutPlates,
   layoutSeats,
   styleSeats,
   syncSeatCount,
@@ -108,6 +109,8 @@ interface TableNode {
   // Prochaine reservation d'une table LIBRE (« → 21:00 ») : texte discret sous
   // la capacite (info de decision de l'hote).
   nextTime: Konva.Text;
+  // Assiettes posees sur le plateau d'une table INSTALLEE (salle vivante).
+  plates: Konva.Group;
   isRound: boolean;
 }
 
@@ -128,7 +131,8 @@ interface TableNode {
       #host
       role="img"
       aria-label="Plan de salle (vue visuelle ; utilisez la vue Liste pour le detail accessible)"
-      class="bg-surface border-border relative w-full overflow-hidden rounded-lg border"
+      class="border-border relative w-full overflow-hidden rounded-lg border"
+      style="background: #faf7f1"
       [class.h-full]="fill()"
       [style.aspect-ratio]="fill() ? null : '16 / 10'"
       [style.min-height.px]="fill() ? 0 : 320"
@@ -169,6 +173,11 @@ export class HkFloorPlanCanvas {
   private dotsLayer: Konva.Layer | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private resizeRaf = 0;
+
+  // Pastilles d'heure EN RETARD : elles pulsent (opacite) via une seule
+  // Konva.Animation partagee, demarree/arretee selon la presence de retards.
+  private lateTags: Konva.Label[] = [];
+  private lateAnim: Konva.Animation | null = null;
 
   // Noeuds persistants indexes par id de table + derniere vue connue (pour le clic).
   private readonly nodes = new Map<string, TableNode>();
@@ -227,6 +236,7 @@ export class HkFloorPlanCanvas {
       cancelAnimationFrame(this.resizeRaf);
       this.resizeObserver?.disconnect();
       this.stopPulse();
+      this.lateAnim?.stop();
       this.stage?.destroy();
     });
   }
@@ -310,6 +320,7 @@ export class HkFloorPlanCanvas {
 
     this.viewsById = new Map(tables.map((v) => [v.table.id, v]));
     const seen = new Set<string>();
+    const lateTags: Konva.Label[] = [];
 
     for (const view of tables) {
       seen.add(view.table.id);
@@ -326,6 +337,9 @@ export class HkFloorPlanCanvas {
       }
 
       this.updateNodeContent(node, view, highlight, bestId, required);
+      if (view.status === 'reservee' && view.lateMinutes !== null) {
+        lateTags.push(node.timeTag);
+      }
     }
 
     // Supprime les noeuds dont la table n'existe plus.
@@ -335,6 +349,33 @@ export class HkFloorPlanCanvas {
         this.nodes.delete(id);
       }
     }
+
+    this.lateTags = lateTags;
+    this.syncLateAnim();
+  }
+
+  // Demarre/arrete l'animation de pulse des pastilles EN RETARD (une seule
+  // Konva.Animation pour toutes : opacite sinusoidale douce, signal d'urgence).
+  private syncLateAnim(): void {
+    const k = this.konva;
+    if (!k || !this.layer) {
+      return;
+    }
+    if (this.lateTags.length === 0) {
+      this.lateAnim?.stop();
+      this.lateAnim = null;
+      return;
+    }
+    if (this.lateAnim) {
+      return; // deja en route, elle lit this.lateTags a chaque frame.
+    }
+    this.lateAnim = new k.Animation((frame) => {
+      const opacity = 0.62 + 0.38 * (0.5 + 0.5 * Math.sin((frame?.time ?? 0) / 180));
+      for (const tag of this.lateTags) {
+        tag.opacity(opacity);
+      }
+    }, this.layer);
+    this.lateAnim.start();
   }
 
   // Cree un noeud Konva (sieges + forme ombree + textes + pastille d'heure)
@@ -345,6 +386,8 @@ export class HkFloorPlanCanvas {
 
     // Sieges DERRIERE la forme (les chaises depassent du plateau).
     const seats = new k.Group({ listening: false });
+    // Assiettes AU-DESSUS du plateau (visibles seulement si la table est installee).
+    const plates = new k.Group({ listening: false, visible: false });
 
     const shape: Konva.Shape = isRound
       ? new k.Circle({ radius: 1 })
@@ -399,6 +442,7 @@ export class HkFloorPlanCanvas {
 
     group.add(seats);
     group.add(shape);
+    group.add(plates);
     group.add(name);
     group.add(capacity);
     group.add(customer);
@@ -429,7 +473,7 @@ export class HkFloorPlanCanvas {
       this.layer?.batchDraw();
     });
 
-    return { group, shape, seats, name, capacity, customer, timeTag, nextTime, isRound };
+    return { group, shape, seats, plates, name, capacity, customer, timeTag, nextTime, isRound };
   }
 
   // Met a jour le CONTENU d'un noeud (couleurs, texte, surlignage). Pas de geometrie
@@ -463,6 +507,9 @@ export class HkFloorPlanCanvas {
     syncSeatCount(k, node.seats, view.table.capacity);
     styleSeats(node.seats, view.status === 'libre' ? colors.stroke : colors.stroke, 0.55);
 
+    // Assiettes uniquement quand des clients sont A TABLE (positions au layout).
+    node.plates.visible(view.status === 'installee');
+
     // Nom toujours sombre (lisibilite) ; capacite en couleur de statut discrete.
     node.name.text(view.table.name);
     node.name.fill(this.readVar(NAME_VAR, NAME_FALLBACK));
@@ -489,6 +536,11 @@ export class HkFloorPlanCanvas {
     tagText.text(label);
     tag.fill(isLate ? this.readVar(DANGER_VAR, DANGER_FALLBACK) : colors.stroke);
     node.timeTag.visible(!!label);
+    // Une pastille qui n'est plus en retard reprend son opacite pleine (le pulse
+    // n'anime que les pastilles listees dans lateTags).
+    if (!isLate) {
+      node.timeTag.opacity(1);
+    }
 
     // Table LIBRE reservee plus tard : « → 21:00 » discret sous « N couv. ».
     const next = view.status === 'libre' && view.nextTime ? `→ ${view.nextTime}` : '';
@@ -530,6 +582,10 @@ export class HkFloorPlanCanvas {
 
       // Sieges autour de la forme (rond = hPx sans objet, on passe wPx).
       layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx);
+      // Assiettes devant chaque chaise (table installee uniquement).
+      if (node.plates.visible() && this.konva) {
+        layoutPlates(this.konva, node.plates, node.seats);
+      }
 
       node.name.fontSize(15 + bump);
       node.name.width(wPx);

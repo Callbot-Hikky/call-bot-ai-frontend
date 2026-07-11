@@ -34,26 +34,35 @@ export function hoverTableShadow(shape: Konva.Shape, hovered: boolean): void {
   shape.shadowBlur(hovered ? 14 : 10);
 }
 
-// Ajuste le NOMBRE de cercles-sieges du groupe (persistant, pas de recreation
-// quand le nombre ne change pas). Les positions sont posees par layoutSeats().
+// Sieges du groupe : liste des CHAISES (rectangles arrondis nommes 'seat').
+function seatShapes(seats: Konva.Group): Konva.Rect[] {
+  return seats.getChildren().filter((c): c is Konva.Rect => c.name() === 'seat');
+}
+
+// Ajuste le NOMBRE de chaises du groupe (persistant, pas de recreation quand le
+// nombre ne change pas). Les positions sont posees par layoutSeats().
+// Une chaise = petit rectangle arrondi ORIENTE vers la table (meme langage
+// visuel que la vue 3D), bien plus « vrai plan de salle » qu'un point.
 export function syncSeatCount(k: KonvaModule, seats: Konva.Group, capacity: number): void {
   const wanted = Math.max(0, Math.min(capacity, MAX_SEATS));
-  const circles = seats.getChildren().filter((c) => c.getClassName() === 'Circle');
-  for (let i = circles.length; i < wanted; i++) {
-    seats.add(new k.Circle({ radius: 3.5, listening: false }));
+  for (let i = seatShapes(seats).length; i < wanted; i++) {
+    seats.add(new k.Rect({ name: 'seat', listening: false }));
   }
-  let extra = seats.getChildren().filter((c) => c.getClassName() === 'Circle').length - wanted;
+  let extra = seatShapes(seats).length - wanted;
   while (extra > 0) {
-    const all = seats.getChildren().filter((c) => c.getClassName() === 'Circle');
+    const all = seatShapes(seats);
     all[all.length - 1].destroy();
     extra--;
   }
-  // Rayon adapte au nombre (beaucoup de sieges = plus petits).
+  // Taille adaptee au nombre (beaucoup de chaises = plus petites). La chaise est
+  // plus LARGE (parallele au bord de table) que profonde.
   const r = seatRadius(wanted);
-  for (const seat of seats.getChildren()) {
-    if (seat.getClassName() === 'Circle') {
-      (seat as Konva.Circle).radius(r);
-    }
+  for (const seat of seatShapes(seats)) {
+    const w = r * 2.6;
+    const h = r * 1.8;
+    seat.size({ width: w, height: h });
+    seat.offset({ x: w / 2, y: h / 2 });
+    seat.cornerRadius(r * 0.9);
   }
 
   // Marqueur de SATURATION : capacite au-dela du nombre de sieges dessines
@@ -90,11 +99,12 @@ export function styleSeats(seats: Konva.Group, fill: string, opacity = 0.55): vo
   }
 }
 
-// Positionne les sieges autour de la forme (origine du groupe = CENTRE de la table).
-//  - ronde : repartis sur le cercle, en commencant en haut ;
-//  - rect  : repartis sur les bords haut et bas (comme de vraies chaises).
+// Positionne et ORIENTE les chaises autour de la forme (origine du groupe =
+// CENTRE de la table).
+//  - ronde : reparties sur le cercle, chaque chaise tangente (face a la table) ;
+//  - rect  : bords haut/bas (+ bouts de table pour les grandes tablees).
 export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, hPx: number): void {
-  const children = seats.getChildren().filter((c) => c.getClassName() === 'Circle');
+  const children = seats.getChildren().filter((c) => c.name() === 'seat');
   const n = children.length;
 
   // Badge « + » de saturation : juste a l'exterieur du coin haut-droit (le groupe
@@ -118,6 +128,8 @@ export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, h
     for (let i = 0; i < n; i++) {
       const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
       children[i].position({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+      // Chaise tangente au cercle : elle « regarde » le centre de la table.
+      children[i].rotation((angle * 180) / Math.PI + 90);
     }
     return;
   }
@@ -129,17 +141,50 @@ export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, h
   const top = Math.ceil(remaining / 2);
   const bottom = remaining - top;
   const spreadOn = (count: number, y: number, offset: number): void => {
-    // Sieges repartis sur ~85 % de la largeur, centres.
+    // Chaises reparties sur ~85 % de la largeur, centrees, face a la table.
     const span = wPx * 0.85;
     for (let i = 0; i < count; i++) {
       const x = count === 1 ? 0 : -span / 2 + (i * span) / (count - 1);
       children[offset + i].position({ x, y });
+      children[offset + i].rotation(0);
     }
   };
   spreadOn(top, -hPx / 2 - SEAT_GAP, 0);
   spreadOn(bottom, hPx / 2 + SEAT_GAP, top);
   if (ends === 2) {
     children[n - 2].position({ x: -wPx / 2 - SEAT_GAP, y: 0 });
+    children[n - 2].rotation(90);
     children[n - 1].position({ x: wPx / 2 + SEAT_GAP, y: 0 });
+    children[n - 1].rotation(90);
+  }
+}
+
+// ASSIETTES d'une table INSTALLEE : un petit couvert blanc devant chaque chaise,
+// pose sur le plateau (la salle « vit », meme signal que la vue 3D). Recree a
+// chaque layout : quelques cercles, negligeable.
+export function layoutPlates(k: KonvaModule, plates: Konva.Group, seats: Konva.Group): void {
+  plates.destroyChildren();
+  for (const seat of seats.getChildren()) {
+    if (seat.name() !== 'seat') {
+      continue;
+    }
+    const pos = seat.position();
+    const len = Math.hypot(pos.x, pos.y);
+    if (len < 1) {
+      continue;
+    }
+    // Assiette tiree vers le centre : depuis la chaise, on rentre dans le plateau.
+    const d = Math.max(4, len - SEAT_GAP - 10);
+    plates.add(
+      new k.Circle({
+        x: (pos.x * d) / len,
+        y: (pos.y * d) / len,
+        radius: 3.4,
+        fill: '#ffffff',
+        stroke: '#d9d5cc',
+        strokeWidth: 1,
+        listening: false,
+      }),
+    );
   }
 }
