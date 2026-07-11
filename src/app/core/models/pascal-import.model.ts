@@ -153,7 +153,9 @@ function itemFootprint(node: PascalNode): RawItem | null {
   const scale = isVec3(node.scale) ? node.scale : [1, 1, 1];
   const wM = Math.abs(dims[0] * scale[0]);
   const dM = Math.abs(dims[2] * scale[2]);
-  if (wM < MIN_TABLE_M || dM < MIN_TABLE_M) {
+  // Filtre les tailles trop petites ET les valeurs non finies (un produit de
+  // nombres JSON valides mais enormes peut deborder en Infinity).
+  if (!Number.isFinite(wM) || !Number.isFinite(dM) || wM < MIN_TABLE_M || dM < MIN_TABLE_M) {
     return null;
   }
   // Yaw (rotation[1], radians, sens trigo Three.js) -> degres Konva (sens
@@ -242,7 +244,9 @@ export function parsePascalScene(json: string): PascalImportResult {
     return failure('Aucun meuble ni mur exploitable dans cette scène.');
   }
 
-  // Cadre de la scene (metres) : murs si presents (la vraie piece), sinon les items.
+  // Cadre de la scene (metres) : murs ET items — un meuble pose HORS de
+  // l'emprise des murs (scan imparfait) doit rester visible sur le canvas,
+  // jamais projete hors [0,1].
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
@@ -253,16 +257,13 @@ export function parsePascalScene(json: string): PascalImportResult {
     minZ = Math.min(minZ, z);
     maxZ = Math.max(maxZ, z);
   };
-  if (rawWalls.length > 0) {
-    for (const w of rawWalls) {
-      extend(w.start![0], w.start![1]);
-      extend(w.end![0], w.end![1]);
-    }
-  } else {
-    for (const i of items) {
-      extend(i.cx - i.wM / 2, i.cz - i.dM / 2);
-      extend(i.cx + i.wM / 2, i.cz + i.dM / 2);
-    }
+  for (const w of rawWalls) {
+    extend(w.start![0], w.start![1]);
+    extend(w.end![0], w.end![1]);
+  }
+  for (const i of items) {
+    extend(i.cx - i.wM / 2, i.cz - i.dM / 2);
+    extend(i.cx + i.wM / 2, i.cz + i.dM / 2);
   }
   const sceneW = maxX - minX;
   const sceneD = maxZ - minZ;

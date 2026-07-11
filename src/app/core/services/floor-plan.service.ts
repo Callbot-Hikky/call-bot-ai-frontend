@@ -115,10 +115,24 @@ export class FloorPlanService {
         store.removeItem(this.key(restaurantId));
         return null;
       }
+      // Geometrie validee ENTREE PAR ENTREE (localStorage peut etre partiellement
+      // corrompu) : on ne garde que les entrees saines, comme pour les murs.
+      const geometry: GeometryMap = {};
+      for (const [id, entry] of Object.entries(parsed.geometry)) {
+        const e = entry as Partial<TableGeometryEntry> | null;
+        if (
+          e != null &&
+          typeof e === 'object' &&
+          [e.x, e.y, e.w, e.h, e.rotation].every((n) => typeof n === 'number') &&
+          typeof e.shape === 'string'
+        ) {
+          geometry[id] = e as TableGeometryEntry;
+        }
+      }
       return {
         version: FLOOR_PLAN_VERSION,
         restaurantId,
-        geometry: parsed.geometry as Record<string, TableGeometryEntry>,
+        geometry,
         // Murs optionnels (import Pascal) : on ne garde que des segments sains.
         walls: Array.isArray(parsed.walls)
           ? parsed.walls.filter(
@@ -134,10 +148,12 @@ export class FloorPlanService {
     }
   }
 
-  // Initialise un nouveau plan (depuis un template) et le persiste immediatement.
-  // Utilise par l'ecran de demarrage.
+  // Initialise un NOUVEAU plan (depuis un template) et le persiste immediatement.
+  // Utilise par l'ecran de demarrage. Les murs d'un eventuel plan precedent ne
+  // sont PAS herites (un template repart d'une salle nue ; l'import Pascal pose
+  // ses murs ensuite via setWalls).
   initFrom(geometry: GeometryMap): void {
-    this._plan.set(this.makePlan(this.clone(geometry)));
+    this._plan.set({ ...this.makePlan(this.clone(geometry)), walls: undefined });
     this.undoStack = [];
     this.redoStack = [];
     this.refreshHistoryFlags();

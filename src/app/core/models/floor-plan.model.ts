@@ -130,7 +130,10 @@ export function deriveTableStatus(
       reservation: current,
       nextTime: null,
       nextDateTime: null,
-      lateMinutes: elapsedMin > LATE_THRESHOLD_MIN ? Math.round(elapsedMin) : null,
+      // RETARD : concept TEMPS REEL uniquement. En projection (simulation), on
+      // suppose que le client arrivera a l'heure — signaler « +30 min » sur une
+      // resa future serait un mensonge visuel.
+      lateMinutes: !projected && elapsedMin > LATE_THRESHOLD_MIN ? Math.round(elapsedMin) : null,
     };
   }
 

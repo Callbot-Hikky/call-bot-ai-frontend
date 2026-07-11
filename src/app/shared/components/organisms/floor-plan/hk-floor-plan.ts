@@ -503,9 +503,14 @@ export class HkFloorPlan {
     Math.max(60, (this.simRange().end.getTime() - this.simRange().start.getTime()) / 60_000),
   );
   // Heure simulee (null hors simulation) : l'horloge de TOUTE la salle.
+  // `simMinutes` est re-borne ICI : si la plage retrecit pendant la simulation
+  // (resa annulee au polling), la projection reste dans la fenetre.
   protected readonly simNow = computed<Date | null>(() =>
     this.simulating()
-      ? new Date(this.simRange().start.getTime() + this.simMinutes() * 60_000)
+      ? new Date(
+          this.simRange().start.getTime() +
+            Math.min(this.simMinutes(), this.simTotalMinutes()) * 60_000,
+        )
       : null,
   );
   protected readonly simLabel = computed(() => {
@@ -529,8 +534,11 @@ export class HkFloorPlan {
     const offset = Math.round((Date.now() - start.getTime()) / 60_000);
     this.simMinutes.set(Math.max(0, Math.min(this.simTotalMinutes(), offset)));
     this.simulating.set(true);
-    // Les actions live n'ont pas de sens sur une salle projetee.
+    // Les actions live n'ont pas de sens sur une salle projetee : on ferme le
+    // walk-in ET l'affectation en cours (sinon le surlignage « meilleure table »
+    // continuerait de suggerer une action impossible).
     this.cancelWalkIn();
+    this.selectedUnplacedId.set(null);
   }
 
   protected stopSim(): void {

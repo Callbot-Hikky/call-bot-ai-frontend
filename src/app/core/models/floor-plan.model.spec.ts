@@ -365,6 +365,17 @@ describe('deriveTableStatus (mode projete / simulation)', () => {
     expect(after.status).toBe('libre');
   });
 
+  it('en PROJECTION, aucune alerte retard (concept temps reel uniquement)', () => {
+    const confirmed = [reservation('r1', 'confirmed', 't1', '2026-06-22T20:00:00+02:00')];
+    const at2030 = new Date('2026-06-22T20:30:00+02:00');
+    // En live : +30 min -> alerte retard.
+    expect(deriveTableStatus('t1', confirmed, at2030).lateMinutes).toBe(30);
+    // En projection : on suppose que le client arrivera -> pas de retard.
+    const projected = deriveTableStatus('t1', confirmed, at2030, true);
+    expect(projected.status).toBe('reservee');
+    expect(projected.lateMinutes).toBeNull();
+  });
+
   it('en PROJECTION, une seated liberee laisse la place a la resa suivante', () => {
     const withNext = [
       ...seatedAt20,

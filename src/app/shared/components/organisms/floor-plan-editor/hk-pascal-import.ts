@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  HostListener,
+  computed,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import {
@@ -193,6 +202,21 @@ export class HkPascalImport {
   // Import applique : l'editeur cree les tables + geometrie et pose les murs.
   readonly imported = output<PascalImportPayload>();
 
+  // Vrai apres la destruction : une lecture de fichier encore en vol ne doit
+  // plus toucher les signals du composant.
+  private destroyed = false;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
+  }
+
+  // Echap ferme le dialogue GLOBALEMENT (pas besoin que la carte ait le focus —
+  // un listener pose sur l'element ne tirerait qu'avec le focus dedans).
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    this.closed.emit();
+  }
+
   protected readonly Math = Math;
 
   protected readonly result = signal<PascalImportResult | null>(null);
@@ -287,7 +311,15 @@ export class HkPascalImport {
     }
     file
       .text()
-      .then((text) => this.loadText(text))
-      .catch(() => this.error.set('Impossible de lire le fichier.'));
+      .then((text) => {
+        if (!this.destroyed) {
+          this.loadText(text);
+        }
+      })
+      .catch(() => {
+        if (!this.destroyed) {
+          this.error.set('Impossible de lire le fichier.');
+        }
+      });
   }
 }

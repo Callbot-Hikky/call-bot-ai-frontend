@@ -259,6 +259,11 @@ export class HkFloorPlan3d {
       cancelAnimationFrame(this.rafId);
       this.resizeObserver?.disconnect();
       this.controls?.dispose();
+      // Libere la DERNIERE salle (geometries, materiaux, textures) : le dispose
+      // du renderer ne libere pas les buffers GPU des meshes encore attaches.
+      if (this.roomGroup) {
+        this.disposeGroup(this.roomGroup);
+      }
       this.renderer?.dispose();
     });
   }
@@ -412,16 +417,7 @@ export class HkFloorPlan3d {
     }
     if (this.roomGroup) {
       scene.remove(this.roomGroup);
-      this.roomGroup.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        mesh.geometry?.dispose?.();
-        const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
-        if (Array.isArray(material)) {
-          material.forEach((m) => m.dispose());
-        } else {
-          material?.dispose?.();
-        }
-      });
+      this.disposeGroup(this.roomGroup);
     }
     const group = new t.Group();
     this.roomGroup = group;
@@ -467,6 +463,21 @@ export class HkFloorPlan3d {
     }
 
     scene.add(group);
+  }
+
+  // Libere TOUTES les ressources GPU d'un groupe : geometries, materiaux ET
+  // textures (les etiquettes portent une CanvasTexture — `material.dispose()`
+  // seul ne la libere pas -> fuite GPU a chaque rebuild du polling sinon).
+  private disposeGroup(group: THREE.Group): void {
+    group.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      mesh.geometry?.dispose?.();
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      for (const m of Array.isArray(material) ? material : material ? [material] : []) {
+        (m as THREE.MeshLambertMaterial).map?.dispose?.();
+        m.dispose();
+      }
+    });
   }
 
   // Construit UNE table complete : plateau (nappe couleur statut ou bois),

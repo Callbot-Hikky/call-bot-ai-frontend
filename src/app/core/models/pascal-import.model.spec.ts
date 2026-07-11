@@ -125,6 +125,26 @@ describe('parsePascalScene', () => {
     expect(r.wallCount).toBe(4);
   });
 
+  it('un meuble HORS de l emprise des murs reste projete dans [0,1]', () => {
+    const scene = JSON.parse(makeScene()) as { nodes: Record<string, object> };
+    // Table posee a 3 m a l'exterieur du mur est (x = 15 > 12).
+    scene.nodes['item_out'] = {
+      object: 'node',
+      id: 'item_out',
+      type: 'item',
+      parentId: 'level_1',
+      position: [15, 0, 4],
+      rotation: [0, 0, 0],
+      scale: [1, 1, 1],
+      asset: { name: 'Dining Table', dimensions: [1.2, 0.75, 0.8] },
+      metadata: {},
+    };
+    const r = parsePascalScene(JSON.stringify(scene));
+    const out = r.candidates.find((c) => c.key === 'item_out')!;
+    expect(out.x).toBeGreaterThanOrEqual(0);
+    expect(out.x).toBeLessThanOrEqual(1);
+  });
+
   it('rejette un JSON invalide avec un message utilisateur', () => {
     const r = parsePascalScene('pas du json {');
     expect(r.ok).toBe(false);

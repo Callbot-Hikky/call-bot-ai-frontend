@@ -211,6 +211,27 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
       expect(service.walls()[0].x2).toBe(0.9);
     });
 
+    it('initFrom (template) ne herite PAS des murs du plan precedent', () => {
+      service.load(RESTAURANT);
+      service.initFrom({ 'uuid-a': entry() });
+      service.setWalls([wall]);
+      service.initFrom({ 'uuid-b': entry() });
+      expect(service.walls().length).toBe(0);
+    });
+
+    it('filtre les entrees de geometrie corrompues a la lecture', () => {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          version: 2,
+          restaurantId: RESTAURANT,
+          geometry: { 'uuid-a': entry(), 'uuid-bad': 'garbage', 'uuid-null': null },
+        }),
+      );
+      service.load(RESTAURANT);
+      expect(Object.keys(service.geometry())).toEqual(['uuid-a']);
+    });
+
     it('ignore les murs corrompus a la lecture', () => {
       localStorage.setItem(
         KEY,

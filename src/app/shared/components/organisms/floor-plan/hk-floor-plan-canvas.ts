@@ -640,6 +640,13 @@ export class HkFloorPlanCanvas {
     let cycle = 0;
 
     const grow = (): void => {
+      // Le noeud a pu etre detruit pendant l'animation (table supprimee par un
+      // refresh) : un groupe sans stage ne doit plus etre anime.
+      if (!group.getStage()) {
+        this.pulseTween = null;
+        this.pulsedGroup = null;
+        return;
+      }
       this.pulseTween = new k.Tween({
         node: group,
         scaleX: 1.08,
@@ -651,6 +658,11 @@ export class HkFloorPlanCanvas {
       this.pulseTween.play();
     };
     const shrink = (): void => {
+      if (!group.getStage()) {
+        this.pulseTween = null;
+        this.pulsedGroup = null;
+        return;
+      }
       this.pulseTween = new k.Tween({
         node: group,
         scaleX: 1,
