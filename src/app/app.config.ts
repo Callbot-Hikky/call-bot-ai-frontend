@@ -39,6 +39,15 @@ import {
   lucideUnlink,
   lucideList,
   lucideLayoutGrid,
+  lucidePencil,
+  lucideUndo2,
+  lucideRedo2,
+  lucideRows3,
+  lucideCopy,
+  lucideTrash2,
+  lucideAlignHorizontalJustifyCenter,
+  lucideDownload,
+  lucideMaximize,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -72,6 +81,15 @@ const ICONS = {
   lucideUnlink,
   lucideList,
   lucideLayoutGrid,
+  lucidePencil,
+  lucideUndo2,
+  lucideRedo2,
+  lucideRows3,
+  lucideCopy,
+  lucideTrash2,
+  lucideAlignHorizontalJustifyCenter,
+  lucideDownload,
+  lucideMaximize,
 };
 
 export const appConfig: ApplicationConfig = {
