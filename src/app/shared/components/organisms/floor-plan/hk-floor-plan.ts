@@ -103,6 +103,17 @@ const WALK_IN_GUARD_MIN = 90;
                 <hk-icon name="lucideBox" [size]="16" />
                 {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
               </hk-button>
+              @if (view3d()) {
+                <!-- Vitrine : orbite lente pour l'ecran d'accueil / mural. -->
+                <hk-button
+                  [variant]="vitrine() ? 'primary' : 'secondary'"
+                  size="sm"
+                  data-testid="toggle-vitrine"
+                  (click)="vitrine.set(!vitrine())"
+                >
+                  Vitrine
+                </hk-button>
+              }
               @if (!serviceMode()) {
                 <hk-button
                   [variant]="simulating() ? 'primary' : 'secondary'"
@@ -199,6 +210,7 @@ const WALK_IN_GUARD_MIN = 90;
             <hk-floor-plan-3d
               [views]="tableViews()"
               [walls]="walls()"
+              [orbit]="vitrine()"
               [fill]="serviceMode()"
               [class.block]="serviceMode()"
               [class.min-h-0]="serviceMode()"
@@ -390,6 +402,8 @@ export class HkFloorPlan {
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
   protected readonly view3d = signal(false);
+  // Mode VITRINE de la 3D : orbite lente automatique (ecran d'accueil/mural).
+  protected readonly vitrine = signal(false);
 
   // --- Configuration rapide (onboarding, aucune table) --------------------------
   // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
@@ -698,10 +712,11 @@ export class HkFloorPlan {
     this.selectedUnplacedId.set(null);
   }
 
-  // PULSE (LOT B3) : relaye vers le canvas la mise en avant d'une table qui vient
-  // de recevoir une nouvelle reservation (detectee par le polling de la page).
+  // PULSE (LOT B3) : relaye vers la vue AFFICHEE la mise en avant d'une table qui
+  // vient de recevoir une nouvelle reservation (detectee par le polling de la page).
   pulseTable(tableId: string): void {
     this.canvas()?.pulseTable(tableId);
+    this.canvas3d()?.pulseTable(tableId);
   }
 
   // EXPORT PNG (LOT B4) : capture le stage Konva et declenche le telechargement.

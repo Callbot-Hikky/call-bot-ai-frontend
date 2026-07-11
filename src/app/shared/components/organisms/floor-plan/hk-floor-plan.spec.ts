@@ -498,6 +498,17 @@ describe('HkFloorPlan', () => {
     expect(panel!.closest('aside')).toBeTruthy();
   });
 
+  it('le bouton Vitrine n apparait qu en vue 3D', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    await fixture.whenStable();
+    const el: HTMLElement = fixture.nativeElement;
+
+    expect(el.querySelector('[data-testid="toggle-vitrine"]')).toBeNull();
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-3d"]')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-testid="toggle-vitrine"]')).toBeTruthy();
+  });
+
   it('bascule entre la vue 2D et la vue 3D via le toggle', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     fixture.componentInstance.reservations = [reservation('r1', 'confirmed', 't1')];

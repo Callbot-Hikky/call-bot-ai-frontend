@@ -197,6 +197,9 @@ export class HkFloorPlan3d {
   readonly walls = input<WallSegment[]>([]);
   // MODE SERVICE : remplit le conteneur (h-full) au lieu du ratio 16/10.
   readonly fill = input(false);
+  // MODE VITRINE : orbite lente automatique (ecran d'accueil / mural). L'utilisateur
+  // garde la main : un drag interrompt le tour, qui reprend ensuite tout seul.
+  readonly orbit = input(false);
 
   // Clic sur une table : memes actions que la 2D (drawer / walk-in / affectation).
   readonly tableClick = output<FloorTableView>();
@@ -225,6 +228,10 @@ export class HkFloorPlan3d {
   // Interaction : plateaux cliquables + vue associee (par uuid de mesh).
   private tableMeshes: THREE.Mesh[] = [];
   private viewByUuid = new Map<string, FloorTableView>();
+  // Groupes de table par id back : cible du pulse « nouvelle reservation ».
+  private groupByTableId = new Map<string, THREE.Group>();
+  // Pulses en cours (scale sinusoidale ~1 s, geres dans la boucle rAF).
+  private pulses: { group: THREE.Group; startedAt: number }[] = [];
   private raycaster: THREE.Raycaster | null = null;
   private hovered: THREE.Mesh | null = null;
   private pointerDownAt: { x: number; y: number } | null = null;
@@ -253,6 +260,15 @@ export class HkFloorPlan3d {
       this.views();
       this.walls();
       this.buildRoom();
+    });
+
+    // Mode vitrine : suit l'input a chaud (OrbitControls reprend l'orbite tout
+    // seul apres une manipulation utilisateur — comportement voulu en vitrine).
+    effect(() => {
+      const orbit = this.orbit();
+      if (this.controls) {
+        this.controls.autoRotate = orbit;
+      }
     });
 
     destroyRef.onDestroy(() => {
@@ -295,6 +311,9 @@ export class HkFloorPlan3d {
     this.controls.maxPolarAngle = Math.PI / 2.15; // jamais sous le sol.
     this.controls.minDistance = 5;
     this.controls.maxDistance = 30;
+    // Mode vitrine : orbite lente (l'effect() suit les changements ulterieurs).
+    this.controls.autoRotate = this.orbit();
+    this.controls.autoRotateSpeed = 0.6;
     // Desactive pendant l'intro (la camera est pilotee par l'animation).
     this.controls.enabled = false;
     this.startCameraAnim(CAMERA_FROM, CAMERA_TO, CAMERA_INTRO_MS);
@@ -425,6 +444,8 @@ export class HkFloorPlan3d {
     this.tableMeshes = [];
     this.lateMeshes = [];
     this.viewByUuid.clear();
+    this.groupByTableId.clear();
+    this.pulses = [];
     this.hovered = null;
 
     // Sol chaleureux (recoit les ombres).
@@ -493,6 +514,8 @@ export class HkFloorPlan3d {
     g.position.set(x, 0, z);
     // Konva tourne en degres horaires ; Three en radians trigonometriques.
     g.rotation.y = (-v.rotation * Math.PI) / 180;
+    // Cible du pulse « nouvelle reservation » (voir pulseTable()).
+    this.groupByTableId.set(v.table.id, g);
 
     // Nappe : bois si libre (une table « nue »), couleur de statut sinon.
     const topColor =
@@ -627,6 +650,15 @@ export class HkFloorPlan3d {
     return sprite;
   }
 
+  // PULSE « nouvelle reservation » : la table grossit-degrossit deux fois (~1 s).
+  // Meme signal que le pulse 2D — en mode vitrine, on VOIT le bot travailler.
+  pulseTable(tableId: string): void {
+    const group = this.groupByTableId.get(tableId);
+    if (group) {
+      this.pulses.push({ group, startedAt: performance.now() });
+    }
+  }
+
   // EXPORT PNG de la maquette 3D. Le buffer WebGL n'est pas preserve entre les
   // frames : on RE-rend la scene juste avant la capture (sinon image noire).
   exportPng(): string | null {
@@ -660,6 +692,20 @@ export class HkFloorPlan3d {
             this.controls.enabled = true;
           }
         }
+      }
+
+      // Pulses « nouvelle reservation » : deux bosses de scale sur ~1 s, puis
+      // retour exact a 1. Les groupes detruits par un rebuild sont ecartes.
+      if (this.pulses.length > 0) {
+        this.pulses = this.pulses.filter((p) => {
+          const t = now - p.startedAt;
+          if (t >= 1000 || !p.group.parent) {
+            p.group.scale.setScalar(1);
+            return false;
+          }
+          p.group.scale.setScalar(1 + 0.09 * Math.abs(Math.sin((Math.PI * t) / 500)));
+          return true;
+        });
       }
 
       // Pulse d'urgence des nappes en retard (sinusoide douce, ~1,2 s).
