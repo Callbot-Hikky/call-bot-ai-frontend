@@ -68,7 +68,9 @@ const WALK_IN_GUARD_MIN = 90;
     } @else {
       <div class="grid gap-4 lg:grid-cols-[1fr_320px]" [class.h-full]="serviceMode()">
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
-          <div class="flex items-start justify-between gap-3">
+          <!-- min-h : la permutation aide-texte <-> bandeau d'affectation ne doit
+               pas faire « sauter » le plan en dessous (hauteurs differentes). -->
+          <div class="flex min-h-14 items-start justify-between gap-3">
             @if (selectedUnplaced(); as r) {
               <div
                 class="bg-st-pending-bg text-st-pending-fg flex flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm"
@@ -103,17 +105,6 @@ const WALK_IN_GUARD_MIN = 90;
                 <hk-icon name="lucideBox" [size]="16" />
                 {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
               </hk-button>
-              @if (view3d()) {
-                <!-- Vitrine : orbite lente pour l'ecran d'accueil / mural. -->
-                <hk-button
-                  [variant]="vitrine() ? 'primary' : 'secondary'"
-                  size="sm"
-                  data-testid="toggle-vitrine"
-                  (click)="vitrine.set(!vitrine())"
-                >
-                  Vitrine
-                </hk-button>
-              }
               @if (!serviceMode()) {
                 <hk-button
                   [variant]="simulating() ? 'primary' : 'secondary'"
@@ -205,75 +196,90 @@ const WALK_IN_GUARD_MIN = 90;
                 </div>
               </div>
             </div>
-          } @else if (view3d()) {
-            <!-- Vue 3D interactive (statuts live) : memes actions au clic que la 2D. -->
-            <hk-floor-plan-3d
-              [views]="tableViews()"
-              [walls]="walls()"
-              [orbit]="vitrine()"
-              [fill]="serviceMode()"
-              [class.block]="serviceMode()"
-              [class.min-h-0]="serviceMode()"
-              [class.flex-1]="serviceMode()"
-              (tableClick)="onTableClick($event)"
-            />
           } @else {
-            <hk-floor-plan-canvas
-              [tables]="tableViews()"
-              [walls]="walls()"
-              [highlightFree]="!!selectedUnplaced()"
-              [bestTableId]="bestTable()?.table?.id ?? null"
-              [requiredSeats]="selectedUnplaced()?.partySize ?? null"
-              [fill]="serviceMode()"
-              [showNames]="serviceMode()"
-              [class.block]="serviceMode()"
-              [class.min-h-0]="serviceMode()"
-              [class.flex-1]="serviceMode()"
-              (tableClick)="onTableClick($event)"
-            />
-          }
+            <!-- ZONE DU PLAN : conteneur RELATIF -> les controles contextuels
+                 (simulation, vitrine) FLOTTENT au-dessus du canvas. Apparaitre /
+                 disparaitre ne decale JAMAIS la mise en page (zero layout shift). -->
+            <div class="relative" [class.min-h-0]="serviceMode()" [class.flex-1]="serviceMode()">
+              @if (view3d()) {
+                <!-- Vue 3D interactive (statuts live) : memes actions qu'en 2D. -->
+                <hk-floor-plan-3d
+                  class="block"
+                  [views]="tableViews()"
+                  [walls]="walls()"
+                  [orbit]="vitrine()"
+                  [fill]="serviceMode()"
+                  [class.h-full]="serviceMode()"
+                  (tableClick)="onTableClick($event)"
+                />
+                <!-- Vitrine : controle contextuel POSE sur la 3D (coin haut droit). -->
+                <div class="absolute top-3 right-3 z-10">
+                  <hk-button
+                    [variant]="vitrine() ? 'primary' : 'secondary'"
+                    size="sm"
+                    data-testid="toggle-vitrine"
+                    (click)="vitrine.set(!vitrine())"
+                  >
+                    Vitrine
+                  </hk-button>
+                </div>
+              } @else {
+                <hk-floor-plan-canvas
+                  class="block"
+                  [tables]="tableViews()"
+                  [walls]="walls()"
+                  [highlightFree]="!!selectedUnplaced()"
+                  [bestTableId]="bestTable()?.table?.id ?? null"
+                  [requiredSeats]="selectedUnplaced()?.partySize ?? null"
+                  [fill]="serviceMode()"
+                  [showNames]="serviceMode()"
+                  [class.h-full]="serviceMode()"
+                  (tableClick)="onTableClick($event)"
+                />
+              }
 
-          <!-- BARRE DE SIMULATION : glisser l'heure -> toute la salle se projette.
-               Fond ambre appuye : on ne confond JAMAIS projection et direct. -->
-          @if (simulating()) {
-            <div
-              class="bg-st-pending-bg border-st-pending-fg/30 flex flex-col gap-2 rounded-md border px-4 py-3"
-              data-testid="sim-bar"
-            >
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="text-st-pending-fg text-xs font-semibold tracking-wide uppercase">
-                  Simulation · la salle telle qu'elle sera
-                </span>
-                <span class="ml-auto">
+              <!-- BARRE DE SIMULATION : scrubber FLOTTANT en bas du plan (comme
+                   une timeline video). Fond ambre + flou : on ne confond jamais
+                   projection et direct, et rien ne bouge en dessous. -->
+              @if (simulating()) {
+                <div
+                  class="bg-st-pending-bg/95 border-st-pending-fg/30 absolute right-3 bottom-3 left-3 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-4 py-2 shadow-lg backdrop-blur-sm"
+                  data-testid="sim-bar"
+                >
+                  <span
+                    class="text-st-pending-fg text-[11px] font-semibold tracking-wide uppercase"
+                  >
+                    Simulation
+                  </span>
+                  <span
+                    class="text-st-pending-fg font-mono text-xl font-bold tabular-nums"
+                    data-testid="sim-time"
+                  >
+                    {{ simLabel() }}
+                  </span>
+                  <input
+                    type="range"
+                    class="accent-st-pending-fg h-2 min-w-32 flex-1 cursor-pointer"
+                    min="0"
+                    [max]="simTotalMinutes()"
+                    step="15"
+                    [value]="simMinutes()"
+                    aria-label="Heure simulée"
+                    data-testid="sim-slider"
+                    (input)="onSimSlide($event)"
+                  />
+                  <span
+                    class="text-st-pending-fg text-sm whitespace-nowrap"
+                    data-testid="sim-summary"
+                  >
+                    <strong>{{ simFree().tables }} table(s) libre(s)</strong>
+                    · {{ simFree().couverts }} couv.
+                  </span>
                   <hk-button size="sm" variant="secondary" (click)="stopSim()">
                     Revenir au direct
                   </hk-button>
-                </span>
-              </div>
-              <div class="flex items-center gap-4">
-                <span
-                  class="text-st-pending-fg font-mono text-2xl font-bold tabular-nums"
-                  data-testid="sim-time"
-                >
-                  {{ simLabel() }}
-                </span>
-                <input
-                  type="range"
-                  class="accent-st-pending-fg h-2 flex-1 cursor-pointer"
-                  min="0"
-                  [max]="simTotalMinutes()"
-                  step="15"
-                  [value]="simMinutes()"
-                  aria-label="Heure simulée"
-                  data-testid="sim-slider"
-                  (input)="onSimSlide($event)"
-                />
-              </div>
-              <p class="text-st-pending-fg text-sm" data-testid="sim-summary">
-                À {{ simLabel() }} :
-                <strong>{{ simFree().tables }} table(s) libre(s)</strong>
-                · {{ simFree().couverts }} couverts disponibles
-              </p>
+                </div>
+              }
             </div>
           }
 
