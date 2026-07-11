@@ -178,4 +178,51 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
     expect(raw.version).toBe(2);
     expect(raw.geometry['uuid-a']).toBeTruthy();
   });
+
+  describe('murs decoratifs (import Pascal)', () => {
+    const wall = { x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.1, thickness: 0.02 };
+
+    it('setWalls pose les murs et cree le plan si besoin', () => {
+      service.load(RESTAURANT);
+      expect(service.walls().length).toBe(0);
+      service.setWalls([wall]);
+      expect(service.isEmpty()).toBe(false);
+      expect(service.walls().length).toBe(1);
+    });
+
+    it('les murs survivent aux commits et a l undo (hors historique)', () => {
+      service.load(RESTAURANT);
+      service.initFrom({ 'uuid-a': entry() });
+      service.setWalls([wall]);
+      service.commit({ 'uuid-a': entry(0.3, 0.3) });
+      expect(service.walls().length).toBe(1);
+      service.undo();
+      expect(service.walls().length).toBe(1);
+    });
+
+    it('round-trip save -> load : les murs sont restitues', () => {
+      service.load(RESTAURANT);
+      service.initFrom({ 'uuid-a': entry() });
+      service.setWalls([wall]);
+      service.saveNow();
+
+      service.load(RESTAURANT);
+      expect(service.walls().length).toBe(1);
+      expect(service.walls()[0].x2).toBe(0.9);
+    });
+
+    it('ignore les murs corrompus a la lecture', () => {
+      localStorage.setItem(
+        KEY,
+        JSON.stringify({
+          version: 2,
+          restaurantId: RESTAURANT,
+          geometry: { 'uuid-a': entry() },
+          walls: [wall, { x1: 'oops' }, null],
+        }),
+      );
+      service.load(RESTAURANT);
+      expect(service.walls().length).toBe(1);
+    });
+  });
 });

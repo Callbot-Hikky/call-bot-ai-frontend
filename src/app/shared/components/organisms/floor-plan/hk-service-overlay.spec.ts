@@ -5,7 +5,7 @@ import { HkFloorPlan, AssignEvent, WalkInEvent } from './hk-floor-plan';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
 import { FloorTableStatus, FloorTableView } from '@core/models/floor-plan.model';
-import { GeometryMap } from '@core/models/floor-plan-editor.model';
+import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
 
 // Stub du plan (Konva a besoin d'un vrai <canvas>, indispo en jsdom). On expose les
 // memes inputs/outputs que hk-floor-plan pour que les bindings de l'overlay tiennent.
@@ -17,6 +17,7 @@ class FloorPlanStub {
   readonly reservations = input<Reservation[]>([]);
   readonly tables = input<FloorTable[]>([]);
   readonly geometry = input<GeometryMap>({});
+  readonly walls = input<WallSegment[]>([]);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);

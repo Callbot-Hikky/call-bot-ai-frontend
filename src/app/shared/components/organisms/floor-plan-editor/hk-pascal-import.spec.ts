@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
-import { HkPascalImport } from './hk-pascal-import';
-import { PascalCandidate } from '@core/models/pascal-import.model';
+import { HkPascalImport, PascalImportPayload } from './hk-pascal-import';
 
 // Scene minimale : 2 tables + 1 chaise + 1 mur (format export Pascal).
 function sceneJson(): string {
@@ -92,10 +91,10 @@ describe('HkPascalImport', () => {
     expect(apply.textContent).toContain('1');
   });
 
-  it('emet les candidats coches au clic sur Importer', async () => {
+  it('emet les tables cochees ET les murs au clic sur Importer', async () => {
     const fixture = setup();
-    let emitted: PascalCandidate[] | null = null;
-    fixture.componentInstance.imported.subscribe((c) => (emitted = c));
+    let emitted: PascalImportPayload | null = null;
+    fixture.componentInstance.imported.subscribe((p) => (emitted = p));
     fixture.componentInstance.loadText(sceneJson());
     fixture.detectChanges();
     await fixture.whenStable();
@@ -104,8 +103,10 @@ describe('HkPascalImport', () => {
     el.querySelector<HTMLButtonElement>('[data-testid="pascal-apply"]')!.click();
 
     expect(emitted).not.toBeNull();
-    expect(emitted!.length).toBe(2);
-    expect(emitted!.every((c) => c.isTable)).toBe(true);
+    expect(emitted!.tables.length).toBe(2);
+    expect(emitted!.tables.every((c) => c.isTable)).toBe(true);
+    // Les murs partent avec l'import (fond de plan).
+    expect(emitted!.walls.length).toBe(1);
   });
 
   it('emet closed au clic sur le fond sombre', () => {

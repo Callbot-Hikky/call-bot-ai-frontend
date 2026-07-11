@@ -6,9 +6,16 @@ import {
   PascalImportResult,
   parsePascalScene,
 } from '@core/models/pascal-import.model';
+import { WallSegment } from '@core/models/floor-plan-editor.model';
 
 // Taille max acceptee pour l'export JSON (les scenes Pascal font < 5 Mo).
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
+
+// Resultat d'un import applique : tables retenues + murs (fond de plan).
+export interface PascalImportPayload {
+  tables: PascalCandidate[];
+  walls: WallSegment[];
+}
 
 // Dialogue d'import d'un plan depuis Pascal Editor (scan 3D / editeur web).
 //
@@ -183,8 +190,8 @@ const MAX_FILE_BYTES = 20 * 1024 * 1024;
 export class HkPascalImport {
   // Ferme le dialogue sans importer.
   readonly closed = output<void>();
-  // Candidats retenus : l'editeur cree les tables + geometrie.
-  readonly imported = output<PascalCandidate[]>();
+  // Import applique : l'editeur cree les tables + geometrie et pose les murs.
+  readonly imported = output<PascalImportPayload>();
 
   protected readonly Math = Math;
 
@@ -231,7 +238,10 @@ export class HkPascalImport {
       return;
     }
     const keys = this.selectedKeys();
-    this.imported.emit(r.candidates.filter((c) => keys.has(c.key)));
+    this.imported.emit({
+      tables: r.candidates.filter((c) => keys.has(c.key)),
+      walls: r.walls,
+    });
   }
 
   protected reset(): void {

@@ -4,6 +4,7 @@ import {
   FloorPlan,
   GeometryMap,
   TableGeometryEntry,
+  WallSegment,
 } from '@core/models/floor-plan-editor.model';
 
 // Etat de sauvegarde affiche dans l'editeur (indicateur « Enregistré »).
@@ -46,6 +47,8 @@ export class FloorPlanService {
   // Geometrie du plan courant (vide si aucun plan). Consommee par l'editeur ET
   // par la vue service (bridge : layoutTables).
   readonly geometry = computed<GeometryMap>(() => this._plan()?.geometry ?? {});
+  // Murs decoratifs (import Pascal) : fond de plan des deux canvas.
+  readonly walls = computed<WallSegment[]>(() => this._plan()?.walls ?? []);
   // Vrai quand aucun plan n'est persiste : l'editeur affiche l'ecran templates.
   readonly isEmpty = computed(() => this._loaded() && this._plan() === null);
 
@@ -116,6 +119,15 @@ export class FloorPlanService {
         version: FLOOR_PLAN_VERSION,
         restaurantId,
         geometry: parsed.geometry as Record<string, TableGeometryEntry>,
+        // Murs optionnels (import Pascal) : on ne garde que des segments sains.
+        walls: Array.isArray(parsed.walls)
+          ? parsed.walls.filter(
+              (w): w is WallSegment =>
+                w != null &&
+                typeof w === 'object' &&
+                [w.x1, w.y1, w.x2, w.y2, w.thickness].every((n) => typeof n === 'number'),
+            )
+          : undefined,
       };
     } catch {
       return null;
@@ -155,6 +167,16 @@ export class FloorPlanService {
     const current = this._plan();
     const base = current?.geometry ?? {};
     this._plan.set(this.makePlan({ ...this.clone(base), ...this.clone(entries) }));
+    this.scheduleAutosave();
+  }
+
+  // Pose les murs decoratifs (import Pascal), SANS historique : les murs ne font
+  // pas partie des gestes d'edition (pas d'undo), ils changent au prochain import.
+  // Cree le plan s'il n'existe pas encore (import depuis l'ecran de demarrage).
+  setWalls(walls: WallSegment[]): void {
+    const current = this._plan();
+    const base = current ?? this.makePlan({});
+    this._plan.set({ ...base, walls: walls.map((w) => ({ ...w })) });
     this.scheduleAutosave();
   }
 
@@ -211,8 +233,15 @@ export class FloorPlanService {
     this.persist();
   }
 
+  // Reconstruit le plan : PRESERVE les murs courants (ils ne participent pas a
+  // l'historique de geometrie — un undo/commit ne doit jamais les effacer).
   private makePlan(geometry: GeometryMap): FloorPlan {
-    return { version: FLOOR_PLAN_VERSION, restaurantId: this.restaurantId, geometry };
+    return {
+      version: FLOOR_PLAN_VERSION,
+      restaurantId: this.restaurantId,
+      geometry,
+      walls: this._plan()?.walls,
+    };
   }
 
   private scheduleAutosave(): void {

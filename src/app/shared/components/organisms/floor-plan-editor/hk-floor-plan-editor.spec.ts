@@ -7,7 +7,7 @@ import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-c
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { TableService } from '@core/services/table.service';
 import { ToastService } from '@core/services/toast.service';
-import { EditorTable } from '@core/models/floor-plan-editor.model';
+import { EditorTable, WallSegment } from '@core/models/floor-plan-editor.model';
 import { Reservation } from '@core/models/reservation.model';
 import { TableDto } from '@core/models/table.model';
 
@@ -19,6 +19,7 @@ import { TableDto } from '@core/models/table.model';
 })
 class CanvasStub {
   readonly tables = input<EditorTable[]>([]);
+  readonly walls = input<WallSegment[]>([]);
   readonly selectedIds = input<readonly string[]>([]);
   readonly snap = input(true);
   readonly selectionChange = output<string[]>();

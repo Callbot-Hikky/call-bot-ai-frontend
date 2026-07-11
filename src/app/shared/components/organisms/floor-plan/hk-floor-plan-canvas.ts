@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import type Konva from 'konva';
 import { FloorTableStatus, FloorTableView, tableTimeLabel } from '@core/models/floor-plan.model';
-import { tableSizePx } from '@core/models/floor-plan-editor.model';
+import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
   applyTableShadow,
   hoverTableShadow,
@@ -157,6 +157,8 @@ export class HkFloorPlanCanvas {
   // MODE SERVICE : affiche le nom du client sur chaque table occupee (lisibilite
   // « poste d'accueil »). Vide hors mode service ou table libre.
   readonly showNames = input(false);
+  // Murs decoratifs (import Pascal) : dessines dans la couche de fond.
+  readonly walls = input<WallSegment[]>([]);
 
   readonly tableClick = output<FloorTableView>();
 
@@ -216,6 +218,8 @@ export class HkFloorPlanCanvas {
       this.requiredSeats();
       this.showNames();
       this.fill();
+      this.walls();
+      this.drawDots();
       this.render();
     });
 
@@ -260,6 +264,21 @@ export class HkFloorPlanCanvas {
       for (let y = step; y < stage.height(); y += step) {
         layer.add(new k.Circle({ x, y, radius: 1, fill: color, opacity: 0.45 }));
       }
+    }
+    // Murs decoratifs (import Pascal) : la salle reelle en fond, non interactive.
+    const width = stage.width();
+    const height = stage.height();
+    const minSide = Math.min(width, height);
+    for (const w of this.walls()) {
+      layer.add(
+        new k.Line({
+          points: [w.x1 * width, w.y1 * height, w.x2 * width, w.y2 * height],
+          stroke: color,
+          strokeWidth: Math.max(3, w.thickness * minSide),
+          lineCap: 'round',
+          opacity: 0.8,
+        }),
+      );
     }
     layer.batchDraw();
   }

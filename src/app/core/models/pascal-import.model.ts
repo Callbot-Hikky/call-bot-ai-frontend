@@ -16,7 +16,7 @@
 //  - PAS de capacite ni de forme natives -> heuristiques ici, corrigees ensuite
 //    par l'hote dans notre editeur (source de verite : la table back).
 
-import { TableShape } from './floor-plan-editor.model';
+import { TableShape, WallSegment } from './floor-plan-editor.model';
 
 // --- Types d'entree (structurels, volontairement laxistes) --------------------
 
@@ -69,22 +69,13 @@ export interface PascalCandidate {
   depthM: number;
 }
 
-// Segment de mur normalise (fond de plan decoratif).
-export interface PascalWall {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  // Epaisseur en fraction du petit cote.
-  thickness: number;
-}
-
 export interface PascalImportResult {
   ok: boolean;
   // Message d'erreur utilisateur (francais) si ok === false.
   error?: string;
   candidates: PascalCandidate[];
-  walls: PascalWall[];
+  // Murs normalises (fond de plan decoratif, meme repere que les tables).
+  walls: WallSegment[];
   // Compteurs pour le recap de l'apercu (« 12 objets, 5 tables, 4 murs »).
   itemCount: number;
   tableCount: number;
@@ -309,7 +300,7 @@ export function parsePascalScene(json: string): PascalImportResult {
     };
   });
 
-  const walls: PascalWall[] = rawWalls.map((w) => ({
+  const walls: WallSegment[] = rawWalls.map((w) => ({
     x1: normX(w.start![0]),
     y1: normY(w.start![1]),
     x2: normX(w.end![0]),

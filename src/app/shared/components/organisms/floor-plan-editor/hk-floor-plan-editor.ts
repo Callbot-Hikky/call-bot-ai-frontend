@@ -35,10 +35,9 @@ import {
   seedMissingGeometry,
 } from '@core/models/floor-plan-editor.model';
 import { buildEditorTables } from '@core/models/floor-plan.model';
-import { PascalCandidate } from '@core/models/pascal-import.model';
 import { downloadDataUrl } from '@core/utils/download';
 import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-canvas';
-import { HkPascalImport } from './hk-pascal-import';
+import { HkPascalImport, PascalImportPayload } from './hk-pascal-import';
 
 // Choix de formes pour le panneau proprietes (1 table selectionnee).
 const SHAPE_OPTIONS: { value: TableShape; label: string }[] = [
@@ -244,6 +243,7 @@ interface CreateSpec {
 
             <hk-floor-plan-editor-canvas
               [tables]="editorTables()"
+              [walls]="store.walls()"
               [selectedIds]="selectedIds()"
               [snap]="snap()"
               (selectionChange)="onSelectionChange($event)"
@@ -465,11 +465,11 @@ export class HkFloorPlanEditor implements OnInit {
   // --- Import Pascal (scan 3D / editeur web) ------------------------------------
 
   // Applique l'import : chaque candidat retenu devient une VRAIE table (POST
-  // /api/tables, capacite estimee corrigeable ensuite) avec sa geometrie projetee.
-  // Les tables existantes ne sont ni modifiees ni supprimees.
-  protected onImported(candidates: PascalCandidate[]): void {
+  // /api/tables, capacite estimee corrigeable ensuite) avec sa geometrie projetee,
+  // et les murs deviennent le fond de plan. Tables existantes intactes.
+  protected onImported(payload: PascalImportPayload): void {
     this.importOpen.set(false);
-    if (candidates.length === 0) {
+    if (payload.tables.length === 0 && payload.walls.length === 0) {
       return;
     }
     // Depuis l'ecran de demarrage : initialise un plan vide (persiste) pour
@@ -477,7 +477,10 @@ export class HkFloorPlanEditor implements OnInit {
     if (this.store.isEmpty()) {
       this.store.initFrom({});
     }
-    const specs: CreateSpec[] = candidates.map((c) => ({
+    if (payload.walls.length > 0) {
+      this.store.setWalls(payload.walls);
+    }
+    const specs: CreateSpec[] = payload.tables.map((c) => ({
       capacity: c.capacity,
       geo: { x: c.x, y: c.y, w: c.w, h: c.h, rotation: c.rotation, shape: c.shape },
     }));

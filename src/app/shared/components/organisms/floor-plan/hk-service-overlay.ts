@@ -15,7 +15,7 @@ import { HkFloorPlan, AssignEvent, WalkInEvent } from './hk-floor-plan';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
 import { FloorTableView, summarizeRoom } from '@core/models/floor-plan.model';
-import { GeometryMap } from '@core/models/floor-plan-editor.model';
+import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
 
 // MODE SERVICE plein ecran (« poste d'accueil / ecran mural »).
 // Overlay CSS (fixed inset-0) qui prend tout l'ecran : bandeau de service (resto,
@@ -78,6 +78,7 @@ import { GeometryMap } from '@core/models/floor-plan-editor.model';
         [reservations]="reservations()"
         [tables]="tables()"
         [geometry]="geometry()"
+        [walls]="walls()"
         [loading]="loading()"
         [error]="error()"
         (openReservation)="openReservation.emit($event)"
@@ -102,6 +103,7 @@ export class HkServiceOverlay {
   readonly reservations = input<Reservation[]>([]);
   readonly tables = input<FloorTable[]>([]);
   readonly geometry = input<GeometryMap>({});
+  readonly walls = input<WallSegment[]>([]);
   readonly loading = input(false);
   readonly error = input(false);
 

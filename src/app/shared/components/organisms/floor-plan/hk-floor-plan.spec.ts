@@ -6,7 +6,7 @@ import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
 import { FloorTableView } from '@core/models/floor-plan.model';
-import { GeometryMap } from '@core/models/floor-plan-editor.model';
+import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
 
 // Stub du canvas Konva : Konva a besoin d'un vrai <canvas> (indispo en jsdom sans
 // le paquet `canvas`, qu'on n'ajoute pas). On remplace donc le canvas par un double
@@ -17,6 +17,7 @@ import { GeometryMap } from '@core/models/floor-plan-editor.model';
 })
 class CanvasStub {
   readonly tables = input<FloorTableView[]>([]);
+  readonly walls = input<WallSegment[]>([]);
   readonly highlightFree = input(false);
   readonly bestTableId = input<string | null>(null);
   readonly requiredSeats = input<number | null>(null);

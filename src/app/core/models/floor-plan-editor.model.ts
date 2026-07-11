@@ -33,6 +33,17 @@ export interface TableGeometryEntry {
 // Geometrie du plan complet : id BACK de la table -> geometrie.
 export type GeometryMap = Record<string, TableGeometryEntry>;
 
+// Segment de mur DECORATIF (fond de plan, non interactif), issu d'un import
+// Pascal (scan 3D). Coordonnees normalisees comme les tables : x en fraction de
+// largeur, y de hauteur, epaisseur en fraction du petit cote.
+export interface WallSegment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  thickness: number;
+}
+
 // Version du format persiste. L'ancien format (tables autonomes, sans `version`)
 // est detecte et purge par FloorPlanService.
 export const FLOOR_PLAN_VERSION = 2;
@@ -42,6 +53,9 @@ export interface FloorPlan {
   version: typeof FLOOR_PLAN_VERSION;
   restaurantId: string;
   geometry: GeometryMap;
+  // Murs decoratifs (optionnels : uniquement apres un import Pascal). Champ
+  // ADDITIF : les plans v2 sans murs restent valides, pas de bump de version.
+  walls?: WallSegment[];
 }
 
 // Table telle que vue par le CANVAS de l'editeur : geometrie du plan + identite

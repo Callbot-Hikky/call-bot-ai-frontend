@@ -21,7 +21,7 @@ import {
   deriveTableStatus,
   layoutTables,
 } from '@core/models/floor-plan.model';
-import { GeometryMap } from '@core/models/floor-plan-editor.model';
+import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
 import { ToastService } from '@core/services/toast.service';
 import { formatTime } from '@core/utils/format';
 import { downloadDataUrl } from '@core/utils/download';
@@ -155,6 +155,7 @@ const WALK_IN_GUARD_MIN = 90;
           } @else {
             <hk-floor-plan-canvas
               [tables]="tableViews()"
+              [walls]="walls()"
               [highlightFree]="!!selectedUnplaced()"
               [bestTableId]="bestTable()?.table?.id ?? null"
               [requiredSeats]="selectedUnplaced()?.partySize ?? null"
@@ -234,6 +235,8 @@ export class HkFloorPlan {
   // a une entree, la vue service rend sa position + forme + taille + rotation ;
   // sinon repli auto-grille. C'est le bridge editeur -> service (fix D1).
   readonly geometry = input<GeometryMap>({});
+  // Murs decoratifs (import Pascal) : fond du canvas, purement visuel.
+  readonly walls = input<WallSegment[]>([]);
   readonly loading = input(false);
   readonly error = input(false);
   // MODE SERVICE : le plan remplit son conteneur (pas d'aspect-ratio), affiche les

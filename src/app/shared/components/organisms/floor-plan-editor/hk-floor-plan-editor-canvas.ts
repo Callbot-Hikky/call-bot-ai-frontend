@@ -11,7 +11,13 @@ import {
   viewChild,
 } from '@angular/core';
 import type Konva from 'konva';
-import { EditorTable, clamp, snapToGrid, tableSizePx } from '@core/models/floor-plan-editor.model';
+import {
+  EditorTable,
+  WallSegment,
+  clamp,
+  snapToGrid,
+  tableSizePx,
+} from '@core/models/floor-plan-editor.model';
 import {
   applyTableShadow,
   layoutSeats,
@@ -85,6 +91,8 @@ export class HkFloorPlanEditorCanvas {
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
 
   readonly tables = input<EditorTable[]>([]);
+  // Murs decoratifs (import Pascal) : dessines sous les tables, non interactifs.
+  readonly walls = input<WallSegment[]>([]);
   readonly selectedIds = input<readonly string[]>([]);
   readonly snap = input(true);
 
@@ -114,9 +122,10 @@ export class HkFloorPlanEditorCanvas {
       this.syncSelection();
     });
 
-    // Reconcilie les noeuds quand le modele change.
+    // Reconcilie les noeuds quand le modele change (tables OU murs).
     effect(() => {
       this.tables();
+      this.walls();
       this.render();
     });
 
@@ -295,6 +304,21 @@ export class HkFloorPlanEditorCanvas {
     }
     for (let y = stepY; y < height; y += stepY) {
       grid.add(new k.Line({ points: [0, y, width, y], stroke: color, strokeWidth: 1 }));
+    }
+    // Murs decoratifs (import Pascal) par-dessus la trame : la salle REELLE
+    // apparait en fond, les tables restent seules interactives.
+    const wallColor = this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
+    const minSide = Math.min(width, height);
+    for (const w of this.walls()) {
+      grid.add(
+        new k.Line({
+          points: [w.x1 * width, w.y1 * height, w.x2 * width, w.y2 * height],
+          stroke: wallColor,
+          strokeWidth: Math.max(3, w.thickness * minSide),
+          lineCap: 'round',
+          opacity: 0.9,
+        }),
+      );
     }
     grid.batchDraw();
   }
