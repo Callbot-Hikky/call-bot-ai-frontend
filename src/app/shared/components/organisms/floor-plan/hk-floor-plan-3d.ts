@@ -14,6 +14,7 @@ import type * as THREE from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FloorTableView } from '@core/models/floor-plan.model';
 import { TableShape, WallSegment } from '@core/models/floor-plan-editor.model';
+import { formatTime } from '@core/utils/format';
 
 type ThreeModule = typeof THREE;
 
@@ -30,9 +31,11 @@ const TABLE_TOP_THICKNESS = 0.06;
 // CAMERA : on demarre EXACTEMENT comme la vue 2D (aplomb, meme orientation),
 // puis on descend doucement vers une perspective legere -> l'utilisateur
 // comprend la 3D sans jamais perdre ses reperes. Pas de rotation automatique.
+// Un double-clic ramene toujours a la vue de reference (anti « je suis perdu »).
 const CAMERA_FROM = { x: 0, y: 15.5, z: 0.9 };
 const CAMERA_TO = { x: 0, y: 9.5, z: 8.4 };
 const CAMERA_INTRO_MS = 1700;
+const CAMERA_RESET_MS = 750;
 
 // Palette « restaurant » : sol chaud, murs sable, bois pour les tables libres,
 // nappe verte (reservee) / bleue (installee) / rouge (retard) — memes codes
@@ -45,6 +48,13 @@ const COLOR_CHAIR = 0xcfc8bc;
 const COLOR_RESERVED = 0x30a46c;
 const COLOR_SEATED = 0x3d7fd9;
 const COLOR_LATE = 0xd64545;
+const COLOR_PLATE = 0xfdfcfa;
+
+// Couleurs CSS des sous-titres d'etiquette (canvas 2D).
+const LABEL_LATE = '#d64545';
+const LABEL_SEATED = '#3d7fd9';
+const LABEL_RESERVED = '#30a46c';
+const LABEL_MUTED = '#8a8378';
 
 // Seuil de « clic » : au-dela de ce deplacement (px), le geste est une rotation
 // de camera (OrbitControls), pas une selection de table.
@@ -117,6 +127,45 @@ export function chairSlots(shape: TableShape, wU: number, dU: number, count: num
   return slots;
 }
 
+// Contenu d'une etiquette de table : titre + sous-titre contextuel. Fonction
+// PURE (testable sans WebGL) : c'est l'info de decision de l'hote, comme en 2D.
+//  - retard      : « Marc · +25 min » (rouge) ;
+//  - installee   : « Marc · 19:30 » (bleu) ;
+//  - reservee    : « Marc · 19:30 » (vert) ;
+//  - libre avec resa plus tard : « → 21:00 » (gris) ;
+//  - libre sans rien : pas de sous-titre.
+export function tableLabelParts(v: FloorTableView): {
+  title: string;
+  subtitle: string | null;
+  color: string;
+} {
+  const title = v.table.name;
+  const customer = v.reservation?.customerName ?? 'Client';
+  const time = v.reservation ? formatTime(v.reservation.dateTime) : null;
+
+  if (v.lateMinutes != null) {
+    return { title, subtitle: `${customer} · +${v.lateMinutes} min`, color: LABEL_LATE };
+  }
+  if (v.status === 'installee') {
+    return {
+      title,
+      subtitle: time ? `${customer} · ${time}` : customer,
+      color: LABEL_SEATED,
+    };
+  }
+  if (v.status === 'reservee') {
+    return {
+      title,
+      subtitle: time ? `${customer} · ${time}` : customer,
+      color: LABEL_RESERVED,
+    };
+  }
+  if (v.nextTime) {
+    return { title, subtitle: `→ ${v.nextTime}`, color: LABEL_MUTED };
+  }
+  return { title, subtitle: null, color: LABEL_MUTED };
+}
+
 // Vue 3D INTERACTIVE de la salle, generee depuis NOS donnees (murs importes +
 // tables + statuts derives). Toujours synchronisee avec le service en cours
 // (polling -> statuts -> couleurs de nappe), et cliquable comme la 2D : une
@@ -162,8 +211,16 @@ export class HkFloorPlan3d {
   private rafId = 0;
   private resizeObserver: ResizeObserver | null = null;
 
-  // Intro camera : 2D (aplomb) -> perspective. null une fois l'intro terminee.
-  private introStartedAt: number | null = null;
+  // Animation camera en cours (intro 2D -> perspective, ou recentrage double-clic).
+  private cameraAnim: {
+    from: { x: number; y: number; z: number };
+    to: { x: number; y: number; z: number };
+    startedAt: number;
+    duration: number;
+  } | null = null;
+
+  // Nappes en retard : pulsent en rouge (meme signal d'urgence que le pulse 2D).
+  private lateMeshes: THREE.Mesh[] = [];
 
   // Interaction : plateaux cliquables + vue associee (par uuid de mesh).
   private tableMeshes: THREE.Mesh[] = [];
@@ -235,7 +292,7 @@ export class HkFloorPlan3d {
     this.controls.maxDistance = 30;
     // Desactive pendant l'intro (la camera est pilotee par l'animation).
     this.controls.enabled = false;
-    this.introStartedAt = performance.now();
+    this.startCameraAnim(CAMERA_FROM, CAMERA_TO, CAMERA_INTRO_MS);
 
     // Eclairage : ambiant genereux + soleil directionnel avec ombres.
     this.scene.add(new t.AmbientLight(0xffffff, 1.1));
@@ -271,6 +328,30 @@ export class HkFloorPlan3d {
       }
     });
     dom.addEventListener('pointermove', (e) => this.syncHover(e));
+    // Double-clic : recentre la camera sur la vue de reference (anti-perdu).
+    dom.addEventListener('dblclick', () => {
+      if (this.camera) {
+        this.startCameraAnim(this.camera.position, CAMERA_TO, CAMERA_RESET_MS);
+      }
+    });
+  }
+
+  // Lance une animation de camera (ease in-out) ; les controls sont rendus a
+  // l'utilisateur a la fin du trajet.
+  private startCameraAnim(
+    from: { x: number; y: number; z: number },
+    to: { x: number; y: number; z: number },
+    duration: number,
+  ): void {
+    this.cameraAnim = {
+      from: { x: from.x, y: from.y, z: from.z },
+      to,
+      startedAt: performance.now(),
+      duration,
+    };
+    if (this.controls) {
+      this.controls.enabled = false;
+    }
   }
 
   // Table sous le pointeur (raycast), ou null.
@@ -346,6 +427,7 @@ export class HkFloorPlan3d {
     this.roomGroup = group;
     // Les meshes sont recrees : on repart d'un registre d'interaction propre.
     this.tableMeshes = [];
+    this.lateMeshes = [];
     this.viewByUuid.clear();
     this.hovered = null;
 
@@ -424,6 +506,10 @@ export class HkFloorPlan3d {
     // Le plateau est LA surface cliquable de la table.
     this.tableMeshes.push(top);
     this.viewByUuid.set(top.uuid, v);
+    // Table en retard : la nappe pulse (voir animate()).
+    if (v.lateMinutes != null) {
+      this.lateMeshes.push(top);
+    }
 
     // Pieds : central (ronde) ou quatre coins (rect/carre/bar).
     const legMaterial = new t.MeshLambertMaterial({ color: COLOR_LEG });
@@ -452,7 +538,10 @@ export class HkFloorPlan3d {
     }
 
     // Chaises : lisibilite immediate de la capacite (comme les sieges 2D).
+    // Tables installees : une assiette devant chaque chaise (la salle « vit »).
     const chairMaterial = new t.MeshLambertMaterial({ color: COLOR_CHAIR });
+    const plateMaterial = new t.MeshLambertMaterial({ color: COLOR_PLATE });
+    const seated = v.status === 'installee';
     for (const slot of chairSlots(v.shape, wU, dU, v.table.capacity)) {
       const chair = new t.Group();
       const seat = new t.Mesh(new t.BoxGeometry(0.3, 0.05, 0.3), chairMaterial);
@@ -466,11 +555,24 @@ export class HkFloorPlan3d {
       chair.position.set(slot.x, 0, slot.z);
       chair.rotation.y = slot.rotationY;
       g.add(chair);
+
+      if (seated) {
+        // Assiette posee au bord du plateau, devant la chaise.
+        const toCenter = Math.hypot(slot.x, slot.z) || 1;
+        const plate = new t.Mesh(new t.CylinderGeometry(0.1, 0.1, 0.015, 20), plateMaterial);
+        plate.position.set(
+          slot.x * (1 - 0.48 / toCenter),
+          TABLE_TOP_Y + TABLE_TOP_THICKNESS / 2 + 0.01,
+          slot.z * (1 - 0.48 / toCenter),
+        );
+        g.add(plate);
+      }
     }
 
-    // Etiquette : nom de table, + client si la table est occupee.
-    const customer = v.status !== 'libre' ? (v.reservation?.customerName ?? null) : null;
-    const label = this.makeLabel(v.table.name, customer, topColor);
+    // Etiquette contextuelle : nom + info de decision (client, heure, retard,
+    // prochaine reservation d'une table libre).
+    const parts = tableLabelParts(v);
+    const label = this.makeLabel(parts.title, parts.subtitle, parts.color);
     if (label) {
       label.position.set(0, TABLE_TOP_Y + 0.95, 0);
       g.add(label);
@@ -479,7 +581,7 @@ export class HkFloorPlan3d {
   }
 
   // Etiquette « pilule » : canvas 2D -> texture -> sprite (toujours face camera).
-  private makeLabel(title: string, subtitle: string | null, accent: number): THREE.Sprite | null {
+  private makeLabel(title: string, subtitle: string | null, accent: string): THREE.Sprite | null {
     const t = this.three!;
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -505,7 +607,7 @@ export class HkFloorPlan3d {
     ctx.fillText(title, 128, subtitle ? 50 : 66);
     if (subtitle) {
       ctx.font = '600 24px sans-serif';
-      ctx.fillStyle = `#${accent.toString(16).padStart(6, '0')}`;
+      ctx.fillStyle = accent;
       ctx.fillText(subtitle, 128, 82);
     }
     const texture = new t.CanvasTexture(canvas);
@@ -517,23 +619,34 @@ export class HkFloorPlan3d {
   private animate(): void {
     const loop = (): void => {
       this.rafId = requestAnimationFrame(loop);
+      const now = performance.now();
 
-      // Intro : descente douce de l'aplomb 2D vers la perspective (ease in-out).
-      if (this.introStartedAt != null && this.camera) {
-        const raw = (performance.now() - this.introStartedAt) / CAMERA_INTRO_MS;
-        const p = Math.min(1, raw);
+      // Animation camera (intro ou recentrage), ease in-out cubique.
+      const anim = this.cameraAnim;
+      if (anim && this.camera) {
+        const p = Math.min(1, (now - anim.startedAt) / anim.duration);
         const eased = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
         this.camera.position.set(
-          CAMERA_FROM.x + (CAMERA_TO.x - CAMERA_FROM.x) * eased,
-          CAMERA_FROM.y + (CAMERA_TO.y - CAMERA_FROM.y) * eased,
-          CAMERA_FROM.z + (CAMERA_TO.z - CAMERA_FROM.z) * eased,
+          anim.from.x + (anim.to.x - anim.from.x) * eased,
+          anim.from.y + (anim.to.y - anim.from.y) * eased,
+          anim.from.z + (anim.to.z - anim.from.z) * eased,
         );
         this.camera.lookAt(0, 0, 0);
         if (p >= 1) {
-          this.introStartedAt = null;
+          this.cameraAnim = null;
           if (this.controls) {
+            this.controls.target.set(0, 0, 0);
             this.controls.enabled = true;
           }
+        }
+      }
+
+      // Pulse d'urgence des nappes en retard (sinusoide douce, ~1,2 s).
+      if (this.lateMeshes.length > 0) {
+        const glow = 0.18 + 0.16 * Math.sin(now / 190);
+        for (const mesh of this.lateMeshes) {
+          const material = mesh.material as THREE.MeshLambertMaterial;
+          material.emissive?.setScalar?.(Math.max(0, glow));
         }
       }
 
