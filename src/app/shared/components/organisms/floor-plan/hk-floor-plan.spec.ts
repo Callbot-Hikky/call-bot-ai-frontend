@@ -404,6 +404,26 @@ describe('HkFloorPlan', () => {
     expect(fixture.componentInstance.walkIn).toBe('t2:4');
   });
 
+  it('bascule entre la vue 2D et la vue 3D via le toggle', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.reservations = [reservation('r1', 'confirmed', 't1')];
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.canvas-stub')).toBeTruthy();
+    expect(el.querySelector('hk-floor-plan-3d')).toBeNull();
+
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-3d"]')!.click();
+    await fixture.whenStable();
+    // La 3D remplace le canvas 2D (elle degrade sans WebGL, mais son host est la).
+    expect(el.querySelector('hk-floor-plan-3d')).toBeTruthy();
+    expect(el.querySelector('.canvas-stub')).toBeNull();
+
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-3d"]')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.canvas-stub')).toBeTruthy();
+  });
+
   // MODE SERVICE : le bouton « Mode service » demande le passage plein ecran, et le
   // mode service propage fill + showNames au canvas (plan plein cadre + noms clients).
   it('affiche le bouton « Mode service » et emet enterService au clic', async () => {

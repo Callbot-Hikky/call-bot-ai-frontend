@@ -12,6 +12,7 @@ import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkFloorPlanCanvas } from './hk-floor-plan-canvas';
+import { HkFloorPlan3d } from './hk-floor-plan-3d';
 import { HkFloorPlanLegend } from './hk-floor-plan-legend';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
@@ -46,7 +47,7 @@ const WALK_IN_GUARD_MIN = 90;
 // (skeleton) et erreur (bandeau + reessayer) geres ici.
 @Component({
   selector: 'hk-floor-plan',
-  imports: [HkButton, HkIcon, HkSkeleton, HkFloorPlanCanvas, HkFloorPlanLegend],
+  imports: [HkButton, HkIcon, HkSkeleton, HkFloorPlanCanvas, HkFloorPlan3d, HkFloorPlanLegend],
   template: `
     @if (error()) {
       <div
@@ -129,6 +130,15 @@ const WALK_IN_GUARD_MIN = 90;
             }
             @if (!serviceMode()) {
               <div class="flex items-center gap-2">
+                <hk-button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="toggle-3d"
+                  (click)="view3d.set(!view3d())"
+                >
+                  <hk-icon name="lucideBox" [size]="16" />
+                  {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
+                </hk-button>
                 <hk-button variant="secondary" size="sm" (click)="enterService.emit()">
                   <hk-icon name="lucideMaximize" [size]="16" />
                   Mode service
@@ -152,6 +162,9 @@ const WALK_IN_GUARD_MIN = 90;
             >
               Aucune table n'est configurée pour ce restaurant.
             </div>
+          } @else if (view3d() && !serviceMode()) {
+            <!-- Vue 3D decorative (statuts live) : la 2D reste la vue d'action. -->
+            <hk-floor-plan-3d [views]="tableViews()" [walls]="walls()" />
           } @else {
             <hk-floor-plan-canvas
               [tables]="tableViews()"
@@ -243,6 +256,10 @@ export class HkFloorPlan {
   // noms clients, masque legende + boutons Exporter/Modifier/Mode service. Les
   // interactions (walk-in, drawer, affectation) restent identiques.
   readonly serviceMode = input(false);
+
+  // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
+  // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
+  protected readonly view3d = signal(false);
 
   readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
