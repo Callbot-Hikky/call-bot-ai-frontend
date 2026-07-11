@@ -389,14 +389,22 @@ describe('deriveTableStatus (mode projete / simulation)', () => {
 
 describe('simulationRange', () => {
   it('encadre la soiree : 1 h avant la premiere resa, 2 h apres la derniere, heures pleines', () => {
+    // Assertions en EPOCH (jamais getHours()) : le fuseau du runner CI (UTC)
+    // ne doit pas influencer le test — seule l'arithmetique de bornage compte.
+    const first = new Date('2026-06-22T19:30:00+02:00').getTime();
+    const last = new Date('2026-06-22T21:15:00+02:00').getTime();
+    const HOUR = 60 * 60_000;
     const range = simulationRange([
       reservation('r1', 'confirmed', 't1', '2026-06-22T19:30:00+02:00'),
       reservation('r2', 'confirmed', 't2', '2026-06-22T21:15:00+02:00'),
     ]);
-    // 19:30 - 1 h = 18:30 -> arrondi 18:00 ; 21:15 + 2 h = 23:15 -> arrondi 00:00.
-    expect(range.start.getHours()).toBe(18);
+    // Debut : couvre (premiere - 1 h), arrondi vers le bas de moins d'une heure.
+    expect(range.start.getTime()).toBeLessThanOrEqual(first - HOUR);
+    expect(range.start.getTime()).toBeGreaterThan(first - 2 * HOUR);
     expect(range.start.getMinutes()).toBe(0);
-    expect(range.end.getTime()).toBeGreaterThan(range.start.getTime());
+    // Fin : couvre (derniere + 2 h), arrondi vers le haut de moins d'une heure.
+    expect(range.end.getTime()).toBeGreaterThanOrEqual(last + 2 * HOUR);
+    expect(range.end.getTime()).toBeLessThan(last + 3 * HOUR);
     expect(range.end.getMinutes()).toBe(0);
   });
 
