@@ -85,9 +85,18 @@ import { telHref } from '@core/utils/format';
             </dl>
 
             <div class="border-border/70 mt-auto flex flex-col gap-2 border-t p-6">
-              <hk-button (click)="confirm.emit(r)">Confirmer</hk-button>
+              @if (r.status === 'seated') {
+                <!-- Clients a table : « Confirmer » n'a plus d'objet, et liberer la
+                     table passe par la fin du service (resa completed -> table libre). -->
+                <hk-button (click)="endService.emit(r)">
+                  <hk-icon name="lucideCircleCheck" [size]="16" />
+                  Terminer le service
+                </hk-button>
+              } @else {
+                <hk-button (click)="confirm.emit(r)">Confirmer</hk-button>
+              }
               <hk-button variant="secondary" (click)="call.emit(r)">Appeler</hk-button>
-              @if (showUnassign() && r.table) {
+              @if (showUnassign() && r.table && r.status !== 'seated') {
                 <hk-button variant="secondary" (click)="unassign.emit(r)">
                   <hk-icon name="lucideUnlink" [size]="16" />
                   Libérer la table
@@ -112,6 +121,10 @@ export class HkReservationDetailDrawer {
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
   readonly unassign = output<Reservation>();
+  // Fin du service d'une resa `seated` (la table redevient libre par derivation).
+  // Nomme `endService` (pas `finish`) : `finish` est un evenement DOM natif
+  // (regle @angular-eslint/no-output-native).
+  readonly endService = output<Reservation>();
 
   protected readonly telHref = telHref;
 
