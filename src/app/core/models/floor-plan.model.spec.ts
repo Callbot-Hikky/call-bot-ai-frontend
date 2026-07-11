@@ -9,6 +9,7 @@ import {
   buildEditorTables,
   deriveTableStatus,
   layoutTables,
+  simulationRange,
   summarizeRoom,
   tableTimeLabel,
 } from './floor-plan.model';
@@ -349,6 +350,63 @@ describe('buildEditorTables', () => {
 });
 
 // MODE SERVICE : synthese de salle (bandeau « poste d'accueil »).
+describe('deriveTableStatus (mode projete / simulation)', () => {
+  const seatedAt20 = [reservation('r1', 'seated', 't1', '2026-06-22T20:00:00+02:00')];
+
+  it('en LIVE, une table seated reste installee sans limite d heure', () => {
+    const at23 = deriveTableStatus('t1', seatedAt20, new Date('2026-06-22T23:30:00+02:00'));
+    expect(at23.status).toBe('installee');
+  });
+
+  it('en PROJECTION, une seated se libere apres la duree de service (+120 min)', () => {
+    const during = deriveTableStatus('t1', seatedAt20, new Date('2026-06-22T21:30:00+02:00'), true);
+    expect(during.status).toBe('installee');
+    const after = deriveTableStatus('t1', seatedAt20, new Date('2026-06-22T22:15:00+02:00'), true);
+    expect(after.status).toBe('libre');
+  });
+
+  it('en PROJECTION, une seated liberee laisse la place a la resa suivante', () => {
+    const withNext = [
+      ...seatedAt20,
+      reservation('r2', 'confirmed', 't1', '2026-06-22T22:30:00+02:00'),
+    ];
+    const at2215 = deriveTableStatus('t1', withNext, new Date('2026-06-22T22:15:00+02:00'), true);
+    // 22:15 est dans la fenetre active de la resa de 22:30 (des 21:45).
+    expect(at2215.status).toBe('reservee');
+  });
+});
+
+describe('simulationRange', () => {
+  it('encadre la soiree : 1 h avant la premiere resa, 2 h apres la derniere, heures pleines', () => {
+    const range = simulationRange([
+      reservation('r1', 'confirmed', 't1', '2026-06-22T19:30:00+02:00'),
+      reservation('r2', 'confirmed', 't2', '2026-06-22T21:15:00+02:00'),
+    ]);
+    // 19:30 - 1 h = 18:30 -> arrondi 18:00 ; 21:15 + 2 h = 23:15 -> arrondi 00:00.
+    expect(range.start.getHours()).toBe(18);
+    expect(range.start.getMinutes()).toBe(0);
+    expect(range.end.getTime()).toBeGreaterThan(range.start.getTime());
+    expect(range.end.getMinutes()).toBe(0);
+  });
+
+  it('ignore les reservations mortes (annulee, no-show)', () => {
+    const withDead = simulationRange([
+      reservation('r1', 'confirmed', 't1', '2026-06-22T20:00:00+02:00'),
+      reservation('r2', 'cancelled', 't2', '2026-06-22T12:00:00+02:00'),
+    ]);
+    const without = simulationRange([
+      reservation('r1', 'confirmed', 't1', '2026-06-22T20:00:00+02:00'),
+    ]);
+    expect(withDead.start.getTime()).toBe(without.start.getTime());
+  });
+
+  it('sans reservation : soiree type 18:00 -> 23:00', () => {
+    const range = simulationRange([], new Date('2026-06-22T10:00:00+02:00'));
+    expect(range.start.getHours()).toBe(18);
+    expect(range.end.getHours()).toBe(23);
+  });
+});
+
 describe('summarizeRoom', () => {
   function viewOf(
     id: string,

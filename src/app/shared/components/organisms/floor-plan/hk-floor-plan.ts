@@ -21,6 +21,7 @@ import {
   bestFitTableId,
   deriveTableStatus,
   layoutTables,
+  simulationRange,
 } from '@core/models/floor-plan.model';
 import { from, of } from 'rxjs';
 import { catchError, concatMap } from 'rxjs/operators';
@@ -103,7 +104,16 @@ const WALK_IN_GUARD_MIN = 90;
                 {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
               </hk-button>
               @if (!serviceMode()) {
-                <hk-button variant="secondary" size="sm" (click)="enterService.emit()">
+                <hk-button
+                  [variant]="simulating() ? 'primary' : 'secondary'"
+                  size="sm"
+                  data-testid="toggle-sim"
+                  (click)="simulating() ? stopSim() : startSim()"
+                >
+                  <hk-icon name="lucideCalendar" [size]="16" />
+                  {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
+                </hk-button>
+                <hk-button variant="secondary" size="sm" (click)="onEnterService()">
                   <hk-icon name="lucideMaximize" [size]="16" />
                   Mode service
                 </hk-button>
@@ -209,6 +219,50 @@ const WALK_IN_GUARD_MIN = 90;
               [class.flex-1]="serviceMode()"
               (tableClick)="onTableClick($event)"
             />
+          }
+
+          <!-- BARRE DE SIMULATION : glisser l'heure -> toute la salle se projette.
+               Fond ambre appuye : on ne confond JAMAIS projection et direct. -->
+          @if (simulating()) {
+            <div
+              class="bg-st-pending-bg border-st-pending-fg/30 flex flex-col gap-2 rounded-md border px-4 py-3"
+              data-testid="sim-bar"
+            >
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="text-st-pending-fg text-xs font-semibold tracking-wide uppercase">
+                  Simulation · la salle telle qu'elle sera
+                </span>
+                <span class="ml-auto">
+                  <hk-button size="sm" variant="secondary" (click)="stopSim()">
+                    Revenir au direct
+                  </hk-button>
+                </span>
+              </div>
+              <div class="flex items-center gap-4">
+                <span
+                  class="text-st-pending-fg font-mono text-2xl font-bold tabular-nums"
+                  data-testid="sim-time"
+                >
+                  {{ simLabel() }}
+                </span>
+                <input
+                  type="range"
+                  class="accent-st-pending-fg h-2 flex-1 cursor-pointer"
+                  min="0"
+                  [max]="simTotalMinutes()"
+                  step="15"
+                  [value]="simMinutes()"
+                  aria-label="Heure simulée"
+                  data-testid="sim-slider"
+                  (input)="onSimSlide($event)"
+                />
+              </div>
+              <p class="text-st-pending-fg text-sm" data-testid="sim-summary">
+                À {{ simLabel() }} :
+                <strong>{{ simFree().tables }} table(s) libre(s)</strong>
+                · {{ simFree().couverts }} couverts disponibles
+              </p>
+            </div>
           }
 
           @if (!serviceMode()) {
@@ -418,17 +472,84 @@ export class HkFloorPlan {
   private readonly placed = computed(() => layoutTables(this.tables(), this.geometry()));
 
   // Tables positionnees + statut derive des vraies reservations.
-  // HEURE COURANTE : capturee ICI, a chaque reevaluation du computed — donc a
-  // chaque refresh du polling (20 s) qui remplace le signal `reservations`.
-  // Fraicheur suffisante pour des fenetres de 45/120 min, sans timer dedie.
+  // HEURE DE REFERENCE des statuts :
+  //  - en direct : capturee a chaque reevaluation du computed — donc a chaque
+  //    refresh du polling (20 s). Fraicheur suffisante, sans timer dedie ;
+  //  - en SIMULATION : l'heure du slider remplace l'horloge — toute la salle
+  //    (2D ET 3D, memes vues) se projette a l'instant choisi.
   protected readonly tableViews = computed<FloorTableView[]>(() => {
     const reservations = this.reservations();
-    const now = new Date();
+    const simulated = this.simNow();
+    const now = simulated ?? new Date();
     return this.placed().map((p) => ({
       ...p,
-      ...deriveTableStatus(p.table.id, reservations, now),
+      // `projected` en simulation : les tables installees se liberent apres la
+      // duree de service estimee (sinon la projection mentirait sur le futur).
+      ...deriveTableStatus(p.table.id, reservations, now, simulated !== null),
     }));
   });
+
+  // --- Simulation de la soiree (« Simuler ma soiree ») ---------------------------
+  // La derivation de statut est une fonction PURE de `now` : simuler = glisser
+  // l'heure de reference. Aucune donnee modifiee, aucune requete — projection pure.
+  protected readonly simulating = signal(false);
+  // Position du slider : minutes ecoulees depuis le debut de la plage.
+  protected readonly simMinutes = signal(0);
+
+  // Bornes de la soiree, derivees des reservations du jour (arrondies a l'heure).
+  protected readonly simRange = computed(() => simulationRange(this.reservations()));
+  // Longueur du slider (minutes).
+  protected readonly simTotalMinutes = computed(() =>
+    Math.max(60, (this.simRange().end.getTime() - this.simRange().start.getTime()) / 60_000),
+  );
+  // Heure simulee (null hors simulation) : l'horloge de TOUTE la salle.
+  protected readonly simNow = computed<Date | null>(() =>
+    this.simulating()
+      ? new Date(this.simRange().start.getTime() + this.simMinutes() * 60_000)
+      : null,
+  );
+  protected readonly simLabel = computed(() => {
+    const d = this.simNow();
+    return d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+  });
+  // « A 20:30 : 5 tables libres · 18 couverts disponibles » — la reponse a
+  // « puis-je accepter une resa a cette heure-la ? », lisible sans compter.
+  protected readonly simFree = computed(() => {
+    const free = this.tableViews().filter((v) => v.status === 'libre');
+    return {
+      tables: free.length,
+      couverts: free.reduce((sum, v) => sum + v.table.capacity, 0),
+    };
+  });
+
+  protected startSim(): void {
+    // Le slider demarre a l'heure COURANTE si elle tombe dans la plage (on part
+    // de la realite), sinon au debut de la soiree.
+    const { start } = this.simRange();
+    const offset = Math.round((Date.now() - start.getTime()) / 60_000);
+    this.simMinutes.set(Math.max(0, Math.min(this.simTotalMinutes(), offset)));
+    this.simulating.set(true);
+    // Les actions live n'ont pas de sens sur une salle projetee.
+    this.cancelWalkIn();
+  }
+
+  protected stopSim(): void {
+    this.simulating.set(false);
+  }
+
+  protected onSimSlide(event: Event): void {
+    const raw = Number((event.target as HTMLInputElement).value);
+    if (Number.isFinite(raw)) {
+      this.simMinutes.set(Math.max(0, Math.min(this.simTotalMinutes(), Math.round(raw))));
+    }
+  }
+
+  // Passage en mode service : toujours en DIRECT (la simulation est un outil de
+  // preparation, pas de rush).
+  protected onEnterService(): void {
+    this.stopSim();
+    this.enterService.emit();
+  }
 
   // Reservations du jour ACTIVES sans table (a placer). On exclut annulees /
   // no_show / terminees : les "affecter" laisserait la table Libre (incoherent).
@@ -481,6 +602,15 @@ export class HkFloorPlan {
   // cliquee et le nombre de couverts — l'output `assign` garde son contrat intact
   // (la page continue de faire l'appel reseau + les toasts succes/erreur).
   protected onTableClick(view: FloorTableView): void {
+    // SIMULATION : la salle affichee est une projection — agir sur une table
+    // libre « du futur » creerait une resa au present. On guide vers le direct.
+    if (this.simulating() && view.status === 'libre') {
+      this.toast.show('Mode simulation : revenez au direct pour agir sur les tables.', 'default', {
+        label: 'Revenir au direct',
+        run: () => this.stopSim(),
+      });
+      return;
+    }
     const pending = this.selectedUnplaced();
     if (pending && view.status === 'libre') {
       if (pending.partySize > view.table.capacity) {

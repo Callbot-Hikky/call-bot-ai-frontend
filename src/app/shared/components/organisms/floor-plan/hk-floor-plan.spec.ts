@@ -404,6 +404,62 @@ describe('HkFloorPlan', () => {
     expect(fixture.componentInstance.walkIn).toBe('t2:4');
   });
 
+  // SIMULATION (« Simuler ma soiree ») : la salle projetee a l'heure du slider.
+  it('le slider projette les statuts a l heure choisie (soiree entiere)', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    // Une resa confirmee sur t1 dans 3 h : INVISIBLE au present (t1 libre),
+    // VISIBLE en glissant le slider jusqu'a son creneau.
+    fixture.componentInstance.reservations = [reservation('r1', 'confirmed', 't1', 2, isoIn(180))];
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const stub: CanvasStub = fixture.debugElement.query(
+      (n) => n.componentInstance instanceof CanvasStub,
+    ).componentInstance;
+    expect(stub.tables().find((v) => v.table.id === 't1')!.status).toBe('libre');
+
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-sim"]')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-testid="sim-bar"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="sim-summary"]')!.textContent).toContain(
+      'table(s) libre(s)',
+    );
+
+    // Glisse le slider sur le creneau de la resa : plage = [floor(resa-1h) ...],
+    // la resa tombe donc entre +60 et +119 min du debut -> 90 min est TOUJOURS
+    // dans sa fenetre active [resa-45, resa+120] (test deterministe).
+    const slider = el.querySelector<HTMLInputElement>('[data-testid="sim-slider"]')!;
+    slider.value = '90';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await fixture.whenStable();
+    expect(stub.tables().find((v) => v.table.id === 't1')!.status).toBe('reservee');
+
+    // Retour au direct : la table redevient libre.
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-sim"]')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-testid="sim-bar"]')).toBeNull();
+    expect(stub.tables().find((v) => v.table.id === 't1')!.status).toBe('libre');
+  });
+
+  it('en simulation, cliquer une table libre ne declenche AUCUNE action (toast)', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    await fixture.whenStable();
+    const el: HTMLElement = fixture.nativeElement;
+    const stub: CanvasStub = fixture.debugElement.query(
+      (n) => n.componentInstance instanceof CanvasStub,
+    ).componentInstance;
+
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-sim"]')!.click();
+    await fixture.whenStable();
+
+    stub.tableClick.emit(stub.tables().find((v) => v.table.id === 't2')!);
+    await fixture.whenStable();
+    // Pas de panneau walk-in ; un toast propose de revenir au direct.
+    expect(el.querySelector('[data-testid="walkin-panel"]')).toBeNull();
+    const toast = TestBed.inject(ToastService);
+    expect(toast.toasts()[0]?.message).toContain('simulation');
+  });
+
   // ONBOARDING : aucun restaurant configure -> deux chemins au centre du plan.
   it('affiche l onboarding (config rapide + editeur) quand aucune table', async () => {
     const fixture = TestBed.createComponent(HostComponent);

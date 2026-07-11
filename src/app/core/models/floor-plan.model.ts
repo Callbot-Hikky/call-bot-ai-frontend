@@ -77,17 +77,31 @@ export interface DerivedTableStatus {
 //  4. sinon -> Libre simple. Une resa depassee de +120 min sans installation rend
 //     la table libre (la resa reste en liste, au staff de l'annuler) ;
 //     completed/cancelled/no_show = non actif -> Libre.
+//
+// `projected` (mode SIMULATION) : en live, une table seated reste installee tant
+// que le staff n'a pas termine le service (regle 1, sans horloge). En projection
+// du futur, on l'estime liberee apres la duree de service (+120 min) — sinon la
+// simulation mentirait (« occupee pour toujours »).
 export function deriveTableStatus(
   tableId: string,
   reservations: readonly Reservation[],
   now: Date,
+  projected = false,
 ): DerivedTableStatus {
   const linked = reservations.filter((r) => r.table?.id === tableId);
   const none = { nextTime: null, nextDateTime: null, lateMinutes: null };
+  const nowProjectedMs = now.getTime();
 
   const seated = linked.find((r) => r.status === 'seated');
   if (seated) {
-    return { status: 'installee', reservation: seated, ...none };
+    const stillThere =
+      !projected ||
+      nowProjectedMs <= new Date(seated.dateTime).getTime() + ACTIVE_AFTER_MIN * MINUTE_MS;
+    if (stillThere) {
+      return { status: 'installee', reservation: seated, ...none };
+    }
+    // Projection au-dela du service estime : la table redevient disponible
+    // (la suite de la derivation gere une eventuelle resa plus tard).
   }
 
   const upcoming = linked
@@ -135,6 +149,44 @@ export function deriveTableStatus(
   }
 
   return { status: 'libre', reservation: null, ...none };
+}
+
+// PLAGE DE SIMULATION (« Simuler ma soiree ») : de 1 h avant la premiere
+// reservation vivante du jour a 2 h apres la derniere, bornes arrondies a
+// l'heure pleine. Sans reservation : soiree type 18:00 -> 23:00. Fonction PURE :
+// c'est elle qui donne au slider temporel ses bornes.
+export function simulationRange(
+  reservations: readonly Reservation[],
+  today = new Date(),
+): { start: Date; end: Date } {
+  const alive = reservations.filter((r) => r.status !== 'cancelled' && r.status !== 'no_show');
+  const floorHour = (ms: number): Date => {
+    const d = new Date(ms);
+    d.setMinutes(0, 0, 0);
+    return d;
+  };
+  const ceilHour = (ms: number): Date => {
+    const d = new Date(ms);
+    if (d.getMinutes() > 0 || d.getSeconds() > 0) {
+      d.setHours(d.getHours() + 1);
+    }
+    d.setMinutes(0, 0, 0);
+    return d;
+  };
+
+  if (alive.length === 0) {
+    const start = new Date(today);
+    start.setHours(18, 0, 0, 0);
+    const end = new Date(today);
+    end.setHours(23, 0, 0, 0);
+    return { start, end };
+  }
+
+  const times = alive.map((r) => new Date(r.dateTime).getTime());
+  return {
+    start: floorHour(Math.min(...times) - 60 * MINUTE_MS),
+    end: ceilHour(Math.max(...times) + 120 * MINUTE_MS),
+  };
 }
 
 // SYNTHESE DE SALLE (mode service) : agrege les statuts des tables pour le bandeau
