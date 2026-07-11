@@ -7,6 +7,7 @@ import {
   effect,
   inject,
   input,
+  output,
   viewChild,
 } from '@angular/core';
 import type * as THREE from 'three';
@@ -33,9 +34,14 @@ const COLOR_RESERVED = 0x30a46c;
 const COLOR_SEATED = 0x3d7fd9;
 const COLOR_LATE = 0xd64545;
 
-// Vue 3D de la salle, generee depuis NOS donnees (murs importes + tables + statuts
-// derives). Aucune dependance a un modele externe : la maquette est TOUJOURS
-// synchronisee avec le service en cours (polling -> statuts -> couleurs).
+// Seuil de « clic » : au-dela de ce deplacement (px), le geste est une rotation
+// de camera (OrbitControls), pas une selection de table.
+const CLICK_MOVE_PX = 6;
+
+// Vue 3D INTERACTIVE de la salle, generee depuis NOS donnees (murs importes +
+// tables + statuts derives). Toujours synchronisee avec le service en cours
+// (polling -> statuts -> couleurs), et cliquable comme la 2D : une table emise
+// au clic declenche les memes actions (drawer, walk-in, affectation).
 //
 // Three.js est charge dynamiquement (comme Konva) : hors du bundle initial, et
 // degrade proprement en environnement sans WebGL (jsdom en test).
@@ -44,10 +50,12 @@ const COLOR_LATE = 0xd64545;
   template: `
     <div
       #host
-      role="img"
-      aria-label="Vue 3D de la salle (decorative ; utilisez la vue 2D pour interagir)"
+      role="application"
+      aria-label="Vue 3D de la salle. Cliquez une table pour agir, glissez pour tourner la caméra."
       class="bg-surface-2 border-border relative w-full overflow-hidden rounded-md border"
-      style="aspect-ratio: 16 / 10; min-height: 320px"
+      [class.h-full]="fill()"
+      [style.aspect-ratio]="fill() ? null : '16 / 10'"
+      [style.min-height.px]="fill() ? 0 : 320"
     ></div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,6 +67,11 @@ export class HkFloorPlan3d {
   readonly views = input<FloorTableView[]>([]);
   // Murs decoratifs (import Pascal).
   readonly walls = input<WallSegment[]>([]);
+  // MODE SERVICE : remplit le conteneur (h-full) au lieu du ratio 16/10.
+  readonly fill = input(false);
+
+  // Clic sur une table : memes actions que la 2D (drawer / walk-in / affectation).
+  readonly tableClick = output<FloorTableView>();
 
   private three: ThreeModule | null = null;
   private renderer: THREE.WebGLRenderer | null = null;
@@ -69,6 +82,13 @@ export class HkFloorPlan3d {
   private roomGroup: THREE.Group | null = null;
   private rafId = 0;
   private resizeObserver: ResizeObserver | null = null;
+
+  // Interaction : meshes de tables cliquables + vue associee (par uuid de mesh).
+  private tableMeshes: THREE.Mesh[] = [];
+  private viewByUuid = new Map<string, FloorTableView>();
+  private raycaster: THREE.Raycaster | null = null;
+  private hovered: THREE.Mesh | null = null;
+  private pointerDownAt: { x: number; y: number } | null = null;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -143,6 +163,62 @@ export class HkFloorPlan3d {
 
     this.resizeObserver = new ResizeObserver(() => this.syncSize());
     this.resizeObserver.observe(container);
+
+    // Interaction tables : clic (si le pointeur n'a pas orbite) + survol.
+    this.raycaster = new t.Raycaster();
+    const dom = this.renderer.domElement;
+    dom.addEventListener('pointerdown', (e) => {
+      this.pointerDownAt = { x: e.clientX, y: e.clientY };
+    });
+    dom.addEventListener('pointerup', (e) => {
+      const start = this.pointerDownAt;
+      this.pointerDownAt = null;
+      if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > CLICK_MOVE_PX) {
+        return; // rotation de camera, pas un clic.
+      }
+      const view = this.pick(e);
+      if (view) {
+        this.tableClick.emit(view);
+      }
+    });
+    dom.addEventListener('pointermove', (e) => this.syncHover(e));
+  }
+
+  // Table sous le pointeur (raycast), ou null.
+  private pick(event: PointerEvent): FloorTableView | null {
+    const t = this.three;
+    if (!t || !this.raycaster || !this.camera || !this.renderer) {
+      return null;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const ndc = new t.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+    );
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hit = this.raycaster.intersectObjects(this.tableMeshes, false)[0];
+    return hit ? (this.viewByUuid.get(hit.object.uuid) ?? null) : null;
+  }
+
+  // Survol : curseur pointeur + leger eclaircissement de la table visee.
+  private syncHover(event: PointerEvent): void {
+    const view = this.pointerDownAt ? null : this.pick(event);
+    const mesh = view
+      ? (this.tableMeshes.find((m) => this.viewByUuid.get(m.uuid) === view) ?? null)
+      : null;
+    if (mesh === this.hovered) {
+      return;
+    }
+    if (this.hovered) {
+      (this.hovered.material as THREE.MeshLambertMaterial).emissive?.setHex(0x000000);
+    }
+    this.hovered = mesh;
+    if (mesh) {
+      (mesh.material as THREE.MeshLambertMaterial).emissive?.setHex(0x333333);
+    }
+    if (this.renderer) {
+      this.renderer.domElement.style.cursor = mesh ? 'pointer' : 'grab';
+    }
   }
 
   private syncSize(): void {
@@ -179,6 +255,10 @@ export class HkFloorPlan3d {
     }
     const group = new t.Group();
     this.roomGroup = group;
+    // Les meshes sont recrees : on repart d'un registre d'interaction propre.
+    this.tableMeshes = [];
+    this.viewByUuid.clear();
+    this.hovered = null;
 
     // Sol.
     const floor = new t.Mesh(
@@ -233,6 +313,9 @@ export class HkFloorPlan3d {
       // Konva tourne en degres horaires ; Three en radians trigonometriques.
       table.rotation.y = (-v.rotation * Math.PI) / 180;
       group.add(table);
+      // Enregistre la table pour le clic/survol (raycast).
+      this.tableMeshes.push(table);
+      this.viewByUuid.set(table.uuid, v);
 
       // Etiquette : nom de table, + client si la table est occupee.
       const customer = v.status !== 'libre' ? v.reservation?.customerName : null;

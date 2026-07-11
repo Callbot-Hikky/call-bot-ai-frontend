@@ -128,17 +128,18 @@ const WALK_IN_GUARD_MIN = 90;
                 l'affecter.
               </p>
             }
-            @if (!serviceMode()) {
-              <div class="flex items-center gap-2">
-                <hk-button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="toggle-3d"
-                  (click)="view3d.set(!view3d())"
-                >
-                  <hk-icon name="lucideBox" [size]="16" />
-                  {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
-                </hk-button>
+            <div class="flex items-center gap-2">
+              <!-- Toggle 2D/3D disponible AUSSI en mode service (ecran d'accueil). -->
+              <hk-button
+                variant="secondary"
+                size="sm"
+                data-testid="toggle-3d"
+                (click)="view3d.set(!view3d())"
+              >
+                <hk-icon name="lucideBox" [size]="16" />
+                {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
+              </hk-button>
+              @if (!serviceMode()) {
                 <hk-button variant="secondary" size="sm" (click)="enterService.emit()">
                   <hk-icon name="lucideMaximize" [size]="16" />
                   Mode service
@@ -151,8 +152,8 @@ const WALK_IN_GUARD_MIN = 90;
                   <hk-icon name="lucidePencil" [size]="16" />
                   Modifier
                 </hk-button>
-              </div>
-            }
+              }
+            </div>
           </div>
 
           @if (tableViews().length === 0) {
@@ -162,9 +163,17 @@ const WALK_IN_GUARD_MIN = 90;
             >
               Aucune table n'est configurée pour ce restaurant.
             </div>
-          } @else if (view3d() && !serviceMode()) {
-            <!-- Vue 3D decorative (statuts live) : la 2D reste la vue d'action. -->
-            <hk-floor-plan-3d [views]="tableViews()" [walls]="walls()" />
+          } @else if (view3d()) {
+            <!-- Vue 3D interactive (statuts live) : memes actions au clic que la 2D. -->
+            <hk-floor-plan-3d
+              [views]="tableViews()"
+              [walls]="walls()"
+              [fill]="serviceMode()"
+              [class.block]="serviceMode()"
+              [class.min-h-0]="serviceMode()"
+              [class.flex-1]="serviceMode()"
+              (tableClick)="onTableClick($event)"
+            />
           } @else {
             <hk-floor-plan-canvas
               [tables]="tableViews()"
