@@ -22,8 +22,10 @@ class CanvasStub {
   readonly walls = input<WallSegment[]>([]);
   readonly selectedIds = input<readonly string[]>([]);
   readonly snap = input(true);
+  readonly wallMode = input(false);
   readonly selectionChange = output<string[]>();
   readonly geometryChange = output<TableGeometry[]>();
+  readonly wallAdded = output<WallSegment>();
 }
 
 // Restaurant UNIQUE par test : l'autosave (600 ms) d'un test precedent peut tirer
@@ -130,6 +132,35 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Mettre en page la salle');
     expect(fixture.nativeElement.querySelector('[data-testid="template-bistrot"]')).toBeTruthy();
+  });
+
+  it('mode murs : trace, annule le dernier, efface tout', async () => {
+    const fixture = await open();
+    // Sortir de l'ecran templates : applique la grille auto.
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    el.querySelector<HTMLButtonElement>('[data-testid="toggle-walls"]')!.click();
+    await fixture.whenStable();
+    // Aide contextuelle visible + canvas averti du mode.
+    expect(el.querySelector('[data-testid="wall-hint"]')).toBeTruthy();
+    const canvas = findCanvas(fixture);
+    expect(canvas.wallMode()).toBe(true);
+
+    // Le canvas emet deux murs traces -> persistes dans le plan.
+    canvas.wallAdded.emit({ x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.1, thickness: 0.02 });
+    canvas.wallAdded.emit({ x1: 0.9, y1: 0.1, x2: 0.9, y2: 0.9, thickness: 0.02 });
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(2);
+
+    // Annuler le dernier -> il reste 1 ; tout effacer -> 0.
+    el.querySelector<HTMLButtonElement>('[data-testid="undo-wall"]')!.click();
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(1);
+    el.querySelector<HTMLButtonElement>('[data-testid="clear-walls"]')!.click();
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(0);
   });
 
   it('un template APPLIQUE des positions aux tables EXISTANTES (aucune creation)', async () => {

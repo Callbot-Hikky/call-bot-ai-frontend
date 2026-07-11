@@ -28,6 +28,7 @@ import {
   TableGeometryEntry,
   TableShape,
   TablePreset,
+  WallSegment,
   geometryFromPreset,
   nextTableName,
   offsetGeometry,
@@ -162,12 +163,45 @@ interface CreateSpec {
             variant="ghost"
             size="sm"
             data-testid="toolbar-pascal-import"
+            title="Créer la salle depuis un scan 3D de votre restaurant (Pascal)"
             [disabled]="creating()"
             (click)="importOpen.set(true)"
           >
             <hk-icon name="lucideUpload" [size]="16" />
             Importer 3D
           </hk-button>
+
+          <hk-button
+            [variant]="wallMode() ? 'primary' : 'ghost'"
+            size="sm"
+            data-testid="toggle-walls"
+            title="Tracer les murs de votre salle : deux clics = un mur"
+            (click)="toggleWallMode()"
+          >
+            <hk-icon name="lucideGrid2x2" [size]="16" />
+            {{ wallMode() ? 'Terminer les murs' : 'Murs' }}
+          </hk-button>
+
+          @if (wallMode()) {
+            <hk-button
+              variant="ghost"
+              size="sm"
+              data-testid="undo-wall"
+              [disabled]="store.walls().length === 0"
+              (click)="undoLastWall()"
+            >
+              Annuler le dernier
+            </hk-button>
+            <hk-button
+              variant="ghost"
+              size="sm"
+              data-testid="clear-walls"
+              [disabled]="store.walls().length === 0"
+              (click)="clearWalls()"
+            >
+              Tout effacer
+            </hk-button>
+          }
 
           <hk-button
             variant="ghost"
@@ -241,13 +275,26 @@ interface CreateSpec {
               }
             </div>
 
+            @if (wallMode()) {
+              <!-- Aide contextuelle du mode murs : on sait toujours quoi faire. -->
+              <div
+                class="bg-st-pending-bg text-st-pending-fg rounded-md px-3 py-2 text-sm"
+                data-testid="wall-hint"
+              >
+                <strong>Mode murs :</strong> cliquez un premier point, puis un second — le mur se
+                trace entre les deux. Enchaînez les murs, puis « Terminer les murs » (ou Échap).
+              </div>
+            }
+
             <hk-floor-plan-editor-canvas
               [tables]="editorTables()"
               [walls]="store.walls()"
               [selectedIds]="selectedIds()"
               [snap]="snap()"
+              [wallMode]="wallMode()"
               (selectionChange)="onSelectionChange($event)"
               (geometryChange)="onGeometryChange($event)"
+              (wallAdded)="onWallAdded($event)"
             />
 
             <div class="text-text-subtle flex items-center gap-2 text-xs">
@@ -360,6 +407,8 @@ export class HkFloorPlanEditor implements OnInit {
   protected readonly creating = signal(false);
   // Dialogue d'import Pascal (scan 3D / editeur web) ouvert.
   protected readonly importOpen = signal(false);
+  // MODE MURS : trace a la main (deux clics = un mur), tables gelees pendant.
+  protected readonly wallMode = signal(false);
 
   // Tables vues par le canvas : identite (nom/couverts) des tables REELLES +
   // geometrie du plan (repli auto-grille tant que la table n'a pas d'entree).
@@ -460,6 +509,28 @@ export class HkFloorPlanEditor implements OnInit {
       }),
     }));
     this.createTables(specs);
+  }
+
+  // --- Murs traces a la main ------------------------------------------------------
+
+  protected toggleWallMode(): void {
+    this.wallMode.update((v) => !v);
+    if (this.wallMode()) {
+      this.selectedIds.set([]);
+    }
+  }
+
+  // Ajoute le mur trace au plan (persistance immediate via FloorPlanService).
+  protected onWallAdded(wall: WallSegment): void {
+    this.store.setWalls([...this.store.walls(), wall]);
+  }
+
+  protected undoLastWall(): void {
+    this.store.setWalls(this.store.walls().slice(0, -1));
+  }
+
+  protected clearWalls(): void {
+    this.store.setWalls([]);
   }
 
   // --- Import Pascal (scan 3D / editeur web) ------------------------------------
@@ -750,6 +821,12 @@ export class HkFloorPlanEditor implements OnInit {
         target.tagName === 'SELECT' ||
         target.tagName === 'TEXTAREA' ||
         target.isContentEditable);
+
+    if (event.key === 'Escape' && this.wallMode()) {
+      event.preventDefault();
+      this.wallMode.set(false);
+      return;
+    }
 
     const mod = event.ctrlKey || event.metaKey;
 

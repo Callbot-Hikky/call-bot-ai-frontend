@@ -91,15 +91,19 @@ export class HkFloorPlanEditorCanvas {
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
 
   readonly tables = input<EditorTable[]>([]);
-  // Murs decoratifs (import Pascal) : dessines sous les tables, non interactifs.
+  // Murs decoratifs (import Pascal OU traces a la main) : sous les tables.
   readonly walls = input<WallSegment[]>([]);
   readonly selectedIds = input<readonly string[]>([]);
   readonly snap = input(true);
+  // MODE MURS : deux clics = un mur. Les tables sont gelees pendant le trace.
+  readonly wallMode = input(false);
 
   // Selection demandee depuis le canvas (clic table, clic vide, rubber-band).
   readonly selectionChange = output<string[]>();
   // Geometrie d'une ou plusieurs tables apres un geste (a commiter en bloc).
   readonly geometryChange = output<TableGeometry[]>();
+  // Mur trace (coordonnees normalisees) : l'orchestrateur le persiste.
+  readonly wallAdded = output<WallSegment>();
 
   private konva: KonvaModule | null = null;
   private stage: Konva.Stage | null = null;
@@ -110,6 +114,11 @@ export class HkFloorPlanEditorCanvas {
 
   private readonly nodes = new Map<string, EditorNode>();
   private rubberStart: { x: number; y: number } | null = null;
+
+  // MODE MURS : premier point pose (px) + apercu du trace en cours.
+  private wallStart: { x: number; y: number } | null = null;
+  private wallPreview: Konva.Line | null = null;
+  private wallStartMarker: Konva.Circle | null = null;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -133,6 +142,20 @@ export class HkFloorPlanEditorCanvas {
     effect(() => {
       this.selectedIds();
       this.syncSelection();
+    });
+
+    // MODE MURS : gele les tables (pas de drag/selection pendant le trace),
+    // curseur croix, et nettoie un trace en cours a la sortie du mode.
+    effect(() => {
+      const drawing = this.wallMode();
+      for (const node of this.nodes.values()) {
+        node.group.draggable(!drawing);
+        node.group.listening(!drawing);
+      }
+      if (!drawing) {
+        this.resetWallDraft();
+      }
+      this.layer?.batchDraw();
     });
 
     destroyRef.onDestroy(() => {
@@ -192,9 +215,14 @@ export class HkFloorPlanEditorCanvas {
   }
 
   // Clic dans le vide = deselection + depart d'un rectangle de selection.
+  // En MODE MURS, le clic pose les points du mur a la place.
   private bindStageInteractions(): void {
     const stage = this.stage!;
     stage.on('mousedown touchstart', (e) => {
+      if (this.wallMode()) {
+        this.handleWallClick();
+        return;
+      }
       if (e.target !== stage) {
         return; // clic sur une table : gere par le groupe.
       }
@@ -213,6 +241,10 @@ export class HkFloorPlanEditorCanvas {
     });
 
     stage.on('mousemove touchmove', () => {
+      if (this.wallMode()) {
+        this.updateWallPreview();
+        return;
+      }
       if (!this.rubberStart || !this.selectionRect) {
         return;
       }
@@ -232,6 +264,9 @@ export class HkFloorPlanEditorCanvas {
     });
 
     stage.on('mouseup touchend', () => {
+      if (this.wallMode()) {
+        return; // les murs se tracent au mousedown, pas de rubber-band.
+      }
       if (!this.rubberStart || !this.selectionRect) {
         return;
       }
@@ -255,6 +290,77 @@ export class HkFloorPlanEditorCanvas {
       }
       this.selectionChange.emit(hits);
     });
+  }
+
+  // --- MODE MURS ----------------------------------------------------------------
+
+  // Premier clic : pose le depart (marqueur + apercu). Second clic : emet le mur
+  // en coordonnees NORMALISEES (l'orchestrateur persiste via FloorPlanService).
+  private handleWallClick(): void {
+    const k = this.konva;
+    const stage = this.stage;
+    const pos = stage?.getPointerPosition();
+    if (!k || !stage || !pos) {
+      return;
+    }
+    if (!this.wallStart) {
+      this.wallStart = { x: pos.x, y: pos.y };
+      const color = this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
+      this.wallStartMarker = new k.Circle({
+        x: pos.x,
+        y: pos.y,
+        radius: 5,
+        fill: color,
+        listening: false,
+      });
+      this.wallPreview = new k.Line({
+        points: [pos.x, pos.y, pos.x, pos.y],
+        stroke: color,
+        strokeWidth: 6,
+        lineCap: 'round',
+        dash: [10, 6],
+        opacity: 0.7,
+        listening: false,
+      });
+      this.layer?.add(this.wallPreview);
+      this.layer?.add(this.wallStartMarker);
+      this.layer?.batchDraw();
+      return;
+    }
+    // Second point : on ignore les segments minuscules (double-clic accidentel).
+    if (Math.hypot(pos.x - this.wallStart.x, pos.y - this.wallStart.y) < 10) {
+      return;
+    }
+    const width = stage.width();
+    const height = stage.height();
+    this.wallAdded.emit({
+      x1: this.wallStart.x / width,
+      y1: this.wallStart.y / height,
+      x2: pos.x / width,
+      y2: pos.y / height,
+      // Epaisseur par defaut ~20 cm a l'echelle d'une salle de 10 m.
+      thickness: 0.02,
+    });
+    this.resetWallDraft();
+    // Enchaine : le prochain clic demarre un nouveau mur (trace en serie).
+  }
+
+  private updateWallPreview(): void {
+    const pos = this.stage?.getPointerPosition();
+    if (!pos || !this.wallStart || !this.wallPreview) {
+      return;
+    }
+    this.wallPreview.points([this.wallStart.x, this.wallStart.y, pos.x, pos.y]);
+    this.layer?.batchDraw();
+  }
+
+  private resetWallDraft(): void {
+    this.wallStart = null;
+    this.wallPreview?.destroy();
+    this.wallPreview = null;
+    this.wallStartMarker?.destroy();
+    this.wallStartMarker = null;
+    this.layer?.batchDraw();
   }
 
   private syncSize(): void {

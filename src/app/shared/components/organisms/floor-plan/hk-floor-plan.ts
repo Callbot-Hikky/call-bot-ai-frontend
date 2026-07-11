@@ -94,12 +94,18 @@ const WALK_IN_GUARD_MIN = 90;
                 l'affecter.
               </p>
             }
+            <!-- Chaque bouton porte une explication au survol (title) : on comprend
+                 AVANT de cliquer, pas apres. -->
             <div class="flex items-center gap-2">
-              <!-- Toggle 2D/3D disponible AUSSI en mode service (ecran d'accueil). -->
               <hk-button
                 variant="secondary"
                 size="sm"
                 data-testid="toggle-3d"
+                [title]="
+                  view3d()
+                    ? 'Revenir au plan 2D (vue de travail)'
+                    : 'Voir votre salle en 3D, comme si vous y étiez'
+                "
                 (click)="view3d.set(!view3d())"
               >
                 <hk-icon name="lucideBox" [size]="16" />
@@ -110,20 +116,36 @@ const WALK_IN_GUARD_MIN = 90;
                   [variant]="simulating() ? 'primary' : 'secondary'"
                   size="sm"
                   data-testid="toggle-sim"
+                  title="Projeter votre salle à n'importe quelle heure de la soirée : voyez où seront les trous et les rushes"
                   (click)="simulating() ? stopSim() : startSim()"
                 >
                   <hk-icon name="lucideCalendar" [size]="16" />
                   {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
                 </hk-button>
-                <hk-button variant="secondary" size="sm" (click)="onEnterService()">
+                <hk-button
+                  variant="secondary"
+                  size="sm"
+                  title="Plein écran pour le poste d'accueil pendant le service"
+                  (click)="onEnterService()"
+                >
                   <hk-icon name="lucideMaximize" [size]="16" />
                   Mode service
                 </hk-button>
-                <hk-button variant="secondary" size="sm" (click)="exportPng()">
+                <hk-button
+                  variant="secondary"
+                  size="sm"
+                  title="Télécharger le plan affiché en image (brief d'équipe, impression)"
+                  (click)="exportPng()"
+                >
                   <hk-icon name="lucideDownload" [size]="16" />
                   Exporter
                 </hk-button>
-                <hk-button variant="secondary" size="sm" (click)="edit.emit()">
+                <hk-button
+                  variant="secondary"
+                  size="sm"
+                  title="Modifier la salle : déplacer, créer, supprimer des tables et des murs"
+                  (click)="edit.emit()"
+                >
                   <hk-icon name="lucidePencil" [size]="16" />
                   Modifier
                 </hk-button>
@@ -243,41 +265,69 @@ const WALK_IN_GUARD_MIN = 90;
                    projection et direct, et rien ne bouge en dessous. -->
               @if (simulating()) {
                 <div
-                  class="bg-st-pending-bg/95 border-st-pending-fg/30 absolute right-3 bottom-3 left-3 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-4 py-2 shadow-lg backdrop-blur-sm"
+                  class="bg-st-pending-bg/95 border-st-pending-fg/25 absolute right-4 bottom-4 left-4 z-10 flex flex-col gap-2.5 rounded-xl border px-5 py-3.5 shadow-xl backdrop-blur-md"
                   data-testid="sim-bar"
                 >
-                  <span
-                    class="text-st-pending-fg text-[11px] font-semibold tracking-wide uppercase"
-                  >
-                    Simulation
-                  </span>
-                  <span
-                    class="text-st-pending-fg font-mono text-xl font-bold tabular-nums"
-                    data-testid="sim-time"
-                  >
-                    {{ simLabel() }}
-                  </span>
-                  <input
-                    type="range"
-                    class="accent-st-pending-fg h-2 min-w-32 flex-1 cursor-pointer"
-                    min="0"
-                    [max]="simTotalMinutes()"
-                    step="15"
-                    [value]="simMinutes()"
-                    aria-label="Heure simulée"
-                    data-testid="sim-slider"
-                    (input)="onSimSlide($event)"
-                  />
-                  <span
-                    class="text-st-pending-fg text-sm whitespace-nowrap"
-                    data-testid="sim-summary"
-                  >
-                    <strong>{{ simFree().tables }} table(s) libre(s)</strong>
-                    · {{ simFree().couverts }} couv.
-                  </span>
-                  <hk-button size="sm" variant="secondary" (click)="stopSim()">
-                    Revenir au direct
-                  </hk-button>
+                  <!-- Titre + explication : on comprend ce qu'on regarde. -->
+                  <div class="flex items-center justify-between gap-3">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                      <span
+                        class="bg-st-pending-fg rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-white uppercase"
+                      >
+                        Simulation
+                      </span>
+                      <span class="text-st-pending-fg/90 truncate text-xs">
+                        Votre salle projetée à l'heure choisie — rien n'est modifié, glissez pour
+                        explorer la soirée.
+                      </span>
+                    </div>
+                    <hk-button
+                      size="sm"
+                      variant="secondary"
+                      title="Quitter la projection et revenir à la salle en temps réel"
+                      (click)="stopSim()"
+                    >
+                      Revenir au direct
+                    </hk-button>
+                  </div>
+                  <!-- Horloge + timeline bornée + réponse de dispo. -->
+                  <div class="flex items-center gap-5">
+                    <span
+                      class="text-st-pending-fg font-mono text-3xl leading-none font-bold tabular-nums"
+                      data-testid="sim-time"
+                    >
+                      {{ simLabel() }}
+                    </span>
+                    <div class="flex min-w-32 flex-1 flex-col gap-1">
+                      <input
+                        type="range"
+                        class="accent-st-pending-fg h-2 w-full cursor-pointer"
+                        min="0"
+                        [max]="simTotalMinutes()"
+                        step="15"
+                        [value]="simMinutes()"
+                        aria-label="Heure simulée"
+                        data-testid="sim-slider"
+                        (input)="onSimSlide($event)"
+                      />
+                      <div
+                        class="text-st-pending-fg/70 flex justify-between font-mono text-[10px] tabular-nums"
+                      >
+                        <span>{{ simStartLabel() }}</span>
+                        <span>{{ simEndLabel() }}</span>
+                      </div>
+                    </div>
+                    <span
+                      class="text-st-pending-fg text-right text-sm leading-tight whitespace-nowrap"
+                      data-testid="sim-summary"
+                    >
+                      <strong class="text-base">{{ simFree().tables }} table(s) libre(s)</strong>
+                      <br />
+                      <span class="text-st-pending-fg/80">
+                        {{ simFree().couverts }} couverts disponibles
+                      </span>
+                    </span>
+                  </div>
                 </div>
               }
             </div>
@@ -537,6 +587,13 @@ export class HkFloorPlan {
     const d = this.simNow();
     return d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
   });
+  // Bornes affichees sous la timeline (l'utilisateur voit l'etendue de la soiree).
+  protected readonly simStartLabel = computed(() =>
+    this.simRange().start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+  );
+  protected readonly simEndLabel = computed(() =>
+    this.simRange().end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+  );
   // « A 20:30 : 5 tables libres · 18 couverts disponibles » — la reponse a
   // « puis-je accepter une resa a cette heure-la ? », lisible sans compter.
   protected readonly simFree = computed(() => {
