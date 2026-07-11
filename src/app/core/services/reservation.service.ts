@@ -5,8 +5,13 @@ import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { Reservation, ReservationStatus, RestaurantTable } from '@core/models/reservation.model';
-import { ReservationDto, mapReservation, toRequest } from '@core/models/reservation-dto.model';
-import { localDateKey } from '@core/utils/format';
+import {
+  ReservationDto,
+  ReservationRequestDto,
+  mapReservation,
+  toRequest,
+} from '@core/models/reservation-dto.model';
+import { localDateKey, localIso } from '@core/utils/format';
 
 // Service des réservations. Deux modes selon environment.useMock :
 //  - mock : données de test (of(...).pipe(delay), aucun réseau) — pour la démo et les tests ;
@@ -43,6 +48,13 @@ export class ReservationService {
     });
   }
 
+  // Rafraichissement SILENCIEUX (polling live, LOT B3) : recharge les reservations
+  // et met a jour le signal SANS toucher `loading` ni `error` — pas de spinner ni
+  // de clignotement toutes les 20 s. L'appelant recoit la liste fraiche pour diff.
+  refresh(date?: string): Observable<Reservation[]> {
+    return this.getToday(date).pipe(tap((list) => this._reservations.set(list)));
+  }
+
   getToday(date?: string): Observable<Reservation[]> {
     if (environment.useMock) {
       void date;
@@ -65,6 +77,62 @@ export class ReservationService {
 
   cancel(id: string): Observable<Reservation> {
     return this.mutateStatus(id, 'cancelled');
+  }
+
+  // TERMINER LE SERVICE (poste de commandement) : les clients sont partis, la resa
+  // passe `completed` -> la derivation rend la table Libre immediatement.
+  finish(id: string): Observable<Reservation> {
+    return this.mutateStatus(id, 'completed');
+  }
+
+  // WALK-IN : installe des clients SANS reservation sur une table libre.
+  // Cree une reservation immediate `seated` / `manual` sans client (le back accepte
+  // customerId null — fait verifie), fenetre de 2 h, en heure LOCALE avec fuseau.
+  createWalkIn(table: RestaurantTable, partySize: number): Observable<Reservation> {
+    const now = new Date();
+    if (environment.useMock) {
+      const created: Reservation = {
+        id: `walkin-${Date.now()}`,
+        customerName: 'Sans réservation',
+        phone: '',
+        dateTime: localIso(now),
+        partySize,
+        table,
+        status: 'seated',
+        source: 'manual',
+      };
+      return of(created).pipe(
+        delay(200),
+        tap((res) => this._reservations.update((list) => [...list, res])),
+      );
+    }
+    const body: ReservationRequestDto = {
+      restaurantId: environment.restaurantId,
+      customerId: null,
+      tableId: table.id,
+      callId: null,
+      startsAt: localIso(now),
+      endsAt: localIso(new Date(now.getTime() + 2 * 60 * 60 * 1000)),
+      partySize,
+      status: 'seated',
+      source: 'manual',
+      notes: null,
+    };
+    return this.http.post<ReservationDto>(this.baseUrl, body).pipe(
+      map((dto) => {
+        // La reponse (sans ?expand) peut ne pas embarquer la table : on la greffe
+        // pour que la derivation colore la table tout de suite (comme mutateTable).
+        const patched: ReservationDto = {
+          ...dto,
+          table: dto.table ?? { id: table.id, name: table.name, capacity: table.capacity },
+        };
+        this._raw.update((list) => [...list, patched]);
+        // Mapping standard (customer absent -> « Client ») : coherent partout.
+        const created = mapReservation(patched);
+        this._reservations.update((list) => [...list, created]);
+        return created;
+      }),
+    );
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {

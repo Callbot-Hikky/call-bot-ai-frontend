@@ -4,6 +4,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { firstValueFrom } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ReservationDto } from '@core/models/reservation-dto.model';
+import { Reservation, newReservations } from '@core/models/reservation.model';
 
 // En test, environment.useMock vaut false (fileReplacement dev) : on teste le vrai
 // chemin HTTP en simulant les réponses du backend avec HttpTestingController.
@@ -80,6 +81,25 @@ describe('ReservationService', () => {
     expect(service.reservations().find((r) => r.id === '1')?.status).toBe('confirmed');
   });
 
+  // LOT B3 : refresh silencieux du polling live.
+  it('refresh met a jour les reservations SANS toucher loading', () => {
+    service.loadToday('2026-06-24');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'pending')]);
+    expect(service.reservations().length).toBe(1);
+    expect(service.loading()).toBe(false);
+
+    service.refresh('2026-06-24').subscribe();
+    // Pendant la requete de refresh, PAS de spinner.
+    expect(service.loading()).toBe(false);
+    httpMock
+      .expectOne((r) => r.url.includes('/reservations'))
+      .flush([dto('1', 'pending'), dto('2', 'confirmed')]);
+
+    expect(service.loading()).toBe(false);
+    expect(service.error()).toBe(false);
+    expect(service.reservations().length).toBe(2);
+  });
+
   it('cancel envoie un PUT et met le statut à cancelled', async () => {
     service.loadToday('2026-06-24');
     httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'confirmed')]);
@@ -91,5 +111,35 @@ describe('ReservationService', () => {
 
     await result;
     expect(service.reservations().find((r) => r.id === '1')?.status).toBe('cancelled');
+  });
+});
+
+// LOT B3 : diff par id apres refresh (detection des nouvelles reservations).
+describe('newReservations', () => {
+  function res(id: string): Reservation {
+    return {
+      id,
+      customerName: `Client ${id}`,
+      phone: '+33 6 00 00 00 00',
+      dateTime: '2026-06-24T20:00:00+02:00',
+      partySize: 2,
+      status: 'pending',
+      source: 'callbot',
+    };
+  }
+
+  it('detecte les reservations apparues depuis le dernier fetch', () => {
+    const before = new Set(['a', 'b']);
+    const after = [res('a'), res('b'), res('c'), res('d')];
+    expect(newReservations(before, after).map((r) => r.id)).toEqual(['c', 'd']);
+  });
+
+  it('rien de nouveau -> liste vide (y compris si des resas ont disparu)', () => {
+    const before = new Set(['a', 'b']);
+    expect(newReservations(before, [res('a')])).toEqual([]);
+  });
+
+  it('premier fetch (avant vide) -> tout est nouveau', () => {
+    expect(newReservations(new Set<string>(), [res('a')]).map((r) => r.id)).toEqual(['a']);
   });
 });
