@@ -52,19 +52,78 @@ export interface PascalImportPayload {
         data-testid="pascal-import-dialog"
       >
         <div class="flex items-start justify-between gap-3">
-          <div class="flex flex-col gap-1">
-            <h2 class="text-text-strong text-lg font-semibold">Importer un plan 3D (Pascal)</h2>
-            <p class="text-text-subtle text-sm">
-              Scannez votre salle avec l’app Pascal Capture (iPhone) ou dessinez-la sur
-              editor.pascal.app, puis « Export Scene (JSON) » et déposez le fichier ici.
-            </p>
-          </div>
+          <h2 class="text-text-strong text-lg font-semibold">Importer un plan 3D (Pascal)</h2>
           <hk-button variant="ghost" size="sm" aria-label="Fermer" (click)="closed.emit()">
             <hk-icon name="lucideX" [size]="16" />
           </hk-button>
         </div>
 
         @if (!result()) {
+          <!-- GUIDE PAS-A-PAS : Pascal est un outil externe (page en anglais,
+               connexion requise, export peu visible) — sans ces 4 etapes, un
+               restaurateur qui decouvre est perdu. Verifie en conditions reelles. -->
+          <ol class="flex flex-col gap-2.5" data-testid="pascal-guide">
+            <li class="flex items-start gap-3">
+              <span
+                class="bg-primary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              >
+                1
+              </span>
+              <span class="text-sm">
+                <a
+                  href="https://editor.pascal.app"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-primary font-semibold underline underline-offset-2"
+                >
+                  Ouvrez editor.pascal.app ↗
+                </a>
+                <span class="text-text-subtle">
+                  puis « Start building ». C'est gratuit — connexion Google en 10 secondes.
+                </span>
+              </span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span
+                class="bg-primary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              >
+                2
+              </span>
+              <span class="text-sm">
+                <span class="text-text-strong font-semibold">Créez votre salle :</span>
+                <span class="text-text-subtle">
+                  dessinez les murs et posez les tables — ou scannez votre restaurant avec l'app
+                  iPhone « Pascal Capture » (le scan arrive tout seul dans votre projet).
+                </span>
+              </span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span
+                class="bg-primary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              >
+                3
+              </span>
+              <span class="text-sm">
+                <span class="text-text-strong font-semibold">Exportez le fichier :</span>
+                <span class="text-text-subtle">
+                  réglages (en bas de la barre latérale gauche) → section « Export » →
+                </span>
+                <span class="text-text-strong font-semibold">« Export Scene (JSON) »</span>
+                .
+              </span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span
+                class="bg-primary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+              >
+                4
+              </span>
+              <span class="text-text-subtle text-sm"
+                >Déposez le fichier ci-dessous — on s'occupe du reste.</span
+              >
+            </li>
+          </ol>
+
           <!-- Etape 1 : depot du fichier -->
           <label
             data-testid="pascal-dropzone"
