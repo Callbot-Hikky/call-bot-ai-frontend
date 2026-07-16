@@ -457,6 +457,20 @@ describe('fusion de tables (mergeViews / canMerge)', () => {
     const b = view('t2', 0.8, 0.8);
     expect(mergeViews([a, b], []).length).toBe(2);
   });
+
+  it('la prochaine resa de la tablee est la plus proche parmi TOUS les membres', () => {
+    // t2 (non dominant, non ancre) porte la prochaine resa : le bloc doit
+    // l'exposer pour que le garde-fou walk-in la voie.
+    const a = view('t1', 0.5, 0.5);
+    const b = {
+      ...view('t2', 0.55, 0.5),
+      nextTime: '21:00',
+      nextDateTime: '2026-07-16T21:00:00',
+    };
+    const merged = mergeViews([a, b], [['t1', 't2']]);
+    expect(merged[0].nextTime).toBe('21:00');
+    expect(merged[0].nextDateTime).toBe('2026-07-16T21:00:00');
+  });
 });
 
 describe('simulationRange', () => {

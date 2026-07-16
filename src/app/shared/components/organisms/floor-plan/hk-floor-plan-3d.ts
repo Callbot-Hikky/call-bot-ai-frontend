@@ -629,7 +629,7 @@ export class HkFloorPlan3d {
         const plate = new t.Mesh(new t.CylinderGeometry(0.1, 0.1, 0.015, 20), plateMaterial);
         plate.position.set(
           slot.x * (1 - 0.48 / toCenter),
-          topY + TABLE_TOP_THICKNESS / 2 + 0.01,
+          topY + (isBar ? BAR_TOP_THICKNESS : TABLE_TOP_THICKNESS) / 2 + 0.01,
           slot.z * (1 - 0.48 / toCenter),
         );
         g.add(plate);

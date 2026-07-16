@@ -782,9 +782,15 @@ export class HkFloorPlan {
 
   // PULSE (LOT B3) : relaye vers la vue AFFICHEE la mise en avant d'une table qui
   // vient de recevoir une nouvelle reservation (detectee par le polling de la page).
+  // Table membre d'une tablee fusionnee : le pulse vise l'ANCRE du groupe (seul
+  // noeud rendu pour le groupe).
   pulseTable(tableId: string): void {
-    this.canvas()?.pulseTable(tableId);
-    this.canvas3d()?.pulseTable(tableId);
+    const group = this.merges().find((g) => g.includes(tableId));
+    // L'ancre est le noeud effectivement rendu pour le groupe (id d'une vue).
+    const anchor = group && this.tableViews().find((v) => group.includes(v.table.id));
+    const targetId = anchor?.table.id ?? tableId;
+    this.canvas()?.pulseTable(targetId);
+    this.canvas3d()?.pulseTable(targetId);
   }
 
   // EXPORT PNG (LOT B4) : capture le stage Konva et declenche le telechargement.

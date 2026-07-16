@@ -270,8 +270,16 @@ export function mergeViews(
     )[0];
     const anchor = members[0];
 
+    // Prochaine resa de la TABLEE = la plus proche parmi TOUS les membres (le
+    // garde-fou walk-in doit voir la resa d'un membre non dominant).
+    const next = members
+      .filter((m) => m.nextDateTime !== null)
+      .sort((a, b) => (a.nextDateTime as string).localeCompare(b.nextDateTime as string))[0];
+
     blocks.push({
       ...dominant,
+      nextTime: next?.nextTime ?? null,
+      nextDateTime: next?.nextDateTime ?? null,
       // L'ANCRE porte l'identite : les actions (walk-in, affectation) ciblent
       // une vraie table back, la capacite affichee est la somme du groupe.
       table: {
