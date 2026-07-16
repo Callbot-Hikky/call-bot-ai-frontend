@@ -27,6 +27,11 @@ const WALL_HEIGHT = 1.15;
 // Anatomie d'une table : plateau a hauteur reelle ~0.42 (proportion credible).
 const TABLE_TOP_Y = 0.42;
 const TABLE_TOP_THICKNESS = 0.06;
+// Anatomie d'un BAR : comptoir haut avec corps plein et tabourets (un bar n'est
+// pas une grande table — il doit se reconnaitre au premier regard).
+const BAR_TOP_Y = 0.62;
+const BAR_TOP_THICKNESS = 0.07;
+const STOOL_SEAT_Y = 0.42;
 
 // CAMERA : on demarre EXACTEMENT comme la vue 2D (aplomb, meme orientation),
 // puis on descend doucement vers une perspective legere -> l'utilisateur
@@ -528,13 +533,19 @@ export class HkFloorPlan3d {
             : COLOR_WOOD;
 
     const isRound = v.shape === 'round';
+    const isBar = v.shape === 'bar';
+    const topY = isBar ? BAR_TOP_Y : TABLE_TOP_Y;
     const top = new t.Mesh(
       isRound
         ? new t.CylinderGeometry(wU / 2, wU / 2, TABLE_TOP_THICKNESS, 36)
-        : new t.BoxGeometry(wU, TABLE_TOP_THICKNESS, dU),
+        : new t.BoxGeometry(
+            isBar ? wU + 0.12 : wU,
+            isBar ? BAR_TOP_THICKNESS : TABLE_TOP_THICKNESS,
+            isBar ? dU + 0.12 : dU,
+          ),
       new t.MeshLambertMaterial({ color: topColor }),
     );
-    top.position.y = TABLE_TOP_Y;
+    top.position.y = topY;
     top.castShadow = true;
     g.add(top);
     // Le plateau est LA surface cliquable de la table.
@@ -545,10 +556,19 @@ export class HkFloorPlan3d {
       this.lateMeshes.push(top);
     }
 
-    // Pieds : central (ronde) ou quatre coins (rect/carre/bar).
+    // Support : corps plein (bar), pied central (ronde) ou quatre pieds (rect).
     const legMaterial = new t.MeshLambertMaterial({ color: COLOR_LEG });
     const legHeight = TABLE_TOP_Y - TABLE_TOP_THICKNESS / 2;
-    if (isRound) {
+    if (isBar) {
+      // Un comptoir n'a pas de pieds : un corps massif sous le plateau.
+      const body = new t.Mesh(
+        new t.BoxGeometry(wU, BAR_TOP_Y - BAR_TOP_THICKNESS / 2, dU),
+        legMaterial,
+      );
+      body.position.y = (BAR_TOP_Y - BAR_TOP_THICKNESS / 2) / 2;
+      body.castShadow = true;
+      g.add(body);
+    } else if (isRound) {
       const pedestal = new t.Mesh(new t.CylinderGeometry(0.06, 0.06, legHeight, 12), legMaterial);
       pedestal.position.y = legHeight / 2;
       pedestal.castShadow = true;
@@ -571,32 +591,45 @@ export class HkFloorPlan3d {
       }
     }
 
-    // Chaises : lisibilite immediate de la capacite (comme les sieges 2D).
-    // Tables installees : une assiette devant chaque chaise (la salle « vit »).
+    // Assises : TABOURETS ronds pour un bar, chaises a dossier sinon.
+    // Tables installees : une assiette devant chaque place (la salle « vit »).
     const chairMaterial = new t.MeshLambertMaterial({ color: COLOR_CHAIR });
     const plateMaterial = new t.MeshLambertMaterial({ color: COLOR_PLATE });
     const seated = v.status === 'installee';
     for (const slot of chairSlots(v.shape, wU, dU, v.table.capacity)) {
       const chair = new t.Group();
-      const seat = new t.Mesh(new t.BoxGeometry(0.3, 0.05, 0.3), chairMaterial);
-      seat.position.y = 0.24;
-      seat.castShadow = true;
-      const back = new t.Mesh(new t.BoxGeometry(0.3, 0.3, 0.045), chairMaterial);
-      back.position.set(0, 0.42, 0.13);
-      back.castShadow = true;
-      chair.add(seat);
-      chair.add(back);
+      if (isBar) {
+        const stoolSeat = new t.Mesh(new t.CylinderGeometry(0.15, 0.15, 0.05, 16), chairMaterial);
+        stoolSeat.position.y = STOOL_SEAT_Y;
+        stoolSeat.castShadow = true;
+        const stoolLeg = new t.Mesh(
+          new t.CylinderGeometry(0.035, 0.035, STOOL_SEAT_Y, 10),
+          legMaterial,
+        );
+        stoolLeg.position.y = STOOL_SEAT_Y / 2;
+        chair.add(stoolSeat);
+        chair.add(stoolLeg);
+      } else {
+        const seat = new t.Mesh(new t.BoxGeometry(0.3, 0.05, 0.3), chairMaterial);
+        seat.position.y = 0.24;
+        seat.castShadow = true;
+        const back = new t.Mesh(new t.BoxGeometry(0.3, 0.3, 0.045), chairMaterial);
+        back.position.set(0, 0.42, 0.13);
+        back.castShadow = true;
+        chair.add(seat);
+        chair.add(back);
+      }
       chair.position.set(slot.x, 0, slot.z);
       chair.rotation.y = slot.rotationY;
       g.add(chair);
 
       if (seated) {
-        // Assiette posee au bord du plateau, devant la chaise.
+        // Assiette posee au bord du plateau, devant la place.
         const toCenter = Math.hypot(slot.x, slot.z) || 1;
         const plate = new t.Mesh(new t.CylinderGeometry(0.1, 0.1, 0.015, 20), plateMaterial);
         plate.position.set(
           slot.x * (1 - 0.48 / toCenter),
-          TABLE_TOP_Y + TABLE_TOP_THICKNESS / 2 + 0.01,
+          topY + TABLE_TOP_THICKNESS / 2 + 0.01,
           slot.z * (1 - 0.48 / toCenter),
         );
         g.add(plate);
@@ -608,7 +641,7 @@ export class HkFloorPlan3d {
     const parts = tableLabelParts(v);
     const label = this.makeLabel(parts.title, parts.subtitle, parts.color);
     if (label) {
-      label.position.set(0, TABLE_TOP_Y + 0.95, 0);
+      label.position.set(0, topY + 0.95, 0);
       g.add(label);
     }
     return g;
