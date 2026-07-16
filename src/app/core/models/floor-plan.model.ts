@@ -192,6 +192,105 @@ export function simulationRange(
   };
 }
 
+// --- FUSION DE TABLES ------------------------------------------------------------
+// Deux tables collees peuvent etre FUSIONNEES (groupe d'anniversaire, grande
+// tablee) : le plan stocke des groupes d'ids (`merges`), et la vue service rend
+// chaque groupe comme UNE tablee (bloc englobant, couverts sommes, statut
+// dominant). Les reservations restent portees par les VRAIES tables : la vue
+// fusionnee garde l'id de la premiere table (ancre) -> walk-in, affectation et
+// drawer fonctionnent sans changement.
+
+// Largeur du conteneur en unites « petit cote » (ratio 16:10 des canvas).
+const ASPECT_W = 1.6;
+
+// Deux geometries se touchent-elles ? Rects englobants en unites petit cote
+// (la rotation est ignoree : suffisant pour des tables collees bord a bord).
+export function tablesTouch(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+  gap = 0.035,
+): boolean {
+  const dx = Math.abs(a.x * ASPECT_W - b.x * ASPECT_W) - (a.w + b.w) / 2;
+  const dy = Math.abs(a.y - b.y) - (a.h + b.h) / 2;
+  return dx <= gap && dy <= gap;
+}
+
+// Un groupe est fusionnable si chaque table touche au moins une autre du groupe
+// (chaine de tables collees, pas forcement toutes mutuellement en contact).
+export function canMerge(
+  entries: readonly { x: number; y: number; w: number; h: number }[],
+): boolean {
+  if (entries.length < 2) {
+    return false;
+  }
+  return entries.every((a, i) => entries.some((b, j) => i !== j && tablesTouch(a, b)));
+}
+
+// Ordre de dominance d'un statut pour la vue fusionnee (le plus « occupe » gagne).
+const STATUS_RANK: Record<FloorTableStatus, number> = { libre: 0, reservee: 1, installee: 2 };
+
+// Remplace les vues des tables fusionnees par UNE vue de tablee par groupe.
+export function mergeViews(
+  views: readonly FloorTableView[],
+  merges: readonly (readonly string[])[],
+): FloorTableView[] {
+  if (merges.length === 0) {
+    return [...views];
+  }
+  const byId = new Map(views.map((v) => [v.table.id, v]));
+  const consumed = new Set<string>();
+  const blocks: FloorTableView[] = [];
+
+  for (const group of merges) {
+    const members = group
+      .map((id) => byId.get(id))
+      .filter((v): v is FloorTableView => v != null && !consumed.has(v.table.id));
+    if (members.length < 2) {
+      continue; // groupe incomplet (table supprimee) : on l'ignore.
+    }
+    members.forEach((m) => consumed.add(m.table.id));
+
+    // Bloc englobant en unites petit cote, re-normalise ensuite.
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const m of members) {
+      minX = Math.min(minX, m.x * ASPECT_W - m.w / 2);
+      maxX = Math.max(maxX, m.x * ASPECT_W + m.w / 2);
+      minY = Math.min(minY, m.y - m.h / 2);
+      maxY = Math.max(maxY, m.y + m.h / 2);
+    }
+
+    // Vue dominante : la plus occupee (retard prioritaire a rang egal).
+    const dominant = [...members].sort(
+      (a, b) =>
+        STATUS_RANK[b.status] - STATUS_RANK[a.status] ||
+        (b.lateMinutes ?? -1) - (a.lateMinutes ?? -1),
+    )[0];
+    const anchor = members[0];
+
+    blocks.push({
+      ...dominant,
+      // L'ANCRE porte l'identite : les actions (walk-in, affectation) ciblent
+      // une vraie table back, la capacite affichee est la somme du groupe.
+      table: {
+        ...anchor.table,
+        name: members.map((m) => m.table.name).join('+'),
+        capacity: members.reduce((sum, m) => sum + m.table.capacity, 0),
+      },
+      x: (minX + maxX) / 2 / ASPECT_W,
+      y: (minY + maxY) / 2,
+      w: maxX - minX,
+      h: maxY - minY,
+      shape: 'rect',
+      rotation: 0,
+    });
+  }
+
+  return [...views.filter((v) => !consumed.has(v.table.id)), ...blocks];
+}
+
 // SYNTHESE DE SALLE (mode service) : agrege les statuts des tables pour le bandeau
 // « poste d'accueil ». Fonction PURE (testable sans monter de composant) :
 //  - libres/reservees/installees : nombre de tables par statut ;

@@ -21,6 +21,7 @@ import {
   bestFitTableId,
   deriveTableStatus,
   layoutTables,
+  mergeViews,
   simulationRange,
 } from '@core/models/floor-plan.model';
 import { from, of } from 'rxjs';
@@ -448,6 +449,8 @@ export class HkFloorPlan {
   readonly geometry = input<GeometryMap>({});
   // Murs decoratifs (import Pascal) : fond du canvas, purement visuel.
   readonly walls = input<WallSegment[]>([]);
+  // Groupes de tables FUSIONNEES : rendus comme UNE tablee (bloc englobant).
+  readonly merges = input<string[][]>([]);
   readonly loading = input(false);
   readonly error = input(false);
   // MODE SERVICE : le plan remplit son conteneur (pas d'aspect-ratio), affiche les
@@ -551,12 +554,14 @@ export class HkFloorPlan {
     const reservations = this.reservations();
     const simulated = this.simNow();
     const now = simulated ?? new Date();
-    return this.placed().map((p) => ({
+    const views = this.placed().map((p) => ({
       ...p,
       // `projected` en simulation : les tables installees se liberent apres la
       // duree de service estimee (sinon la projection mentirait sur le futur).
       ...deriveTableStatus(p.table.id, reservations, now, simulated !== null),
     }));
+    // Tables fusionnees : chaque groupe devient UNE tablee (2D ET 3D).
+    return mergeViews(views, this.merges());
   });
 
   // --- Simulation de la soiree (« Simuler ma soiree ») ---------------------------

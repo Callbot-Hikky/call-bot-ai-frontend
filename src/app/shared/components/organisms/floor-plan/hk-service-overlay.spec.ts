@@ -18,6 +18,7 @@ class FloorPlanStub {
   readonly tables = input<FloorTable[]>([]);
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
+  readonly merges = input<string[][]>([]);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);

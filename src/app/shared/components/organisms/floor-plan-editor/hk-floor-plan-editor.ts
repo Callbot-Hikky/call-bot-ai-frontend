@@ -29,13 +29,15 @@ import {
   TableShape,
   TablePreset,
   WallSegment,
+  defaultGeometryFor,
   geometryFromPreset,
+  gridPosition,
   nextTableName,
   offsetGeometry,
   rowGeometries,
   seedMissingGeometry,
 } from '@core/models/floor-plan-editor.model';
-import { buildEditorTables } from '@core/models/floor-plan.model';
+import { buildEditorTables, canMerge } from '@core/models/floor-plan.model';
 import { downloadDataUrl } from '@core/utils/download';
 import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-canvas';
 import { HkPascalImport, PascalImportPayload } from './hk-pascal-import';
@@ -88,16 +90,45 @@ interface CreateSpec {
           </p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          @for (tpl of templates; track tpl.key) {
+          @for (preview of templatePreviews; track preview.key) {
             <button
               type="button"
-              [attr.data-testid]="'template-' + tpl.key"
+              [attr.data-testid]="'template-' + preview.key"
               [disabled]="tableService.loading()"
-              class="border-border hover:border-primary hover:bg-muted focus-visible:ring-primary flex flex-col gap-1.5 rounded-md border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-              (click)="useTemplate(tpl.key)"
+              class="border-border hover:border-primary hover:bg-muted focus-visible:ring-primary flex flex-col gap-2 rounded-md border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+              (click)="useTemplate(preview.key)"
             >
-              <span class="text-text-strong text-sm font-semibold">{{ tpl.label }}</span>
-              <span class="text-text-subtle text-xs">{{ tpl.description }}</span>
+              <!-- APERCU : la vraie geometrie du template, en miniature — on
+                   choisit une salle en la VOYANT, pas en lisant sa description. -->
+              <svg
+                viewBox="0 0 160 100"
+                class="border-border w-full rounded-sm border"
+                style="background: #faf7f1"
+                role="img"
+                [attr.aria-label]="'Aperçu de la disposition ' + preview.label"
+              >
+                @for (shape of preview.shapes; track $index) {
+                  @if (shape.round) {
+                    <circle
+                      [attr.cx]="shape.x * 160"
+                      [attr.cy]="shape.y * 100"
+                      [attr.r]="(shape.w * 100) / 2"
+                      fill="#d4b28c"
+                    />
+                  } @else {
+                    <rect
+                      [attr.x]="shape.x * 160 - (shape.w * 100) / 2"
+                      [attr.y]="shape.y * 100 - (shape.h * 100) / 2"
+                      [attr.width]="shape.w * 100"
+                      [attr.height]="shape.h * 100"
+                      rx="2"
+                      fill="#d4b28c"
+                    />
+                  }
+                }
+              </svg>
+              <span class="text-text-strong text-sm font-semibold">{{ preview.label }}</span>
+              <span class="text-text-subtle text-xs">{{ preview.description }}</span>
             </button>
           }
         </div>
@@ -217,6 +248,31 @@ interface CreateSpec {
             <hk-button variant="ghost" size="sm" (click)="alignSelection()">
               <hk-icon name="lucideAlignHorizontalJustifyCenter" [size]="16" />
               Aligner
+            </hk-button>
+            <hk-button
+              variant="ghost"
+              size="sm"
+              data-testid="merge-tables"
+              [disabled]="!selectionMergeable()"
+              [title]="
+                selectionMergeable()
+                  ? 'Fusionner en une seule tablée (couverts additionnés)'
+                  : 'Collez les tables bord à bord pour pouvoir les fusionner'
+              "
+              (click)="mergeSelection()"
+            >
+              Fusionner
+            </hk-button>
+          }
+          @if (selectionMerged()) {
+            <hk-button
+              variant="ghost"
+              size="sm"
+              data-testid="unmerge-tables"
+              title="Séparer la tablée : chaque table redevient indépendante"
+              (click)="unmergeSelection()"
+            >
+              Défusionner
             </hk-button>
           }
 
@@ -399,6 +455,30 @@ export class HkFloorPlanEditor implements OnInit {
 
   protected readonly templates = FLOOR_PLAN_TEMPLATES;
   protected readonly presets = TABLE_PRESETS;
+
+  // APERCUS des templates (ecran de demarrage) : on applique chaque template a
+  // 12 tables factices et on garde la geometrie pour un mini-plan SVG. Le
+  // template « grille automatique » (apply vide) montre la grille de repli.
+  protected readonly templatePreviews = FLOOR_PLAN_TEMPLATES.map((tpl) => {
+    const fakeIds = Array.from({ length: 12 }, (_, i) => `p${i}`);
+    const geometry = tpl.apply(fakeIds);
+    const entries =
+      Object.keys(geometry).length > 0
+        ? Object.values(geometry)
+        : fakeIds.map((_, i) => defaultGeometryFor(4, gridPosition(i, fakeIds.length)));
+    return {
+      key: tpl.key,
+      label: tpl.label,
+      description: tpl.description,
+      shapes: entries.map((g) => ({
+        x: g.x,
+        y: g.y,
+        w: g.w,
+        h: g.h,
+        round: g.shape === 'round',
+      })),
+    };
+  });
   protected readonly shapeOptions = SHAPE_OPTIONS;
 
   protected readonly selectedIds = signal<readonly string[]>([]);
@@ -509,6 +589,52 @@ export class HkFloorPlanEditor implements OnInit {
       }),
     }));
     this.createTables(specs);
+  }
+
+  // --- Fusion de tables (grandes tablees) ------------------------------------------
+  // Le plan stocke des groupes d'ids ; la VUE SERVICE (2D et 3D) rend chaque
+  // groupe comme UNE tablee. L'editeur, lui, garde les tables independantes
+  // (on continue de les deplacer une par une).
+
+  // La selection peut-elle fusionner ? >= 2 tables, toutes COLLEES (en chaine).
+  protected readonly selectionMergeable = computed(() => {
+    const ids = this.selectedIds();
+    if (ids.length < 2) {
+      return false;
+    }
+    const byId = new Map(this.editorTables().map((t) => [t.id, t]));
+    const entries = ids
+      .map((id) => byId.get(id))
+      .filter((t): t is EditorTable => t != null)
+      .map((t) => ({ x: t.x, y: t.y, w: t.width, h: t.height }));
+    return entries.length === ids.length && canMerge(entries);
+  });
+
+  // La selection touche-t-elle un groupe existant ? (-> proposer Defusionner)
+  protected readonly selectionMerged = computed(() => {
+    const ids = new Set(this.selectedIds());
+    return this.store.merges().some((group) => group.some((id) => ids.has(id)));
+  });
+
+  protected mergeSelection(): void {
+    if (!this.selectionMergeable()) {
+      return;
+    }
+    const ids = [...this.selectedIds()];
+    const idSet = new Set(ids);
+    // Les tables deja fusionnees ailleurs quittent leur ancien groupe.
+    const others = this.store
+      .merges()
+      .map((group) => group.filter((id) => !idSet.has(id)))
+      .filter((group) => group.length >= 2);
+    this.store.setMerges([...others, ids]);
+    this.toast.show('Tablée créée : visible sur le plan de service (2D et 3D).');
+  }
+
+  protected unmergeSelection(): void {
+    const ids = new Set(this.selectedIds());
+    this.store.setMerges(this.store.merges().filter((group) => !group.some((id) => ids.has(id))));
+    this.toast.show('Tablée séparée.');
   }
 
   // --- Murs traces a la main ------------------------------------------------------
@@ -644,6 +770,7 @@ export class HkFloorPlanEditor implements OnInit {
           this.tableService.remove(id).pipe(
             concatMap(() => {
               this.store.removeEntry(id);
+              this.dropFromMerges(id);
               return of(id);
             }),
             catchError(() => {
@@ -656,6 +783,17 @@ export class HkFloorPlanEditor implements OnInit {
       .subscribe({
         complete: () => this.selectedIds.set(blocked),
       });
+  }
+
+  // Retire une table supprimee des groupes de fusion (groupe < 2 -> dissous).
+  private dropFromMerges(tableId: string): void {
+    const merges = this.store.merges();
+    if (!merges.some((group) => group.includes(tableId))) {
+      return;
+    }
+    this.store.setMerges(
+      merges.map((group) => group.filter((id) => id !== tableId)).filter((g) => g.length >= 2),
+    );
   }
 
   // --- Alignement (geometrie pure) ------------------------------------------------

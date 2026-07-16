@@ -56,6 +56,9 @@ export interface FloorPlan {
   // Murs decoratifs (optionnels : uniquement apres un import Pascal). Champ
   // ADDITIF : les plans v2 sans murs restent valides, pas de bump de version.
   walls?: WallSegment[];
+  // Groupes de tables FUSIONNEES (grandes tablees) : listes d'ids back. Champ
+  // additif lui aussi ; un groupe reduit a <2 tables existantes est ignore.
+  merges?: string[][];
 }
 
 // Table telle que vue par le CANVAS de l'editeur : geometrie du plan + identite

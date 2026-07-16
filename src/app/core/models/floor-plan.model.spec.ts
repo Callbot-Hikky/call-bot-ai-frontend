@@ -8,7 +8,9 @@ import {
   bestFitTableId,
   buildEditorTables,
   deriveTableStatus,
+  canMerge,
   layoutTables,
+  mergeViews,
   simulationRange,
   summarizeRoom,
   tableTimeLabel,
@@ -384,6 +386,76 @@ describe('deriveTableStatus (mode projete / simulation)', () => {
     const at2215 = deriveTableStatus('t1', withNext, new Date('2026-06-22T22:15:00+02:00'), true);
     // 22:15 est dans la fenetre active de la resa de 22:30 (des 21:45).
     expect(at2215.status).toBe('reservee');
+  });
+});
+
+describe('fusion de tables (mergeViews / canMerge)', () => {
+  function view(
+    id: string,
+    x: number,
+    y: number,
+    status: FloorTableStatus = 'libre',
+    capacity = 4,
+  ): FloorTableView {
+    return {
+      table: { id, name: id.toUpperCase(), capacity },
+      x,
+      y,
+      w: 0.14,
+      h: 0.14,
+      shape: 'square',
+      rotation: 0,
+      status,
+      reservation: null,
+      nextTime: null,
+      nextDateTime: null,
+      lateMinutes: null,
+    } as FloorTableView;
+  }
+
+  it('canMerge : vrai pour des tables collees, faux pour des tables eloignees', () => {
+    // Collees : 0.14 de large (petit cote), centres ecartes de 0.14 en X petit
+    // cote -> x normalises ecartes de 0.14/1.6.
+    const a = { x: 0.5, y: 0.5, w: 0.14, h: 0.14 };
+    const b = { x: 0.5 + 0.14 / 1.6, y: 0.5, w: 0.14, h: 0.14 };
+    const far = { x: 0.9, y: 0.9, w: 0.14, h: 0.14 };
+    expect(canMerge([a, b])).toBe(true);
+    expect(canMerge([a, far])).toBe(false);
+    expect(canMerge([a])).toBe(false);
+  });
+
+  it('fusionne deux tables en UNE tablee : ancre, nom combine, couverts sommes', () => {
+    const a = view('t1', 0.5, 0.5, 'libre', 4);
+    const b = view('t2', 0.5 + 0.14 / 1.6, 0.5, 'libre', 6);
+    const merged = mergeViews([a, b], [['t1', 't2']]);
+    expect(merged.length).toBe(1);
+    const block = merged[0];
+    // L'ancre garde l'id de la premiere table (walk-in/affectation intacts).
+    expect(block.table.id).toBe('t1');
+    expect(block.table.name).toBe('T1+T2');
+    expect(block.table.capacity).toBe(10);
+    // Bloc englobant : plus large qu'une table seule.
+    expect(block.w).toBeGreaterThan(0.25);
+  });
+
+  it('le statut le plus occupe domine la tablee', () => {
+    const a = view('t1', 0.5, 0.5, 'libre');
+    const b = view('t2', 0.55, 0.5, 'installee');
+    const merged = mergeViews([a, b], [['t1', 't2']]);
+    expect(merged[0].status).toBe('installee');
+  });
+
+  it('ignore un groupe dont une table a disparu', () => {
+    const a = view('t1', 0.5, 0.5);
+    const merged = mergeViews([a], [['t1', 't-supprimee']]);
+    expect(merged.length).toBe(1);
+    expect(merged[0].table.name).toBe('T1');
+  });
+
+  it('sans groupe, les vues sont inchangees', () => {
+    const a = view('t1', 0.2, 0.2);
+    const b = view('t2', 0.8, 0.8);
+    expect(mergeViews([a, b], []).length).toBe(2);
   });
 });
 

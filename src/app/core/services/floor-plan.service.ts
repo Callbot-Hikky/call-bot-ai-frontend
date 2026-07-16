@@ -52,6 +52,8 @@ export class FloorPlanService {
   readonly geometry = computed<GeometryMap>(() => this._plan()?.geometry ?? {});
   // Murs decoratifs (import Pascal) : fond de plan des deux canvas.
   readonly walls = computed<WallSegment[]>(() => this._plan()?.walls ?? []);
+  // Groupes de tables fusionnees (grandes tablees).
+  readonly merges = computed<string[][]>(() => this._plan()?.merges ?? []);
   // Vrai quand aucun plan n'est persiste : l'editeur affiche l'ecran templates.
   readonly isEmpty = computed(() => this._loaded() && this._plan() === null);
 
@@ -172,6 +174,13 @@ export class FloorPlanService {
               [w.x1, w.y1, w.x2, w.y2, w.thickness].every((n) => typeof n === 'number'),
           )
         : undefined,
+      // Groupes de fusion : uniquement des listes d'au moins 2 ids texte.
+      merges: Array.isArray(parsed.merges)
+        ? parsed.merges.filter(
+            (g): g is string[] =>
+              Array.isArray(g) && g.length >= 2 && g.every((id) => typeof id === 'string'),
+          )
+        : undefined,
     };
   }
 
@@ -180,7 +189,7 @@ export class FloorPlanService {
   // sont PAS herites (un template repart d'une salle nue ; l'import Pascal pose
   // ses murs ensuite via setWalls).
   initFrom(geometry: GeometryMap): void {
-    this._plan.set({ ...this.makePlan(this.clone(geometry)), walls: undefined });
+    this._plan.set({ ...this.makePlan(this.clone(geometry)), walls: undefined, merges: undefined });
     this.undoStack = [];
     this.redoStack = [];
     this.refreshHistoryFlags();
@@ -210,6 +219,15 @@ export class FloorPlanService {
     const current = this._plan();
     const base = current?.geometry ?? {};
     this._plan.set(this.makePlan({ ...this.clone(base), ...this.clone(entries) }));
+    this.scheduleAutosave();
+  }
+
+  // Pose les groupes de tables fusionnees, SANS historique (meme logique que
+  // les murs : ce n'est pas un geste de geometrie annulable).
+  setMerges(merges: string[][]): void {
+    const current = this._plan();
+    const base = current ?? this.makePlan({});
+    this._plan.set({ ...base, merges: merges.map((g) => [...g]) });
     this.scheduleAutosave();
   }
 
@@ -284,6 +302,7 @@ export class FloorPlanService {
       restaurantId: this.restaurantId,
       geometry,
       walls: this._plan()?.walls,
+      merges: this._plan()?.merges,
     };
   }
 
@@ -315,7 +334,12 @@ export class FloorPlanService {
     }
     this.http
       .put(`${this.baseUrl}/${plan.restaurantId}`, {
-        layout: { version: plan.version, geometry: plan.geometry, walls: plan.walls ?? [] },
+        layout: {
+          version: plan.version,
+          geometry: plan.geometry,
+          walls: plan.walls ?? [],
+          merges: plan.merges ?? [],
+        },
       })
       .subscribe({
         next: () => this._saveState.set('saved'),

@@ -79,6 +79,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         [tables]="tables()"
         [geometry]="geometry()"
         [walls]="walls()"
+        [merges]="merges()"
         [loading]="loading()"
         [error]="error()"
         (openReservation)="openReservation.emit($event)"
@@ -104,6 +105,7 @@ export class HkServiceOverlay {
   readonly tables = input<FloorTable[]>([]);
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
+  readonly merges = input<string[][]>([]);
   readonly loading = input(false);
   readonly error = input(false);
 

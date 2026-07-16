@@ -255,6 +255,19 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
       expect(Object.keys(service.geometry())).toEqual(['uuid-a']);
     });
 
+    it('les groupes de fusion sont persistes et restitues', () => {
+      service.load(RESTAURANT);
+      service.initFrom({ 'uuid-a': entry(), 'uuid-b': entry(0.6, 0.5) });
+      service.setMerges([['uuid-a', 'uuid-b']]);
+      service.saveNow();
+
+      service.load(RESTAURANT);
+      expect(service.merges()).toEqual([['uuid-a', 'uuid-b']]);
+      // Un nouveau template repart sans fusion.
+      service.initFrom({ 'uuid-c': entry() });
+      expect(service.merges()).toEqual([]);
+    });
+
     it('ignore les murs corrompus a la lecture', () => {
       localStorage.setItem(
         KEY,
