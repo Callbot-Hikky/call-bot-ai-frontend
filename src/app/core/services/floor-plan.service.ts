@@ -1,4 +1,6 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '@env/environment';
 import {
   FLOOR_PLAN_VERSION,
   FloorPlan,
@@ -23,17 +25,18 @@ const HISTORY_LIMIT = 50;
 // ({ tableId -> { x, y, w, h, rotation, shape } }). Nom/couverts restent dans
 // TableService (source de verite unique) — plus de split-brain.
 //
-// PERSISTANCE — contrainte ferme : le back n'a pas (encore) d'endpoint floor-plans.
-// On persiste donc le plan en localStorage, une cle par restaurant.
-// L'ANCIEN format (v. tables autonomes, sans champ `version`) est detecte et purge
-// proprement : on repart d'un plan vide plutot que crasher ou melanger les ids.
-//
-// >>> A BRANCHER PLUS TARD (coordination equipe back) <<<
-// Le jour ou l'API existera, remplacer la lecture/ecriture localStorage par
-// GET/PUT /api/floor-plans : la forme serialisee (FloorPlan v2) est deja celle
-// a envoyer, seul le transport change.
+// PERSISTANCE (deux modes, comme TableService) :
+//  - mock : localStorage seul (une cle par restaurant), aucun reseau ;
+//  - reel : le back est la SOURCE DE VERITE (GET/PUT /api/floor-plans/{id},
+//    layout JSONB = notre FloorPlan v2 tel quel). localStorage reste un MIROIR
+//    de secours : lecture immediate au demarrage (pas d'ecran vide), et le plan
+//    survit si le back est injoignable pendant la demo.
+// L'ANCIEN format local (tables autonomes, sans `version`) est detecte et purge.
 @Injectable({ providedIn: 'root' })
 export class FloorPlanService {
+  private readonly http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/floor-plans`;
+
   // Plan courant en memoire (source de verite de l'editeur). null = aucun plan.
   private readonly _plan = signal<FloorPlan | null>(null);
   private readonly _saveState = signal<SaveState>('saved');
@@ -88,6 +91,23 @@ export class FloorPlanService {
     this._plan.set(plan);
     this._loaded.set(true);
     this._saveState.set('saved');
+
+    // Mode reel : le back fait foi. On rafraichit APRES la lecture locale
+    // (affichage immediat), sans ecraser des modifications deja en cours.
+    if (!environment.useMock) {
+      this.http.get<{ layout: unknown }>(`${this.baseUrl}/${restaurantId}`).subscribe({
+        next: (dto) => {
+          const fresh = this.sanitize(restaurantId, dto.layout);
+          if (fresh && this.restaurantId === restaurantId && this._saveState() === 'saved') {
+            this._plan.set(fresh);
+            this.writeLocal(fresh);
+          }
+        },
+        // 404 = aucun plan cote back (il partira au premier persist) ;
+        // reseau KO = on reste sur la copie locale. Dans les deux cas : silence.
+        error: () => undefined,
+      });
+    }
   }
 
   // Lecture brute localStorage -> FloorPlan v2 (ou null). Tolerante aux donnees
@@ -102,50 +122,57 @@ export class FloorPlanService {
       return null;
     }
     try {
-      const parsed = JSON.parse(raw) as Partial<FloorPlan> & { tables?: unknown };
-      if (
-        !parsed ||
-        parsed.version !== FLOOR_PLAN_VERSION ||
-        typeof parsed.geometry !== 'object' ||
-        parsed.geometry === null ||
-        Array.isArray(parsed.geometry)
-      ) {
+      const plan = this.sanitize(restaurantId, JSON.parse(raw));
+      if (!plan) {
         // Ancien format (tableau `tables`) ou donnees inattendues : on purge pour
         // repartir proprement (les ids de l'ancien format n'ont aucun lien back).
         store.removeItem(this.key(restaurantId));
-        return null;
       }
-      // Geometrie validee ENTREE PAR ENTREE (localStorage peut etre partiellement
-      // corrompu) : on ne garde que les entrees saines, comme pour les murs.
-      const geometry: GeometryMap = {};
-      for (const [id, entry] of Object.entries(parsed.geometry)) {
-        const e = entry as Partial<TableGeometryEntry> | null;
-        if (
-          e != null &&
-          typeof e === 'object' &&
-          [e.x, e.y, e.w, e.h, e.rotation].every((n) => typeof n === 'number') &&
-          typeof e.shape === 'string'
-        ) {
-          geometry[id] = e as TableGeometryEntry;
-        }
-      }
-      return {
-        version: FLOOR_PLAN_VERSION,
-        restaurantId,
-        geometry,
-        // Murs optionnels (import Pascal) : on ne garde que des segments sains.
-        walls: Array.isArray(parsed.walls)
-          ? parsed.walls.filter(
-              (w): w is WallSegment =>
-                w != null &&
-                typeof w === 'object' &&
-                [w.x1, w.y1, w.x2, w.y2, w.thickness].every((n) => typeof n === 'number'),
-            )
-          : undefined,
-      };
+      return plan;
     } catch {
       return null;
     }
+  }
+
+  // Valide un document de plan (localStorage OU layout renvoye par le back) :
+  // version attendue, geometrie filtree ENTREE PAR ENTREE, murs sains uniquement.
+  private sanitize(restaurantId: string, raw: unknown): FloorPlan | null {
+    const parsed = raw as (Partial<FloorPlan> & { tables?: unknown }) | null;
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      parsed.version !== FLOOR_PLAN_VERSION ||
+      typeof parsed.geometry !== 'object' ||
+      parsed.geometry === null ||
+      Array.isArray(parsed.geometry)
+    ) {
+      return null;
+    }
+    const geometry: GeometryMap = {};
+    for (const [id, entry] of Object.entries(parsed.geometry)) {
+      const e = entry as Partial<TableGeometryEntry> | null;
+      if (
+        e != null &&
+        typeof e === 'object' &&
+        [e.x, e.y, e.w, e.h, e.rotation].every((n) => typeof n === 'number') &&
+        typeof e.shape === 'string'
+      ) {
+        geometry[id] = e as TableGeometryEntry;
+      }
+    }
+    return {
+      version: FLOOR_PLAN_VERSION,
+      restaurantId,
+      geometry,
+      walls: Array.isArray(parsed.walls)
+        ? parsed.walls.filter(
+            (w): w is WallSegment =>
+              w != null &&
+              typeof w === 'object' &&
+              [w.x1, w.y1, w.x2, w.y2, w.thickness].every((n) => typeof n === 'number'),
+          )
+        : undefined,
+    };
   }
 
   // Initialise un NOUVEAU plan (depuis un template) et le persiste immediatement.
@@ -271,22 +298,44 @@ export class FloorPlanService {
     }, AUTOSAVE_DELAY);
   }
 
-  // Ecrit le plan courant en localStorage et passe l'indicateur a « Enregistré ».
+  // Persiste le plan courant : miroir localStorage TOUJOURS, puis PUT vers le
+  // back en mode reel (le JSONB stocke notre FloorPlan v2 tel quel).
   private persist(): void {
     const plan = this._plan();
-    const store = this.storage();
-    if (!plan || !store) {
-      // Rien a ecrire (ou stockage indisponible) : on ne ment pas sur l'etat.
-      this._saveState.set(store ? 'saved' : 'dirty');
+    if (!plan) {
+      this._saveState.set('saved');
       return;
     }
     this._saveState.set('saving');
+    const localOk = this.writeLocal(plan);
+
+    if (environment.useMock) {
+      this._saveState.set(localOk ? 'saved' : 'dirty');
+      return;
+    }
+    this.http
+      .put(`${this.baseUrl}/${plan.restaurantId}`, {
+        layout: { version: plan.version, geometry: plan.geometry, walls: plan.walls ?? [] },
+      })
+      .subscribe({
+        next: () => this._saveState.set('saved'),
+        // Back injoignable : le miroir local a la donnee, mais on reste honnete
+        // (« dirty ») pour re-tenter au prochain autosave/saveNow.
+        error: () => this._saveState.set('dirty'),
+      });
+  }
+
+  // Ecrit le miroir localStorage (best-effort). false si stockage indisponible.
+  private writeLocal(plan: FloorPlan): boolean {
+    const store = this.storage();
+    if (!store) {
+      return false;
+    }
     try {
       store.setItem(this.key(plan.restaurantId), JSON.stringify(plan));
-      this._saveState.set('saved');
+      return true;
     } catch {
-      // Quota / indisponible : on reste « dirty » pour signaler l'echec.
-      this._saveState.set('dirty');
+      return false;
     }
   }
 

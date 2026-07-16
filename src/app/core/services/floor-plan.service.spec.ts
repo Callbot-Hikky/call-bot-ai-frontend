@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { FloorPlanService } from './floor-plan.service';
 import { GeometryMap, TableGeometryEntry } from '@core/models/floor-plan-editor.model';
 
@@ -11,15 +13,34 @@ function entry(x = 0.5, y = 0.5): TableGeometryEntry {
 
 describe('FloorPlanService (geometrie keyee par id back)', () => {
   let service: FloorPlanService;
+  let httpMock: HttpTestingController;
+
+  // Sert toutes les requetes en vol du plan (mode reel en test) : GET -> 404
+  // (aucun plan cote back), PUT -> succes. Les tests restent centres localStorage.
+  function flushHttp(): void {
+    for (const req of httpMock.match(() => true)) {
+      if (req.request.method === 'GET') {
+        req.flush('not found', { status: 404, statusText: 'Not Found' });
+      } else {
+        req.flush({});
+      }
+    }
+  }
 
   beforeEach(() => {
     localStorage.clear();
     // providedIn: 'root' -> chaque TestBed donne une instance fraiche.
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(FloorPlanService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => localStorage.clear());
+  afterEach(() => {
+    flushHttp();
+    localStorage.clear();
+  });
 
   it('demarre vide quand aucun plan n est persiste', () => {
     service.load(RESTAURANT);
@@ -43,6 +64,7 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
       'uuid-b': { x: 0.7, y: 0.8, w: 0.2, h: 0.12, rotation: 90, shape: 'rect' },
     });
     service.saveNow();
+    flushHttp();
     expect(service.saveState()).toBe('saved');
 
     // Nouvelle instance : doit relire exactement ce qui a ete persiste.
@@ -75,6 +97,7 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
     service.commit({ a: entry(), b: entry(0.3, 0.3) });
     expect(service.saveState()).toBe('dirty');
     await new Promise((resolve) => setTimeout(resolve, 800));
+    flushHttp();
     expect(service.saveState()).toBe('saved');
 
     const fresh = TestBed.inject(FloorPlanService);

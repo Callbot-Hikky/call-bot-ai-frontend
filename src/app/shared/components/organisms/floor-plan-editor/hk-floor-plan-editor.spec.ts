@@ -313,8 +313,9 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     inputEl.value = 'Terrasse 1';
     inputEl.dispatchEvent(new Event('input'));
 
-    // Debounce : pas de requete immediate.
-    httpMock.expectNone((r) => r.method === 'PUT');
+    // Debounce : pas de requete immediate vers les TABLES (le plan, lui, peut
+    // avoir son propre PUT /floor-plans d'autosave — hors sujet ici).
+    httpMock.expectNone((r) => r.method === 'PUT' && r.url.includes('/tables'));
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     const req = httpMock.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/tables/t1'));
@@ -356,6 +357,8 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     await fixture.whenStable();
 
     expect(fixture.componentInstance.finished).toBe(true);
+    // saveNow() a emis le PUT /floor-plans (mode reel en test) : on le sert.
+    httpMock.match((r) => r.url.includes('/floor-plans')).forEach((req) => req.flush({}));
     expect(store.saveState()).toBe('saved');
   });
 });
