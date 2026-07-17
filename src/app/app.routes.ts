@@ -3,6 +3,7 @@ import { AppShell } from './core/layout/app-shell';
 import { TokensDemo } from './features/tokens-demo/tokens-demo';
 import { DashboardPage } from './features/dashboard/dashboard';
 import { ReservationsPage } from './features/reservations/reservations';
+import { FloorPlanPage } from './features/floor-plan/floor-plan-page';
 import { ComingSoonPage } from './features/coming-soon/coming-soon';
 
 export const routes: Routes = [
@@ -14,6 +15,7 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardPage, data: { title: 'Tableau de bord' } },
       { path: 'reservations', component: ReservationsPage, data: { title: 'Réservations' } },
+      { path: 'plan', component: FloorPlanPage, data: { title: 'Plan de salle' } },
       { path: 'appels', component: ComingSoonPage, data: { title: 'Appels', icon: 'lucidePhone' } },
       {
         path: 'parametres',

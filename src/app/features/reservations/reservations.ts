@@ -3,10 +3,8 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   signal,
-  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
@@ -20,23 +18,7 @@ import { HkReservationDetailDrawer } from '@shared/components/organisms/reservat
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
-import {
-  HkViewToggle,
-  ReservationView,
-} from '@shared/components/molecules/view-toggle/hk-view-toggle';
-import {
-  AssignEvent,
-  HkFloorPlan,
-  MergeAssignEvent,
-  WalkInEvent,
-} from '@shared/components/organisms/floor-plan/hk-floor-plan';
-import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
-import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-editor/hk-floor-plan-editor';
-import { deriveTableStatus, layoutTables } from '@core/models/floor-plan.model';
-import { environment } from '@env/environment';
 import { ReservationService } from '@core/services/reservation.service';
-import { TableService } from '@core/services/table.service';
-import { FloorPlanService } from '@core/services/floor-plan.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus, newReservations } from '@core/models/reservation.model';
@@ -56,8 +38,10 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   no_show: 5,
 };
 
-// Écran « Réservations du jour » (US 6.2). Assemble les organismes et branche le
-// ReservationService. Filtrage et KPI dérivés en computed signals.
+// Écran « Réservations du jour » (US 6.2) : KPI, demandes de rappel et LISTE.
+// Le plan de salle vit desormais sur SA page (« Plan de salle », sidebar) ;
+// les deux ecrans partagent les memes services (signals) — une affectation
+// faite sur le plan est visible ici immediatement.
 @Component({
   selector: 'app-reservations',
   imports: [
@@ -68,109 +52,46 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
     HkReservationList,
     HkReservationDetailDrawer,
     HkButton,
-    HkViewToggle,
-    HkFloorPlan,
-    HkServiceOverlay,
-    HkFloorPlanEditor,
   ],
   template: `
-    @if (serviceMode()) {
-      <hk-service-overlay
-        [restaurantName]="restaurantName"
-        [today]="today"
-        [views]="serviceTableViews()"
-        [reservations]="service.reservations()"
-        [tables]="tables.tables()"
-        [geometry]="floorPlan.geometry()"
-        [walls]="floorPlan.walls()"
-        [merges]="floorPlan.merges()"
-        [focusTableId]="drawerFocusTableId()"
-        [loading]="service.loading() || tables.loading()"
-        [error]="service.error() || tables.error()"
-        (exitService)="exitServiceMode()"
-        (openReservation)="openDetail($event, true)"
-        (assign)="onAssign($event)"
-        (mergeAssign)="onMergeAssign($event)"
-        (walkIn)="onWalkIn($event)"
-        (unassign)="onUnassign($event)"
-        (retry)="reload()"
+    <hk-page-header [subtitle]="today">
+      <hk-button variant="secondary" size="sm">Aujourd'hui</hk-button>
+      <hk-button size="sm">Nouvelle réservation</hk-button>
+    </hk-page-header>
+
+    <div class="flex flex-col gap-6">
+      <hk-stat-row [stats]="stats()" [loading]="service.loading()" />
+      <hk-callback-requests
+        [requests]="callbacks.callbacks()"
+        [loading]="callbacks.loading()"
+        [error]="callbacks.error()"
+        (callBack)="onCallBack($event)"
+        (handled)="onHandled($event)"
+        (retry)="callbacks.loadPending()"
       />
-    } @else {
-      <hk-page-header [subtitle]="today">
-        <hk-button variant="secondary" size="sm">Aujourd'hui</hk-button>
-        <hk-button size="sm">Nouvelle réservation</hk-button>
-      </hk-page-header>
 
-      <div class="flex flex-col gap-6">
-        <!-- Pendant l'edition du plan : on masque KPI + demandes de rappel pour
-           laisser l'editeur respirer plein cadre (A4). -->
-        @if (!editing()) {
-          <hk-stat-row [stats]="stats()" [loading]="service.loading()" />
-          <hk-callback-requests
-            [requests]="callbacks.callbacks()"
-            [loading]="callbacks.loading()"
-            [error]="callbacks.error()"
-            (callBack)="onCallBack($event)"
-            (handled)="onHandled($event)"
-            (retry)="callbacks.loadPending()"
-          />
-          <div class="flex items-center justify-between">
-            <hk-view-toggle [view]="view()" (viewChange)="onViewChange($event)" />
-          </div>
-        }
-
-        @if (editing()) {
-          <hk-floor-plan-editor
-            [restaurantId]="restaurantId"
-            [reservations]="service.reservations()"
-            (closed)="onEditorFinish()"
-          />
-        } @else if (view() === 'list') {
-          <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
-          <hk-reservation-list
-            [reservations]="displayed()"
-            [loading]="service.loading()"
-            [error]="service.error()"
-            [sort]="sort()"
-            (sortChange)="sort.set($event)"
-            (open)="openDetail($event, false)"
-            (confirm)="onConfirm($event)"
-            (cancelReservation)="onCancel($event)"
-            (call)="onCall($event)"
-            (retry)="service.loadToday()"
-          />
-        } @else {
-          <hk-floor-plan
-            [reservations]="service.reservations()"
-            [tables]="tables.tables()"
-            [geometry]="floorPlan.geometry()"
-            [walls]="floorPlan.walls()"
-            [merges]="floorPlan.merges()"
-            [focusTableId]="drawerFocusTableId()"
-            [loading]="service.loading() || tables.loading()"
-            [error]="service.error() || tables.error()"
-            (openReservation)="openDetail($event, true)"
-            (assign)="onAssign($event)"
-            (mergeAssign)="onMergeAssign($event)"
-            (walkIn)="onWalkIn($event)"
-            (unassign)="onUnassign($event)"
-            (edit)="onEdit()"
-            (enterService)="enterServiceMode()"
-            (retry)="reload()"
-          />
-        }
-      </div>
-    }
+      <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
+      <hk-reservation-list
+        [reservations]="displayed()"
+        [loading]="service.loading()"
+        [error]="service.error()"
+        [sort]="sort()"
+        (sortChange)="sort.set($event)"
+        (open)="openDetail($event)"
+        (confirm)="onConfirm($event)"
+        (cancelReservation)="onCancel($event)"
+        (call)="onCall($event)"
+        (retry)="service.loadToday()"
+      />
+    </div>
 
     <hk-reservation-detail-drawer
       [reservation]="selected()"
       [tableReservations]="selectedTableReservations()"
       [(state)]="drawerState"
-      [showUnassign]="drawerFromPlan()"
       (confirm)="onConfirm($event)"
       (cancelReservation)="onCancel($event)"
       (call)="onCall($event)"
-      (unassign)="onUnassign($event)"
       (endService)="onFinish($event)"
     />
   `,
@@ -178,35 +99,15 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 })
 export class ReservationsPage {
   protected readonly service = inject(ReservationService);
-  protected readonly tables = inject(TableService);
-  // Plan de salle edite (geometrie localStorage) : lu par la vue service (bridge).
-  protected readonly floorPlan = inject(FloorPlanService);
   protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly view = signal<ReservationView>('list');
-  // Mode edition du plan de salle (Phase 2). Masque le toggle + le plan lecture seule.
-  protected readonly editing = signal(false);
-  // MODE SERVICE plein ecran (« poste d'accueil »). Quand actif, on N'AFFICHE QUE
-  // l'overlay (KPI / rappels / toggle masques). Sortie : bouton Quitter ou Echap.
-  protected readonly serviceMode = signal(false);
-  protected readonly restaurantId = environment.restaurantId;
-  // Nom du restaurant affiche dans le bandeau du mode service (pas d'API dediee).
-  protected readonly restaurantName = 'Le Bistrot du Coin';
-  // Vrai plein ecran navigateur engage par nous (pour resynchroniser a sa sortie).
-  private enteredFullscreen = false;
   protected readonly statusFilter = signal<StatusFilter>('all');
   protected readonly search = signal('');
   protected readonly sort = signal<ReservationSort | null>(null);
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
-  // Vrai si le drawer a ete ouvert depuis le plan (active l'action "Liberer la table").
-  protected readonly drawerFromPlan = signal(false);
-  // Charge les tables une seule fois, au premier passage en vue Plan.
-  private tablesLoaded = false;
-  // Plan de salle affiche (present uniquement en vue Plan, hors edition) : cible du pulse.
-  private readonly floorPlanCmp = viewChild(HkFloorPlan);
   // Timer du polling live (LOT B3) ; null quand le polling est en pause.
   private pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -219,12 +120,6 @@ export class ReservationsPage {
   // Drawer synchronisé par id : reflète toujours l'état à jour du service.
   protected readonly selected = computed(
     () => this.service.reservations().find((r) => r.id === this.selectedId()) ?? null,
-  );
-
-  // FOCUS PLAN : drawer ouvert -> la table de la resa affichée reste allumée sur
-  // le plan, les autres s'atténuent (on voit tout de suite « où » on est).
-  protected readonly drawerFocusTableId = computed(() =>
-    this.drawerState() === 'open' ? (this.selected()?.table?.id ?? null) : null,
   );
 
   // Resas VIVANTES de la table de la resa affichée (frise « Soirée de la table »).
@@ -291,46 +186,13 @@ export class ReservationsPage {
     ];
   });
 
-  // MODE SERVICE : tables positionnees + statut derive (meme derivation que le plan),
-  // pour la synthese de salle du bandeau (libres/reservees/installees/couverts).
-  protected readonly serviceTableViews = computed(() => {
-    const reservations = this.service.reservations();
-    const now = new Date();
-    return layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
-      ...p,
-      ...deriveTableStatus(p.table.id, reservations, now),
-    }));
-  });
-
   constructor() {
     this.service.loadToday();
     this.callbacks.loadPending();
 
-    // Le vrai plein ecran peut etre quitte par le navigateur (Echap natif, F11...) :
-    // on resynchronise le mode service pour ne pas rester bloque dans l'overlay.
-    const onFsChange = (): void => {
-      if (this.enteredFullscreen && !document.fullscreenElement && this.serviceMode()) {
-        this.exitServiceMode();
-      }
-    };
-    document.addEventListener('fullscreenchange', onFsChange);
-    this.destroyRef.onDestroy(() => {
-      document.removeEventListener('fullscreenchange', onFsChange);
-      // Filet de securite : ne jamais laisser le header masque si on quitte la page
-      // en plein mode service.
-      document.body.classList.remove('service-mode');
-    });
-
     // LIVE LEGER (LOT B3) : polling silencieux des reservations toutes les 20 s,
-    // actif seulement page visible ET hors mode edition. La logique vit ICI (et pas
-    // dans un service) : c'est la page qui connait le mode edition, la vue courante
-    // (pulse seulement en vue Plan) et qui possede deja ToastService.
-    effect(() => {
-      this.editing(); // dependance : entree/sortie du mode edition.
-      this.syncPolling(false);
-    });
-
-    // Onglet cache -> pause ; visible -> refresh immediat + reprise.
+    // actif seulement page visible. Le pulse de table vit sur la page Plan.
+    this.syncPolling(false);
     const onVisibility = (): void => this.syncPolling(true);
     document.addEventListener('visibilitychange', onVisibility);
     this.destroyRef.onDestroy(() => {
@@ -339,10 +201,9 @@ export class ReservationsPage {
     });
   }
 
-  // (Re)configure le polling selon l'etat courant (edition + visibilite de l'onglet).
+  // (Re)configure le polling selon la visibilite de l'onglet.
   private syncPolling(refreshNow: boolean): void {
-    const active = !this.editing() && document.visibilityState === 'visible';
-    if (!active) {
+    if (document.visibilityState !== 'visible') {
       this.stopPolling();
       return;
     }
@@ -362,7 +223,7 @@ export class ReservationsPage {
   }
 
   // Re-fetch SILENCIEUX (pas de spinner : refresh() ne touche pas `loading`), puis
-  // diff par id -> toast pour chaque nouvelle reservation, pulse si elle est placee.
+  // diff par id -> toast pour chaque nouvelle reservation.
   private refreshSilently(): void {
     if (this.service.loading()) {
       return; // chargement initial (ou reessai) en cours : inutile de doubler.
@@ -382,8 +243,7 @@ export class ReservationsPage {
       });
   }
 
-  // Toast « Nouvelle réservation » (valorise le bot) + pulse de la table si placee
-  // et que le plan est affiche.
+  // Toast « Nouvelle réservation » (valorise le bot).
   private announceNewReservation(r: Reservation): void {
     const detail = `${r.customerName}, ${r.partySize} couv., ${formatTime(r.dateTime)}`;
     if (r.source === 'callbot') {
@@ -391,116 +251,11 @@ export class ReservationsPage {
     } else {
       this.toast.show(`Nouvelle réservation — ${detail}`);
     }
-    if (r.table && this.view() === 'plan' && !this.editing()) {
-      this.floorPlanCmp()?.pulseTable(r.table.id);
-    }
   }
 
-  // Bascule de vue + chargement paresseux des tables au 1er passage en vue Plan
-  // (declenchement explicite plutot qu'un effect a effet de bord).
-  protected onViewChange(view: ReservationView): void {
-    this.view.set(view);
-    if (view === 'plan' && !this.tablesLoaded) {
-      this.tablesLoaded = true;
-      this.tables.loadTables();
-      // Charge aussi la geometrie sauvegardee du plan (bridge editeur -> service).
-      this.floorPlan.load(this.restaurantId);
-    }
-  }
-
-  // Entre dans l'editeur de plan (bouton « Modifier » de la vue Plan).
-  protected onEdit(): void {
-    this.editing.set(true);
-  }
-
-  // Sort de l'editeur (« Terminer ») et recharge les tables pour refleter
-  // d'eventuels changements cote service (le plan editable est persiste a part).
-  protected onEditorFinish(): void {
-    this.editing.set(false);
-  }
-
-  // MODE SERVICE : entre dans l'overlay plein ecran + tente le vrai plein ecran
-  // navigateur (best-effort : si refuse/indispo, l'overlay CSS suffit).
-  protected enterServiceMode(): void {
-    this.serviceMode.set(true);
-    // Masque le header sticky de l'app (z 1010) : l'overlay (z-50) ne pouvait pas
-    // passer au-dessus. Une classe sur <body> + une regle globale le cachent ; le
-    // drawer (portail CDK ~1000) reste bien au-dessus de l'overlay.
-    document.body.classList.add('service-mode');
-    try {
-      const req = document.documentElement.requestFullscreen?.();
-      if (req) {
-        this.enteredFullscreen = true;
-        req.catch(() => (this.enteredFullscreen = false));
-      }
-    } catch {
-      this.enteredFullscreen = false;
-    }
-  }
-
-  // Sortie du mode service (bouton Quitter, Echap, ou sortie du plein ecran natif).
-  protected exitServiceMode(): void {
-    this.serviceMode.set(false);
-    document.body.classList.remove('service-mode');
-    if (document.fullscreenElement) {
-      try {
-        document.exitFullscreen?.();
-      } catch {
-        // Sortie de plein ecran refusee : sans consequence, l'overlay est deja masque.
-      }
-    }
-    this.enteredFullscreen = false;
-  }
-
-  protected openDetail(reservation: Reservation, fromPlan = false): void {
+  protected openDetail(reservation: Reservation): void {
     this.selectedId.set(reservation.id);
-    this.drawerFromPlan.set(fromPlan);
     this.drawerState.set('open');
-  }
-
-  // Recharge tables + reservations (bouton Reessayer du plan).
-  protected reload(): void {
-    this.service.loadToday();
-    this.tables.loadTables();
-  }
-
-  protected onAssign(event: AssignEvent): void {
-    this.service
-      .assign(event.reservationId, event.table)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'affectation", 'error'),
-      });
-  }
-
-  // FUSION GUIDEE : « aucune table assez grande » -> le plan a propose un groupe
-  // de tables voisines. On fusionne D'ABORD (setMerges, autosave du plan), puis
-  // on affecte la resa a l'ANCRE du groupe — la tablee apparait occupee d'un bloc.
-  protected onMergeAssign(event: MergeAssignEvent): void {
-    const others = this.floorPlan
-      .merges()
-      .filter((group) => !group.some((id) => event.tableIds.includes(id)));
-    this.floorPlan.setMerges([...others, event.tableIds]);
-    this.service
-      .assign(event.reservationId, event.table)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show('Tablée créée et réservation placée', 'success'),
-        error: () => this.toast.show("Échec de l'affectation", 'error'),
-      });
-  }
-
-  // WALK-IN : clients sans reservation installes depuis le plan (POST immediat,
-  // la table passe bleue via les signals du service).
-  protected onWalkIn(event: WalkInEvent): void {
-    this.service
-      .createWalkIn(event.table, event.partySize)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'installation", 'error'),
-      });
   }
 
   // Fin du service (drawer, resa seated) : la resa passe completed, la table
@@ -515,19 +270,6 @@ export class ReservationsPage {
           this.drawerState.set('closed');
         },
         error: () => this.toast.show('Échec de la clôture', 'error'),
-      });
-  }
-
-  protected onUnassign(reservation: Reservation): void {
-    this.service
-      .unassign(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.toast.show('Table libérée');
-          this.drawerState.set('closed');
-        },
-        error: () => this.toast.show('Échec de la libération', 'error'),
       });
   }
 
