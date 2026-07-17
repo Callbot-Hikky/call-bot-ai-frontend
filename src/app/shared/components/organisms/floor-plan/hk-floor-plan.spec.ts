@@ -21,6 +21,7 @@ class CanvasStub {
   readonly highlightFree = input(false);
   readonly bestTableId = input<string | null>(null);
   readonly requiredSeats = input<number | null>(null);
+  readonly focusTableId = input<string | null>(null);
   readonly fill = input(false);
   readonly showNames = input(false);
   readonly tableClick = output<FloorTableView>();

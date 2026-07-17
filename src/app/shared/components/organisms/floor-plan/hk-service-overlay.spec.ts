@@ -19,11 +19,13 @@ class FloorPlanStub {
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
   readonly merges = input<string[][]>([]);
+  readonly focusTableId = input<string | null>(null);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);
   readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
+  readonly mergeAssign = output<unknown>();
   readonly walkIn = output<WalkInEvent>();
   readonly unassign = output<Reservation>();
   readonly retry = output<void>();

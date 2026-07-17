@@ -78,6 +78,12 @@ const NAME_FALLBACK = '#26251f';
 const CUSTOMER_VAR = '--text-muted';
 const CUSTOMER_FALLBACK = '#8a8a84';
 
+// BAR : teinte BOIS quand il est libre (meme famille que le comptoir 3D et les
+// apercus de templates) — un bar ne ressemble pas a une table blanche. Occupee,
+// la couleur de STATUT reprend le dessus (l'information de service prime).
+const BAR_FILL = '#ead9c0';
+const BAR_STROKE = '#c9a476';
+
 // MODE SERVICE : au-dela de ce seuil de largeur (px), le conteneur est « grand »
 // (ecran mural) -> on grossit legerement les textes pour rester lisibles de loin.
 const BIG_CONTAINER_PX = 1000;
@@ -163,6 +169,9 @@ export class HkFloorPlanCanvas {
   readonly showNames = input(false);
   // Murs decoratifs (import Pascal) : dessines dans la couche de fond.
   readonly walls = input<WallSegment[]>([]);
+  // FOCUS : id de la table dont le detail est OUVERT (drawer / walk-in). Les
+  // autres tables s'attenuent -> on voit immediatement « je suis sur celle-ci ».
+  readonly focusTableId = input<string | null>(null);
 
   readonly tableClick = output<FloorTableView>();
 
@@ -228,6 +237,7 @@ export class HkFloorPlanCanvas {
       this.showNames();
       this.fill();
       this.walls();
+      this.focusTableId();
       this.drawDots();
       this.render();
     });
@@ -337,6 +347,10 @@ export class HkFloorPlanCanvas {
       }
 
       this.updateNodeContent(node, view, highlight, bestId, required);
+      // FOCUS : detail ouvert sur UNE table -> les autres s'attenuent, celle-ci
+      // reste pleinement allumee (« je suis sur cette table »).
+      const focusId = this.focusTableId();
+      node.group.opacity(focusId === null || view.table.id === focusId ? 1 : 0.35);
       if (view.status === 'reservee' && view.lateMinutes !== null) {
         lateTags.push(node.timeTag);
       }
@@ -494,11 +508,12 @@ export class HkFloorPlanCanvas {
     const fits = required == null || view.table.capacity >= required;
     const showHint = highlight && view.status === 'libre' && fits;
     const isBest = view.status === 'libre' && view.table.id === bestId && fits;
-    const stroke = showHint || isBest ? this.accentColor() : colors.stroke;
+    const barIdle = view.shape === 'bar' && view.status === 'libre';
+    const stroke = showHint || isBest ? this.accentColor() : barIdle ? BAR_STROKE : colors.stroke;
     const strokeWidth = isBest ? 4 : showHint ? 3 : view.status === 'libre' ? 1.5 : 2;
     const dash = showHint && !isBest ? [6, 4] : [];
 
-    node.shape.fill(colors.fill);
+    node.shape.fill(barIdle ? BAR_FILL : colors.fill);
     node.shape.stroke(stroke);
     node.shape.strokeWidth(strokeWidth);
     node.shape.dash(dash);

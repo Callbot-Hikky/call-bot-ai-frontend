@@ -296,6 +296,7 @@ const WALK_IN_GUARD_MIN = 90;
                   [highlightFree]="!!selectedUnplaced()"
                   [bestTableId]="bestTable()?.table?.id ?? null"
                   [requiredSeats]="selectedUnplaced()?.partySize ?? null"
+                  [focusTableId]="canvasFocusId()"
                   [fill]="serviceMode()"
                   [showNames]="serviceMode()"
                   [class.h-full]="serviceMode()"
@@ -531,6 +532,9 @@ export class HkFloorPlan {
   readonly serviceMode = input(false);
   // Nom du restaurant, imprime en en-tete de l'export PNG.
   readonly restaurantName = input('Le Bistrot du Coin');
+  // FOCUS : table dont le drawer de detail est ouvert (fourni par la page) ->
+  // elle reste allumee, les autres s'attenuent sur le canvas.
+  readonly focusTableId = input<string | null>(null);
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
@@ -753,6 +757,23 @@ export class HkFloorPlan {
 
   // JAUGE DE SOIREE : couverts attendus / capacite totale (fonction pure).
   protected readonly load = computed(() => eveningLoad(this.reservations(), this.tables()));
+
+  // FOCUS effectif du canvas : la table visee par le bandeau walk-in (interne)
+  // prime, sinon la table du drawer ouvert (input de la page). Une table membre
+  // d'une tablee fusionnee est resolue vers son ANCRE (seul noeud rendu).
+  protected readonly canvasFocusId = computed(() => {
+    const walkInId = this.walkInTarget()?.table.id;
+    if (walkInId) {
+      return walkInId;
+    }
+    const id = this.focusTableId();
+    if (!id) {
+      return null;
+    }
+    const group = this.merges().find((g) => g.includes(id));
+    const anchor = group && this.tableViews().find((v) => group.includes(v.table.id));
+    return anchor?.table.id ?? id;
+  });
 
   protected readonly hoveredUnplaced = computed(() => {
     const id = this.hoveredUnplacedId();

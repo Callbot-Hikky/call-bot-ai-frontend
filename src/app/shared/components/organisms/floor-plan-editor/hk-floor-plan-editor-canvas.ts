@@ -526,8 +526,11 @@ export class HkFloorPlanEditorCanvas {
   }
 
   private updateNodeContent(node: EditorNode, table: EditorTable): void {
-    const fill = this.readVar(NEUTRAL_FILL_VAR, NEUTRAL_FILL_FALLBACK);
-    const stroke = this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
+    // BAR teinte BOIS (comme la vue service et le comptoir 3D) : on distingue le
+    // bar des tables des le placement, pas seulement au rendu final.
+    const isBar = table.shape === 'bar';
+    const fill = isBar ? '#ead9c0' : this.readVar(NEUTRAL_FILL_VAR, NEUTRAL_FILL_FALLBACK);
+    const stroke = isBar ? '#c9a476' : this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
     node.shape.fill(fill);
     node.shape.stroke(stroke);
     node.shape.strokeWidth(1.5);

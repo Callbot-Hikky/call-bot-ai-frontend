@@ -84,6 +84,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         [geometry]="floorPlan.geometry()"
         [walls]="floorPlan.walls()"
         [merges]="floorPlan.merges()"
+        [focusTableId]="drawerFocusTableId()"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (exitService)="exitServiceMode()"
@@ -145,6 +146,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
             [geometry]="floorPlan.geometry()"
             [walls]="floorPlan.walls()"
             [merges]="floorPlan.merges()"
+            [focusTableId]="drawerFocusTableId()"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
             (openReservation)="openDetail($event, true)"
@@ -217,6 +219,12 @@ export class ReservationsPage {
   // Drawer synchronisé par id : reflète toujours l'état à jour du service.
   protected readonly selected = computed(
     () => this.service.reservations().find((r) => r.id === this.selectedId()) ?? null,
+  );
+
+  // FOCUS PLAN : drawer ouvert -> la table de la resa affichée reste allumée sur
+  // le plan, les autres s'atténuent (on voit tout de suite « où » on est).
+  protected readonly drawerFocusTableId = computed(() =>
+    this.drawerState() === 'open' ? (this.selected()?.table?.id ?? null) : null,
   );
 
   // Resas VIVANTES de la table de la resa affichée (frise « Soirée de la table »).
