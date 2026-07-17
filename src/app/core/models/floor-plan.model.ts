@@ -334,17 +334,109 @@ export function summarizeRoom(views: readonly FloorTableView[]): RoomSummary {
 // MEILLEUR FIT (LOT B2) : pendant l'affectation, la table recommandee est la table
 // LIBRE de capacite MINIMALE suffisante (>= couverts). A egalite de capacite, la
 // premiere rencontree. null si aucune table libre ne suffit.
-export function bestFitTableId(views: readonly FloorTableView[], partySize: number): string | null {
+// GARDE-FOU HORAIRE (optionnel) : avec `dateTime` (l'heure de la resa a placer),
+// une table libre dont la PROCHAINE resa tombe a moins d'une duree de service
+// (ACTIVE_AFTER_MIN) est ecartee — on ne cree pas de double-booking silencieux.
+export function bestFitTableId(
+  views: readonly FloorTableView[],
+  partySize: number,
+  dateTime?: string | null,
+): string | null {
   let best: FloorTableView | null = null;
   for (const view of views) {
     if (view.status !== 'libre' || view.table.capacity < partySize) {
       continue;
+    }
+    if (dateTime && view.nextDateTime) {
+      const gapMin = Math.abs(
+        (new Date(dateTime).getTime() - new Date(view.nextDateTime).getTime()) / MINUTE_MS,
+      );
+      if (gapMin < ACTIVE_AFTER_MIN) {
+        continue;
+      }
     }
     if (!best || view.table.capacity < best.table.capacity) {
       best = view;
     }
   }
   return best?.table.id ?? null;
+}
+
+// PLACEMENT AUTO (« Tout placer ») : propose une table pour CHAQUE resa non placee,
+// en glouton — les plus grandes tablees d'abord (les plus dures a caser), chaque
+// table proposee au plus une fois. Fonction PURE : le composant emet ensuite les
+// affectations reelles ; les resas sans solution restent simplement non placees.
+export interface AutoPlacement {
+  reservationId: string;
+  tableId: string;
+}
+
+export function planAutoPlacements(
+  views: readonly FloorTableView[],
+  reservations: readonly Reservation[],
+): AutoPlacement[] {
+  const taken = new Set<string>();
+  const placements: AutoPlacement[] = [];
+  for (const r of [...reservations].sort((a, b) => b.partySize - a.partySize)) {
+    const candidates = views.filter((v) => !taken.has(v.table.id));
+    const tableId = bestFitTableId(candidates, r.partySize, r.dateTime);
+    if (tableId) {
+      taken.add(tableId);
+      placements.push({ reservationId: r.id, tableId });
+    }
+  }
+  return placements;
+}
+
+// SUGGESTION DE FUSION : quand AUCUNE table libre ne suffit, chercher un petit
+// groupe (2 puis 3) de tables LIBRES et VOISINES (tablesTouch) dont la somme des
+// couverts suffit — capacite totale minimale d'abord (on ne gaspille pas la
+// salle). Les tables deja membres d'une tablee sont ecartees (leur bloc fusionne
+// porte deja la capacite sommee). null si rien ne convient.
+export function suggestMergeGroup(
+  views: readonly FloorTableView[],
+  partySize: number,
+  merges: readonly (readonly string[])[] = [],
+): FloorTableView[] | null {
+  const mergedIds = new Set(merges.flat());
+  const free = views.filter((v) => v.status === 'libre' && !mergedIds.has(v.table.id));
+
+  const touching = (a: FloorTableView, b: FloorTableView): boolean =>
+    tablesTouch({ x: a.x, y: a.y, w: a.w, h: a.h }, { x: b.x, y: b.y, w: b.w, h: b.h });
+  const capacity = (group: readonly FloorTableView[]): number =>
+    group.reduce((sum, v) => sum + v.table.capacity, 0);
+
+  let best: FloorTableView[] | null = null;
+  const consider = (group: FloorTableView[]): void => {
+    if (capacity(group) >= partySize && (!best || capacity(group) < capacity(best))) {
+      best = group;
+    }
+  };
+
+  for (let i = 0; i < free.length; i++) {
+    for (let j = i + 1; j < free.length; j++) {
+      if (touching(free[i], free[j])) {
+        consider([free[i], free[j]]);
+      }
+    }
+  }
+  if (best) {
+    return best;
+  }
+  // Pas de paire suffisante : chaines de 3 (le tiers touche l'un des deux).
+  for (let i = 0; i < free.length; i++) {
+    for (let j = i + 1; j < free.length; j++) {
+      if (!touching(free[i], free[j])) {
+        continue;
+      }
+      for (let k = 0; k < free.length; k++) {
+        if (k !== i && k !== j && (touching(free[k], free[i]) || touching(free[k], free[j]))) {
+          consider([free[i], free[j], free[k]]);
+        }
+      }
+    }
+  }
+  return best;
 }
 
 // HEURE SUR LA TABLE (LOT B5) : une table Reservee ou Installee affiche l'heure de

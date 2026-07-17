@@ -22,7 +22,9 @@ import {
   deriveTableStatus,
   layoutTables,
   mergeViews,
+  planAutoPlacements,
   simulationRange,
+  suggestMergeGroup,
 } from '@core/models/floor-plan.model';
 import { from, of } from 'rxjs';
 import { catchError, concatMap } from 'rxjs/operators';
@@ -34,6 +36,17 @@ import { downloadDataUrl } from '@core/utils/download';
 
 export interface AssignEvent {
   reservationId: string;
+  table: FloorTable;
+}
+
+// FUSION GUIDEE : « aucune table assez grande » -> le plan propose de fusionner
+// des tables voisines ET d'y placer la reservation en un clic. La page fait la
+// fusion (FloorPlanService.setMerges) puis l'affectation sur l'ANCRE du groupe.
+export interface MergeAssignEvent {
+  reservationId: string;
+  // Ids des tables a fusionner (la premiere est l'ancre).
+  tableIds: string[];
+  // Table ANCRE (cible de l'affectation reseau).
   table: FloorTable;
 }
 
@@ -85,8 +98,24 @@ const WALK_IN_GUARD_MIN = 90;
                     Table recommandée :
                     <strong>{{ best.table.name }}</strong>
                     ({{ best.table.capacity }} couv.)
+                  } @else if (mergeSuggestion()) {
+                    Aucune table libre n'est assez grande — fusionnez
+                    <strong>{{ mergeSuggestionLabel() }}</strong>
+                    en une tablée.
+                  } @else {
+                    Aucune table libre n'est assez grande pour le moment.
                   }
                 </span>
+                @if (mergeSuggestion()) {
+                  <hk-button
+                    size="sm"
+                    data-testid="merge-assign"
+                    title="Fusionner ces tables voisines en une tablée et y placer la réservation"
+                    (click)="acceptMergeSuggestion()"
+                  >
+                    Fusionner et placer
+                  </hk-button>
+                }
               </div>
             } @else {
               <p class="text-text-subtle flex-1 text-sm">
@@ -383,13 +412,26 @@ const WALK_IN_GUARD_MIN = 90;
               </div>
             </div>
           }
-          <div class="border-border flex items-center justify-between border-b px-4 py-3">
+          <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-3">
             <h3 class="text-text-strong text-sm font-semibold">Réservations non placées</h3>
-            <span
-              class="bg-muted text-text-muted inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium"
-            >
-              {{ unplaced().length }}
-            </span>
+            <div class="flex items-center gap-2">
+              @if (unplaced().length > 0 && !simulating()) {
+                <hk-button
+                  size="sm"
+                  variant="secondary"
+                  data-testid="place-all"
+                  title="Placer chaque réservation sur la meilleure table libre (les grandes tablées d'abord)"
+                  (click)="placeAll()"
+                >
+                  Tout placer
+                </hk-button>
+              }
+              <span
+                class="bg-muted text-text-muted inline-flex min-w-6 items-center justify-center rounded-full px-2 py-0.5 text-xs font-medium"
+              >
+                {{ unplaced().length }}
+              </span>
+            </div>
           </div>
 
           @if (unplaced().length === 0) {
@@ -399,10 +441,12 @@ const WALK_IN_GUARD_MIN = 90;
           } @else {
             <ul class="divide-border flex flex-col divide-y">
               @for (r of unplaced(); track r.id) {
-                <li>
+                <!-- SURVOL : la meilleure table pulse sur le plan avant tout clic
+                     (mouseenter/mouseleave -> bestTable via hoveredUnplacedId). -->
+                <li class="flex items-center">
                   <button
                     type="button"
-                    class="hover:bg-muted flex w-full cursor-pointer items-center gap-3 border-l-2 px-4 py-3 text-left transition-colors"
+                    class="hover:bg-muted flex min-w-0 flex-1 cursor-pointer items-center gap-3 border-l-2 px-4 py-3 text-left transition-colors"
                     [class]="
                       selectedUnplacedId() === r.id
                         ? 'bg-st-pending-bg/60 border-st-pending-fg'
@@ -410,6 +454,8 @@ const WALK_IN_GUARD_MIN = 90;
                     "
                     [attr.aria-pressed]="selectedUnplacedId() === r.id"
                     (click)="toggleUnplaced(r)"
+                    (mouseenter)="hoveredUnplacedId.set(r.id)"
+                    (mouseleave)="hoveredUnplacedId.set(null)"
                   >
                     <span class="flex min-w-0 flex-1 flex-col">
                       <span class="text-text-strong truncate text-sm font-medium">
@@ -423,6 +469,19 @@ const WALK_IN_GUARD_MIN = 90;
                       <hk-icon name="lucideCheck" [size]="16" class="text-st-pending-fg" />
                     }
                   </button>
+                  @if (!simulating()) {
+                    <div class="pr-3">
+                      <hk-button
+                        size="sm"
+                        variant="ghost"
+                        [attr.data-testid]="'place-one-' + r.id"
+                        title="Placer sur la meilleure table libre"
+                        (click)="placeOne(r, $event)"
+                      >
+                        Placer
+                      </hk-button>
+                    </div>
+                  }
                 </li>
               }
             </ul>
@@ -524,6 +583,8 @@ export class HkFloorPlan {
 
   readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
+  // Fusion guidee + affectation (« aucune table assez grande »).
+  readonly mergeAssign = output<MergeAssignEvent>();
   readonly unassign = output<Reservation>();
   // WALK-IN : installation immediate sur une table libre (la page fait le POST).
   readonly walkIn = output<WalkInEvent>();
@@ -538,6 +599,9 @@ export class HkFloorPlan {
 
   // Reservation non placee selectionnee pour affectation (clic).
   protected readonly selectedUnplacedId = signal<string | null>(null);
+  // Reservation non placee SURVOLEE : la meilleure table pulse deja sur le plan
+  // avant tout clic (la salle « repond » au survol).
+  protected readonly hoveredUnplacedId = signal<string | null>(null);
 
   // Placement : geometrie sauvegardee quand elle existe, auto-grille sinon.
   // Ne depend QUE des tables + du plan, pas des reservations, pour ne pas
@@ -656,17 +720,96 @@ export class HkFloorPlan {
   });
 
   // MEILLEUR FIT (LOT B2) : table libre de capacite minimale suffisante pour la
-  // reservation en cours d'affectation. Calcule ICI (le composant a la selection
-  // ET les vues de tables) puis passe au canvas via l'input `bestTableId`.
+  // reservation en cours d'affectation OU survolee. Calcule ICI (le composant a
+  // la selection ET les vues) puis passe au canvas via l'input `bestTableId`.
+  // Garde-fou horaire : l'heure de la resa ecarte les tables au prochain service.
   protected readonly bestTable = computed<FloorTableView | null>(() => {
-    const pending = this.selectedUnplaced();
+    if (this.simulating()) {
+      return null; // salle projetee : aucune suggestion d'action live.
+    }
+    const pending = this.selectedUnplaced() ?? this.hoveredUnplaced();
     if (!pending) {
       return null;
     }
     const views = this.tableViews();
-    const id = bestFitTableId(views, pending.partySize);
+    const id = bestFitTableId(views, pending.partySize, pending.dateTime);
     return id ? (views.find((v) => v.table.id === id) ?? null) : null;
   });
+
+  protected readonly hoveredUnplaced = computed(() => {
+    const id = this.hoveredUnplacedId();
+    return id ? (this.unplaced().find((r) => r.id === id) ?? null) : null;
+  });
+
+  // SUGGESTION DE FUSION : la resa selectionnee ne tient sur AUCUNE table libre
+  // -> proposer un groupe de tables voisines fusionnables (couverts sommes).
+  protected readonly mergeSuggestion = computed<FloorTableView[] | null>(() => {
+    const pending = this.selectedUnplaced();
+    if (!pending || this.simulating() || this.bestTable()) {
+      return null;
+    }
+    return suggestMergeGroup(this.tableViews(), pending.partySize, this.merges());
+  });
+
+  // Libelle « T10+T11 (8 couv.) » de la suggestion de fusion.
+  protected readonly mergeSuggestionLabel = computed(() => {
+    const group = this.mergeSuggestion();
+    if (!group) {
+      return '';
+    }
+    const capacity = group.reduce((sum, v) => sum + v.table.capacity, 0);
+    return `${group.map((v) => v.table.name).join('+')} (${capacity} couv.)`;
+  });
+
+  protected acceptMergeSuggestion(): void {
+    const pending = this.selectedUnplaced();
+    const group = this.mergeSuggestion();
+    if (!pending || !group) {
+      return;
+    }
+    this.mergeAssign.emit({
+      reservationId: pending.id,
+      tableIds: group.map((v) => v.table.id),
+      table: group[0].table,
+    });
+    this.selectedUnplacedId.set(null);
+  }
+
+  // PLACEMENT AUTO : place TOUTES les resas non placees possibles en un clic
+  // (glouton, les grandes tablees d'abord). Les resas sans table restent listees.
+  protected placeAll(): void {
+    const placements = planAutoPlacements(this.tableViews(), this.unplaced());
+    if (placements.length === 0) {
+      this.toast.show('Aucune table libre ne convient pour le moment.');
+      return;
+    }
+    const views = this.tableViews();
+    for (const p of placements) {
+      const view = views.find((v) => v.table.id === p.tableId);
+      if (view) {
+        this.assign.emit({ reservationId: p.reservationId, table: view.table });
+      }
+    }
+    this.selectedUnplacedId.set(null);
+  }
+
+  // Place UNE resa sur sa meilleure table ; sans solution, la selectionne pour
+  // afficher la suggestion de fusion (ou l'absence de solution).
+  protected placeOne(reservation: Reservation, event: Event): void {
+    event.stopPropagation();
+    const views = this.tableViews();
+    const id = bestFitTableId(views, reservation.partySize, reservation.dateTime);
+    const view = id ? views.find((v) => v.table.id === id) : null;
+    if (view) {
+      this.assign.emit({ reservationId: reservation.id, table: view.table });
+      if (this.selectedUnplacedId() === reservation.id) {
+        this.selectedUnplacedId.set(null);
+      }
+      return;
+    }
+    this.walkInTableId.set(null);
+    this.selectedUnplacedId.set(reservation.id);
+  }
 
   // WALK-IN : table libre visee par le bandeau « Installer des clients ».
   // On stocke l'ID et on derive la vue COURANTE : si la table cesse d'etre libre

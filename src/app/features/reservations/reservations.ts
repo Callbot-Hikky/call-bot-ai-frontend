@@ -27,6 +27,7 @@ import {
 import {
   AssignEvent,
   HkFloorPlan,
+  MergeAssignEvent,
   WalkInEvent,
 } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
@@ -88,6 +89,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (exitService)="exitServiceMode()"
         (openReservation)="openDetail($event, true)"
         (assign)="onAssign($event)"
+        (mergeAssign)="onMergeAssign($event)"
         (walkIn)="onWalkIn($event)"
         (unassign)="onUnassign($event)"
         (retry)="reload()"
@@ -147,6 +149,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
             [error]="service.error() || tables.error()"
             (openReservation)="openDetail($event, true)"
             (assign)="onAssign($event)"
+            (mergeAssign)="onMergeAssign($event)"
             (walkIn)="onWalkIn($event)"
             (unassign)="onUnassign($event)"
             (edit)="onEdit()"
@@ -442,6 +445,23 @@ export class ReservationsPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
+        error: () => this.toast.show("Échec de l'affectation", 'error'),
+      });
+  }
+
+  // FUSION GUIDEE : « aucune table assez grande » -> le plan a propose un groupe
+  // de tables voisines. On fusionne D'ABORD (setMerges, autosave du plan), puis
+  // on affecte la resa a l'ANCRE du groupe — la tablee apparait occupee d'un bloc.
+  protected onMergeAssign(event: MergeAssignEvent): void {
+    const others = this.floorPlan
+      .merges()
+      .filter((group) => !group.some((id) => event.tableIds.includes(id)));
+    this.floorPlan.setMerges([...others, event.tableIds]);
+    this.service
+      .assign(event.reservationId, event.table)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => this.toast.show('Tablée créée et réservation placée', 'success'),
         error: () => this.toast.show("Échec de l'affectation", 'error'),
       });
   }

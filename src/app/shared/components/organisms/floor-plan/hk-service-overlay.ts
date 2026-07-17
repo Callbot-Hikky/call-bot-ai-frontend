@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { HkFloorPlan, AssignEvent, WalkInEvent } from './hk-floor-plan';
+import { HkFloorPlan, AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
 import { FloorTableView, summarizeRoom } from '@core/models/floor-plan.model';
@@ -84,6 +84,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         [error]="error()"
         (openReservation)="openReservation.emit($event)"
         (assign)="assign.emit($event)"
+        (mergeAssign)="mergeAssign.emit($event)"
         (walkIn)="walkIn.emit($event)"
         (unassign)="unassign.emit($event)"
         (retry)="retry.emit()"
@@ -114,6 +115,7 @@ export class HkServiceOverlay {
   // Passe-plats des interactions plan (la page garde ses handlers).
   readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
+  readonly mergeAssign = output<MergeAssignEvent>();
   readonly walkIn = output<WalkInEvent>();
   readonly unassign = output<Reservation>();
   readonly retry = output<void>();

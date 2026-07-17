@@ -11,7 +11,9 @@ import {
   canMerge,
   layoutTables,
   mergeViews,
+  planAutoPlacements,
   simulationRange,
+  suggestMergeGroup,
   summarizeRoom,
   tableTimeLabel,
 } from './floor-plan.model';
@@ -470,6 +472,92 @@ describe('fusion de tables (mergeViews / canMerge)', () => {
     const merged = mergeViews([a, b], [['t1', 't2']]);
     expect(merged[0].nextTime).toBe('21:00');
     expect(merged[0].nextDateTime).toBe('2026-07-16T21:00:00');
+  });
+});
+
+describe('placement auto et fusion guidee (planAutoPlacements / suggestMergeGroup)', () => {
+  function freeView(
+    id: string,
+    capacity: number,
+    x = 0.5,
+    y = 0.5,
+    extra: Partial<FloorTableView> = {},
+  ): FloorTableView {
+    return {
+      table: { id, name: id.toUpperCase(), capacity },
+      x,
+      y,
+      w: 0.14,
+      h: 0.14,
+      shape: 'square',
+      rotation: 0,
+      status: 'libre',
+      reservation: null,
+      nextTime: null,
+      nextDateTime: null,
+      lateMinutes: null,
+      ...extra,
+    } as FloorTableView;
+  }
+
+  it('bestFitTableId ecarte une table dont la prochaine resa est trop proche', () => {
+    // t1 libre mais reservee a 20h30 ; la resa a placer est a 20h -> conflit.
+    const t1 = freeView('t1', 4, 0.2, 0.2, {
+      nextTime: '20:30',
+      nextDateTime: '2026-07-17T20:30:00',
+    });
+    const t2 = freeView('t2', 6, 0.8, 0.8);
+    expect(bestFitTableId([t1, t2], 4, '2026-07-17T20:00:00')).toBe('t2');
+    // Sans heure fournie : comportement historique (t1 gagne, plus petite).
+    expect(bestFitTableId([t1, t2], 4)).toBe('t1');
+  });
+
+  it('planAutoPlacements place les grandes tablees d abord, une table par resa', () => {
+    const views = [freeView('t1', 2, 0.2, 0.2), freeView('t2', 6, 0.8, 0.8)];
+    const small = { ...reservation('r-small', 'confirmed', null), partySize: 2 };
+    const big = { ...reservation('r-big', 'confirmed', null), partySize: 6 };
+    const placements = planAutoPlacements(views, [small, big]);
+    // La grande d'abord (sinon elle perdrait t2, sa seule option).
+    expect(placements).toEqual([
+      { reservationId: 'r-big', tableId: 't2' },
+      { reservationId: 'r-small', tableId: 't1' },
+    ]);
+  });
+
+  it('planAutoPlacements laisse de cote les resas sans table suffisante', () => {
+    const views = [freeView('t1', 2, 0.2, 0.2)];
+    const big = { ...reservation('r-big', 'confirmed', null), partySize: 10 };
+    expect(planAutoPlacements(views, [big])).toEqual([]);
+  });
+
+  it('suggestMergeGroup propose la paire VOISINE de capacite totale minimale', () => {
+    const side = 0.14 / 1.6; // ecart en x normalise pour etre bord a bord
+    const a = freeView('t1', 4, 0.5, 0.5);
+    const b = freeView('t2', 4, 0.5 + side, 0.5);
+    const c = freeView('t3', 12, 0.5 + 2 * side, 0.5); // voisine de b, plus grosse
+    const group = suggestMergeGroup([a, b, c], 8);
+    expect(group?.map((v) => v.table.id)).toEqual(['t1', 't2']); // 8 couv, pas 16
+  });
+
+  it('suggestMergeGroup ignore tables occupees, eloignees ou deja fusionnees', () => {
+    const side = 0.14 / 1.6;
+    const a = freeView('t1', 4, 0.5, 0.5);
+    const busy = freeView('t2', 4, 0.5 + side, 0.5, { status: 'installee' });
+    const far = freeView('t3', 4, 0.9, 0.9);
+    expect(suggestMergeGroup([a, busy, far], 8)).toBeNull();
+    // t1+t4 voisines mais t4 deja membre d'une tablee -> ecartee.
+    const t4 = freeView('t4', 4, 0.5 + side, 0.5);
+    expect(suggestMergeGroup([a, t4], 8, [['t4', 't9']])).toBeNull();
+  });
+
+  it('suggestMergeGroup etend a une chaine de 3 quand aucune paire ne suffit', () => {
+    const side = 0.14 / 1.6;
+    const a = freeView('t1', 4, 0.5, 0.5);
+    const b = freeView('t2', 4, 0.5 + side, 0.5);
+    const c = freeView('t3', 4, 0.5 + 2 * side, 0.5);
+    const group = suggestMergeGroup([a, b, c], 10);
+    expect(group?.length).toBe(3);
+    expect(group?.reduce((s, v) => s + v.table.capacity, 0)).toBe(12);
   });
 });
 

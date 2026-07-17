@@ -479,8 +479,9 @@ export class HkFloorPlanCanvas {
   // Met a jour le CONTENU d'un noeud (couleurs, texte, surlignage). Pas de geometrie
   // ici : la taille/position pixel est calculee dans layout() (depend du conteneur).
   // Surlignage a 3 niveaux pendant l'affectation (LOT B2) :
-  //  - table recommandee (bestId)      : trait PLEIN epais accent ;
-  //  - libre de capacite suffisante    : trait pointille accent (comme avant) ;
+  //  - table recommandee (bestId)      : trait PLEIN epais accent — rendu MEME
+  //    sans selection (survol d'une resa non placee : la salle repond deja) ;
+  //  - libre de capacite suffisante    : trait pointille accent (selection seule) ;
   //  - libre trop petite               : AUCUN surlignage (mais reste cliquable, B1).
   private updateNodeContent(
     node: TableNode,
@@ -492,8 +493,8 @@ export class HkFloorPlanCanvas {
     const colors = this.colorsFor(view.status);
     const fits = required == null || view.table.capacity >= required;
     const showHint = highlight && view.status === 'libre' && fits;
-    const isBest = showHint && view.table.id === bestId;
-    const stroke = showHint ? this.accentColor() : colors.stroke;
+    const isBest = view.status === 'libre' && view.table.id === bestId && fits;
+    const stroke = showHint || isBest ? this.accentColor() : colors.stroke;
     const strokeWidth = isBest ? 4 : showHint ? 3 : view.status === 'libre' ? 1.5 : 2;
     const dash = showHint && !isBest ? [6, 4] : [];
 

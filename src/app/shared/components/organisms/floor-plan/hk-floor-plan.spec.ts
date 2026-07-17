@@ -68,7 +68,8 @@ const TABLES: FloorTable[] = [
       [geometry]="geometry"
       [serviceMode]="serviceMode"
       (openReservation)="opened = $event"
-      (assign)="assigned = $event.reservationId + ':' + $event.table.id"
+      (assign)="recordAssign($event)"
+      (mergeAssign)="merged = $event.reservationId + ':' + $event.tableIds.join('+')"
       (walkIn)="walkIn = $event.table.id + ':' + $event.partySize"
       (enterService)="entered = entered + 1"
     />
@@ -81,8 +82,15 @@ class HostComponent {
   serviceMode = false;
   opened: Reservation | null = null;
   assigned = '';
+  assigns: string[] = [];
+  merged = '';
   walkIn = '';
   entered = 0;
+
+  recordAssign(event: { reservationId: string; table: FloorTable }): void {
+    this.assigned = `${event.reservationId}:${event.table.id}`;
+    this.assigns.push(this.assigned);
+  }
 }
 
 describe('HkFloorPlan', () => {
@@ -196,7 +204,7 @@ describe('HkFloorPlan', () => {
     await fixture.whenStable();
 
     // Selectionne la reservation non placee (clic sur sa carte).
-    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside button');
+    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
     card.click();
     await fixture.whenStable();
 
@@ -218,7 +226,7 @@ describe('HkFloorPlan', () => {
     fixture.componentInstance.reservations = [reservation('r2', 'pending', null, 6)];
     await fixture.whenStable();
 
-    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside button');
+    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
     card.click();
     await fixture.whenStable();
 
@@ -248,7 +256,7 @@ describe('HkFloorPlan', () => {
     fixture.componentInstance.reservations = [reservation('r2', 'pending', null, 4)];
     await fixture.whenStable();
 
-    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside button');
+    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
     card.click();
     await fixture.whenStable();
 
@@ -268,7 +276,7 @@ describe('HkFloorPlan', () => {
     fixture.componentInstance.reservations = [reservation('r2', 'pending', null, 3)];
     await fixture.whenStable();
 
-    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside button');
+    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
     card.click();
     await fixture.whenStable();
 
@@ -287,7 +295,7 @@ describe('HkFloorPlan', () => {
     fixture.componentInstance.reservations = [reservation('r2', 'pending', null, 8)];
     await fixture.whenStable();
 
-    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside button');
+    const card: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
     card.click();
     await fixture.whenStable();
 
@@ -296,6 +304,67 @@ describe('HkFloorPlan', () => {
     ).componentInstance;
     expect(stub.bestTableId()).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Table recommandée :');
+  });
+
+  // PLACEMENT AUTO : « Tout placer » emet une affectation par resa plaçable.
+  it('Tout placer : une affectation par resa, grandes tablees d abord', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.reservations = [
+      reservation('r-small', 'pending', null, 2),
+      reservation('r-big', 'confirmed', null, 4),
+    ];
+    await fixture.whenStable();
+
+    const placeAll: HTMLElement = fixture.nativeElement.querySelector('[data-testid="place-all"]');
+    placeAll.click();
+    await fixture.whenStable();
+
+    // r-big (4 couv) prend t2 (premiere de capacite 4), r-small (2) prend t1.
+    expect(fixture.componentInstance.assigns).toEqual(['r-big:t2', 'r-small:t1']);
+  });
+
+  // SURVOL d'une resa non placee : la meilleure table est deja surlignee.
+  it('survol d une non placee -> bestTableId transmis au canvas sans clic', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.reservations = [reservation('r2', 'pending', null, 2)];
+    await fixture.whenStable();
+
+    const row: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
+    row.dispatchEvent(new Event('mouseenter'));
+    await fixture.whenStable();
+
+    const stub: CanvasStub = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof CanvasStub,
+    ).componentInstance;
+    expect(stub.bestTableId()).toBe('t1'); // 2 couv -> t1 (capacite 2, la plus serree)
+
+    row.dispatchEvent(new Event('mouseleave'));
+    await fixture.whenStable();
+    expect(stub.bestTableId()).toBeNull();
+  });
+
+  // FUSION GUIDEE : aucune table ne suffit mais deux voisines fusionnees oui.
+  it('suggere la fusion de tables voisines et emet mergeAssign', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    // t2 et t3 (4+4) posees bord a bord ; t1 a l'ecart.
+    fixture.componentInstance.geometry = {
+      t1: { x: 0.1, y: 0.1, w: 0.12, h: 0.12, rotation: 0, shape: 'round' },
+      t2: { x: 0.5, y: 0.5, w: 0.14, h: 0.14, rotation: 0, shape: 'square' },
+      t3: { x: 0.5 + 0.14 / 1.6, y: 0.5, w: 0.14, h: 0.14, rotation: 0, shape: 'square' },
+    };
+    fixture.componentInstance.reservations = [reservation('r-groupe', 'confirmed', null, 8)];
+    await fixture.whenStable();
+
+    const row: HTMLButtonElement = fixture.nativeElement.querySelector('aside li button');
+    row.click();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('T2+T3 (8 couv.)');
+    const action: HTMLElement = fixture.nativeElement.querySelector('[data-testid="merge-assign"]');
+    action.click();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.merged).toBe('r-groupe:t2+t3');
   });
 
   // WALK-IN : clic sur une table libre SANS affectation en cours -> bandeau
