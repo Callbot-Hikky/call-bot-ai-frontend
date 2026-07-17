@@ -215,6 +215,45 @@ export function tablesTouch(
   return dx <= gap && dy <= gap;
 }
 
+// COTES BLOQUES d'une table : les cotes ou une AUTRE table est collee (pas de
+// chaises entre deux tables bord a bord — elles traverseraient le plateau
+// voisin). Oriente ecran : n = au-dessus, s = dessous, w = gauche, e = droite.
+// Meme metrique que tablesTouch (rects englobants, rotation ignoree).
+export interface BlockedSides {
+  n: boolean;
+  s: boolean;
+  e: boolean;
+  w: boolean;
+}
+
+export function blockedSides(
+  table: { x: number; y: number; w: number; h: number },
+  others: readonly { x: number; y: number; w: number; h: number }[],
+  gap = 0.035,
+): BlockedSides {
+  const blocked: BlockedSides = { n: false, s: false, e: false, w: false };
+  for (const b of others) {
+    const dx = Math.abs(table.x * ASPECT_W - b.x * ASPECT_W) - (table.w + b.w) / 2;
+    const dy = Math.abs(table.y - b.y) - (table.h + b.h) / 2;
+    if (dx > gap || dy > gap) {
+      continue; // pas collees.
+    }
+    // L'axe du contact est celui dont l'ecart est le plus GRAND (le bord commun).
+    if (dx >= dy) {
+      if (b.x > table.x) {
+        blocked.e = true;
+      } else {
+        blocked.w = true;
+      }
+    } else if (b.y > table.y) {
+      blocked.s = true;
+    } else {
+      blocked.n = true;
+    }
+  }
+  return blocked;
+}
+
 // Un groupe est fusionnable si chaque table touche au moins une autre du groupe
 // (chaine de tables collees, pas forcement toutes mutuellement en contact).
 export function canMerge(

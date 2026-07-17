@@ -11,7 +11,12 @@ import {
   viewChild,
 } from '@angular/core';
 import type Konva from 'konva';
-import { FloorTableStatus, FloorTableView, tableTimeLabel } from '@core/models/floor-plan.model';
+import {
+  FloorTableStatus,
+  FloorTableView,
+  blockedSides,
+  tableTimeLabel,
+} from '@core/models/floor-plan.model';
 import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
   applyTableShadow,
@@ -81,8 +86,8 @@ const CUSTOMER_FALLBACK = '#8a8a84';
 // BAR : teinte BOIS quand il est libre (meme famille que le comptoir 3D et les
 // apercus de templates) — un bar ne ressemble pas a une table blanche. Occupee,
 // la couleur de STATUT reprend le dessus (l'information de service prime).
-const BAR_FILL = '#ead9c0';
-const BAR_STROKE = '#c9a476';
+const BAR_FILL = '#dfb987';
+const BAR_STROKE = '#9c6f3f';
 
 // MODE SERVICE : au-dela de ce seuil de largeur (px), le conteneur est « grand »
 // (ecran mural) -> on grossit legerement les textes pour rester lisibles de loin.
@@ -348,9 +353,15 @@ export class HkFloorPlanCanvas {
 
       this.updateNodeContent(node, view, highlight, bestId, required);
       // FOCUS : detail ouvert sur UNE table -> les autres s'attenuent, celle-ci
-      // reste pleinement allumee (« je suis sur cette table »).
+      // reste pleinement allumee AVEC un anneau accent (« je suis sur cette table »).
       const focusId = this.focusTableId();
-      node.group.opacity(focusId === null || view.table.id === focusId ? 1 : 0.35);
+      const isFocus = view.table.id === focusId;
+      node.group.opacity(focusId === null || isFocus ? 1 : 0.35);
+      if (isFocus) {
+        node.shape.stroke(this.accentColor());
+        node.shape.strokeWidth(4);
+        node.shape.dash([]);
+      }
       if (view.status === 'reservee' && view.lateMinutes !== null) {
         lateTags.push(node.timeTag);
       }
@@ -579,7 +590,8 @@ export class HkFloorPlanCanvas {
     // Ecran mural : textes legerement grossis pour rester lisibles de loin.
     const bump = width > BIG_CONTAINER_PX ? BIG_FONT_BUMP : 0;
 
-    for (const view of this.tables()) {
+    const allViews = this.tables();
+    for (const view of allViews) {
       const node = this.nodes.get(view.table.id);
       if (!node) {
         continue;
@@ -597,7 +609,12 @@ export class HkFloorPlanCanvas {
       }
 
       // Sieges autour de la forme (rond = hPx sans objet, on passe wPx).
-      layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx);
+      // Cotes ou une autre table est collee : chaises masquees/redistribuees.
+      const blocked = blockedSides(
+        view,
+        allViews.filter((o) => o !== view),
+      );
+      layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx, blocked);
       // Assiettes devant chaque chaise (table installee uniquement).
       if (node.plates.visible() && this.konva) {
         layoutPlates(this.konva, node.plates, node.seats);

@@ -55,6 +55,28 @@ describe('chairSlots', () => {
   it('plafonne le nombre de chaises dessinees', () => {
     expect(chairSlots('round', 2, 2, 40).length).toBeLessThanOrEqual(16);
   });
+
+  // COTES BLOQUES : pas de chaises la ou une autre table est collee.
+  it('cote bloque : aucune chaise de ce cote, redistribution sur les libres', () => {
+    const blocked = { n: false, s: false, e: true, w: false };
+    const slots = chairSlots('rect', 1.8, 0.9, 6, blocked);
+    expect(slots.length).toBe(6); // le compte est preserve...
+    expect(slots.some((s) => s.x > 0.9)).toBe(false); // ...mais rien cote est.
+  });
+
+  it('bar dont le cote public est colle : tabourets de l autre cote', () => {
+    const blocked = { n: false, s: true, e: false, w: false };
+    const slots = chairSlots('bar', 3, 0.6, 4, blocked);
+    expect(slots.every((s) => s.z < 0)).toBe(true); // bascules au nord.
+  });
+
+  it('ronde collee a droite : les chaises cote est disparaissent', () => {
+    const blocked = { n: false, s: false, e: true, w: false };
+    const slots = chairSlots('round', 1.2, 1.2, 8, blocked);
+    expect(slots.length).toBeLessThan(8);
+    const r = 1.2 / 2 + 0.32;
+    expect(slots.some((s) => s.x > r * 0.45)).toBe(false);
+  });
 });
 
 describe('tableLabelParts', () => {

@@ -18,6 +18,7 @@ import {
   snapToGrid,
   tableSizePx,
 } from '@core/models/floor-plan-editor.model';
+import { blockedSides } from '@core/models/floor-plan.model';
 import {
   applyTableShadow,
   layoutSeats,
@@ -529,8 +530,8 @@ export class HkFloorPlanEditorCanvas {
     // BAR teinte BOIS (comme la vue service et le comptoir 3D) : on distingue le
     // bar des tables des le placement, pas seulement au rendu final.
     const isBar = table.shape === 'bar';
-    const fill = isBar ? '#ead9c0' : this.readVar(NEUTRAL_FILL_VAR, NEUTRAL_FILL_FALLBACK);
-    const stroke = isBar ? '#c9a476' : this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
+    const fill = isBar ? '#dfb987' : this.readVar(NEUTRAL_FILL_VAR, NEUTRAL_FILL_FALLBACK);
+    const stroke = isBar ? '#9c6f3f' : this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
     node.shape.fill(fill);
     node.shape.stroke(stroke);
     node.shape.strokeWidth(1.5);
@@ -554,7 +555,8 @@ export class HkFloorPlanEditorCanvas {
     const width = stage.width();
     const height = stage.height();
 
-    for (const t of this.tables()) {
+    const allTables = this.tables();
+    for (const t of allTables) {
       const node = this.nodes.get(t.id);
       if (!node) {
         continue;
@@ -579,8 +581,13 @@ export class HkFloorPlanEditorCanvas {
         node.label.height(hPx);
         node.label.offset({ x: wPx / 2, y: hPx / 2 });
       }
-      // Sieges autour de la forme (comme la vue service).
-      layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx);
+      // Sieges autour de la forme (comme la vue service). Cotes ou une autre
+      // table est collee : chaises masquees/redistribuees (apercu fidele).
+      const blocked = blockedSides(
+        { x: t.x, y: t.y, w: t.width, h: t.height },
+        allTables.filter((o) => o !== t).map((o) => ({ x: o.x, y: o.y, w: o.width, h: o.height })),
+      );
+      layoutSeats(node.seats, node.isRound, wPx, node.isRound ? wPx : hPx, blocked);
     }
   }
 

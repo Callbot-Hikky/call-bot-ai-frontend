@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import type * as THREE from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FloorTableView } from '@core/models/floor-plan.model';
+import { BlockedSides, FloorTableView, blockedSides } from '@core/models/floor-plan.model';
 import { TableShape, WallSegment } from '@core/models/floor-plan-editor.model';
 import { formatTime } from '@core/utils/format';
 
@@ -78,7 +78,18 @@ interface ChairSlot {
 // Repartit `count` chaises autour d'une table (comme les sieges de la vue 2D).
 // Ronde : cercle regulier. Rect/carre : par cote, proportionnel a sa longueur.
 // Bar : un seul cote assis.
-export function chairSlots(shape: TableShape, wU: number, dU: number, count: number): ChairSlot[] {
+// COTES BLOQUES (`blocked`) : une table collee sur un cote -> AUCUNE chaise de
+// ce cote (elle traverserait le plateau voisin) ; les chaises se redistribuent
+// sur les cotes libres.
+const FREE_SIDES: BlockedSides = { n: false, s: false, e: false, w: false };
+
+export function chairSlots(
+  shape: TableShape,
+  wU: number,
+  dU: number,
+  count: number,
+  blocked: BlockedSides = FREE_SIDES,
+): ChairSlot[] {
   const n = Math.min(count, MAX_CHAIRS);
   const gap = 0.32;
   const slots: ChairSlot[] = [];
@@ -90,8 +101,20 @@ export function chairSlots(shape: TableShape, wU: number, dU: number, count: num
     const r = wU / 2 + gap;
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      // Une chaise majoritairement du cote bloque est SUPPRIMEE (une ronde
+      // collee a une table n'a pas de chaises cote contact).
+      if (
+        (blocked.e && x > r * 0.45) ||
+        (blocked.w && x < -r * 0.45) ||
+        (blocked.s && z > r * 0.45) ||
+        (blocked.n && z < -r * 0.45)
+      ) {
+        continue;
+      }
       // Dossier vers l'exterieur : +Z local de la chaise pointe (cos a, sin a).
-      slots.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, rotationY: Math.PI / 2 - a });
+      slots.push({ x, z, rotationY: Math.PI / 2 - a });
     }
     return slots;
   }
@@ -113,22 +136,47 @@ export function chairSlots(shape: TableShape, wU: number, dU: number, count: num
   };
 
   if (shape === 'bar') {
-    // Comptoir : tabourets sur le cote long « public » uniquement.
-    alongSide(n, Math.max(wU, dU), Math.min(wU, dU) / 2 + gap, wU >= dU ? 's' : 'e');
+    // Comptoir : tabourets sur le cote long « public » uniquement (l'autre cote
+    // si le cote public est colle a une table).
+    const horizontal = wU >= dU;
+    const publicSide: 'n' | 's' | 'e' | 'w' = horizontal
+      ? blocked.s
+        ? 'n'
+        : 's'
+      : blocked.e
+        ? 'w'
+        : 'e';
+    alongSide(n, Math.max(wU, dU), Math.min(wU, dU) / 2 + gap, publicSide);
     return slots;
   }
 
-  // Rect / carre : cotes longs d'abord, le reste sur les cotes courts.
-  const perimeter = 2 * (wU + dU);
-  const top = Math.round((n * wU) / perimeter);
-  const bottom = Math.min(n - top, Math.round((n * wU) / perimeter));
-  const rest = n - top - bottom;
-  const right = Math.ceil(rest / 2);
-  const left = rest - right;
-  alongSide(top, wU, dU / 2 + gap, 'n');
-  alongSide(bottom, wU, dU / 2 + gap, 's');
-  alongSide(right, dU, wU / 2 + gap, 'e');
-  alongSide(left, dU, wU / 2 + gap, 'w');
+  // Rect / carre : repartition proportionnelle a la longueur des cotes LIBRES.
+  const sides: { side: 'n' | 's' | 'e' | 'w'; length: number; fixed: number }[] = [];
+  if (!blocked.n) {
+    sides.push({ side: 'n', length: wU, fixed: dU / 2 + gap });
+  }
+  if (!blocked.s) {
+    sides.push({ side: 's', length: wU, fixed: dU / 2 + gap });
+  }
+  if (!blocked.e) {
+    sides.push({ side: 'e', length: dU, fixed: wU / 2 + gap });
+  }
+  if (!blocked.w) {
+    sides.push({ side: 'w', length: dU, fixed: wU / 2 + gap });
+  }
+  if (sides.length === 0) {
+    return slots; // table enclavee : aucune chaise visible.
+  }
+  const total = sides.reduce((sum, s) => sum + s.length, 0);
+  let placed = 0;
+  for (const [i, s] of sides.entries()) {
+    const k =
+      i === sides.length - 1
+        ? n - placed
+        : Math.min(n - placed, Math.round((n * s.length) / total));
+    placed += k;
+    alongSide(k, s.length, s.fixed, s.side);
+  }
   return slots;
 }
 
@@ -484,8 +532,12 @@ export class HkFloorPlan3d {
       group.add(wall);
     }
 
-    for (const v of this.views()) {
-      group.add(this.makeTable(v));
+    const views = this.views();
+    for (const v of views) {
+      // Cotes ou une autre table est collee : pas de chaises (elles
+      // traverseraient le plateau voisin).
+      const others = views.filter((o) => o !== v);
+      group.add(this.makeTable(v, blockedSides(v, others)));
     }
 
     scene.add(group);
@@ -509,7 +561,7 @@ export class HkFloorPlan3d {
   // Construit UNE table complete : plateau (nappe couleur statut ou bois),
   // pieds, chaises selon les couverts, etiquette. Repere local -> le groupe
   // porte position + rotation (les chaises tournent avec la table).
-  private makeTable(v: FloorTableView): THREE.Group {
+  private makeTable(v: FloorTableView, blocked: BlockedSides): THREE.Group {
     const t = this.three!;
     const g = new t.Group();
     const x = (v.x - 0.5) * WORLD_W;
@@ -596,7 +648,7 @@ export class HkFloorPlan3d {
     const chairMaterial = new t.MeshLambertMaterial({ color: COLOR_CHAIR });
     const plateMaterial = new t.MeshLambertMaterial({ color: COLOR_PLATE });
     const seated = v.status === 'installee';
-    for (const slot of chairSlots(v.shape, wU, dU, v.table.capacity)) {
+    for (const slot of chairSlots(v.shape, wU, dU, v.table.capacity, blocked)) {
       const chair = new t.Group();
       if (isBar) {
         const stoolSeat = new t.Mesh(new t.CylinderGeometry(0.15, 0.15, 0.05, 16), chairMaterial);

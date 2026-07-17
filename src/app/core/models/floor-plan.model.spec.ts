@@ -6,6 +6,7 @@ import {
   FloorTableView,
   autoGridLayout,
   bestFitTableId,
+  blockedSides,
   buildEditorTables,
   deriveTableStatus,
   canMerge,
@@ -578,6 +579,32 @@ describe('eveningLoad (jauge de soiree)', () => {
 
   it('salle vide : pct 0 (pas de division par zero)', () => {
     expect(eveningLoad([], [])).toEqual({ couverts: 0, capacity: 0, pct: 0 });
+  });
+});
+
+describe('blockedSides (cotes ou une table est collee)', () => {
+  const side = 0.14 / 1.6; // ecart x normalise pour etre bord a bord (w=0.14)
+  const at = (x: number, y: number) => ({ x, y, w: 0.14, h: 0.14 });
+
+  it('detecte une voisine collee a droite et une au-dessus', () => {
+    const table = at(0.5, 0.5);
+    const right = at(0.5 + side, 0.5);
+    const above = at(0.5, 0.5 - 0.14);
+    expect(blockedSides(table, [right, above])).toEqual({
+      n: true,
+      s: false,
+      e: true,
+      w: false,
+    });
+  });
+
+  it('une table eloignee ne bloque rien', () => {
+    expect(blockedSides(at(0.5, 0.5), [at(0.9, 0.9)])).toEqual({
+      n: false,
+      s: false,
+      e: false,
+      w: false,
+    });
   });
 });
 

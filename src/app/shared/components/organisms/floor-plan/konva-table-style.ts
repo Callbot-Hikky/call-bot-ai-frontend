@@ -1,4 +1,5 @@
 import type Konva from 'konva';
+import { BlockedSides } from '@core/models/floor-plan.model';
 
 // Style partage des tables Konva (vue service + editeur) : sieges dessines
 // autour des tables et ombre douce. C'est ce qui donne l'aspect « vrai logiciel
@@ -103,7 +104,18 @@ export function styleSeats(seats: Konva.Group, fill: string, opacity = 0.55): vo
 // CENTRE de la table).
 //  - ronde : reparties sur le cercle, chaque chaise tangente (face a la table) ;
 //  - rect  : bords haut/bas (+ bouts de table pour les grandes tablees).
-export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, hPx: number): void {
+// COTES BLOQUES (`blocked`, cf. blockedSides) : une table collee sur un cote ->
+// aucune chaise de ce cote (elle passerait SOUS le plateau voisin) ; les
+// chaises se redistribuent sur les cotes libres.
+const FREE_SIDES: BlockedSides = { n: false, s: false, e: false, w: false };
+
+export function layoutSeats(
+  seats: Konva.Group,
+  isRound: boolean,
+  wPx: number,
+  hPx: number,
+  blocked: BlockedSides = FREE_SIDES,
+): void {
   const children = seats.getChildren().filter((c) => c.name() === 'seat');
   const n = children.length;
 
@@ -123,39 +135,95 @@ export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, h
     return;
   }
 
+  const anyBlocked = blocked.n || blocked.s || blocked.e || blocked.w;
+
   if (isRound) {
     const r = wPx / 2 + SEAT_GAP;
     for (let i = 0; i < n; i++) {
       const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
-      children[i].position({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      children[i].position({ x, y });
       // Chaise tangente au cercle : elle « regarde » le centre de la table.
       children[i].rotation((angle * 180) / Math.PI + 90);
+      // Chaise majoritairement du cote d'une table collee : masquee.
+      children[i].visible(
+        !(
+          (blocked.e && x > r * 0.45) ||
+          (blocked.w && x < -r * 0.45) ||
+          (blocked.s && y > r * 0.45) ||
+          (blocked.n && y < -r * 0.45)
+        ),
+      );
     }
     return;
   }
 
-  // Grandes tablees : 2 sieges en bouts de table (comme un banquet), le reste
-  // reparti sur les bords haut/bas — ca respire au lieu de s'entasser.
-  const ends = n >= 10 ? 2 : 0;
-  const remaining = n - ends;
-  const top = Math.ceil(remaining / 2);
-  const bottom = remaining - top;
-  const spreadOn = (count: number, y: number, offset: number): void => {
-    // Chaises reparties sur ~85 % de la largeur, centrees, face a la table.
-    const span = wPx * 0.85;
-    for (let i = 0; i < count; i++) {
-      const x = count === 1 ? 0 : -span / 2 + (i * span) / (count - 1);
-      children[offset + i].position({ x, y });
-      children[offset + i].rotation(0);
+  if (!anyBlocked) {
+    // Grandes tablees : 2 sieges en bouts de table (comme un banquet), le reste
+    // reparti sur les bords haut/bas — ca respire au lieu de s'entasser.
+    children.forEach((c) => c.visible(true));
+    const ends = n >= 10 ? 2 : 0;
+    const remaining = n - ends;
+    const top = Math.ceil(remaining / 2);
+    const bottom = remaining - top;
+    const spreadOn = (count: number, y: number, offset: number): void => {
+      // Chaises reparties sur ~85 % de la largeur, centrees, face a la table.
+      const span = wPx * 0.85;
+      for (let i = 0; i < count; i++) {
+        const x = count === 1 ? 0 : -span / 2 + (i * span) / (count - 1);
+        children[offset + i].position({ x, y });
+        children[offset + i].rotation(0);
+      }
+    };
+    spreadOn(top, -hPx / 2 - SEAT_GAP, 0);
+    spreadOn(bottom, hPx / 2 + SEAT_GAP, top);
+    if (ends === 2) {
+      children[n - 2].position({ x: -wPx / 2 - SEAT_GAP, y: 0 });
+      children[n - 2].rotation(90);
+      children[n - 1].position({ x: wPx / 2 + SEAT_GAP, y: 0 });
+      children[n - 1].rotation(90);
     }
-  };
-  spreadOn(top, -hPx / 2 - SEAT_GAP, 0);
-  spreadOn(bottom, hPx / 2 + SEAT_GAP, top);
-  if (ends === 2) {
-    children[n - 2].position({ x: -wPx / 2 - SEAT_GAP, y: 0 });
-    children[n - 2].rotation(90);
-    children[n - 1].position({ x: wPx / 2 + SEAT_GAP, y: 0 });
-    children[n - 1].rotation(90);
+    return;
+  }
+
+  // Au moins un cote colle : redistribution proportionnelle sur les cotes LIBRES.
+  interface Side {
+    horizontal: boolean;
+    fixed: number;
+    length: number;
+  }
+  const sides: Side[] = [];
+  if (!blocked.n) {
+    sides.push({ horizontal: true, fixed: -hPx / 2 - SEAT_GAP, length: wPx });
+  }
+  if (!blocked.s) {
+    sides.push({ horizontal: true, fixed: hPx / 2 + SEAT_GAP, length: wPx });
+  }
+  if (!blocked.w) {
+    sides.push({ horizontal: false, fixed: -wPx / 2 - SEAT_GAP, length: hPx });
+  }
+  if (!blocked.e) {
+    sides.push({ horizontal: false, fixed: wPx / 2 + SEAT_GAP, length: hPx });
+  }
+  if (sides.length === 0) {
+    children.forEach((c) => c.visible(false)); // table enclavee.
+    return;
+  }
+  const total = sides.reduce((sum, s) => sum + s.length, 0);
+  let index = 0;
+  for (const [i, s] of sides.entries()) {
+    const k =
+      i === sides.length - 1 ? n - index : Math.min(n - index, Math.round((n * s.length) / total));
+    const span = s.length * 0.85;
+    for (let j = 0; j < k; j++) {
+      const along = k === 1 ? 0 : -span / 2 + (j * span) / (k - 1);
+      const child = children[index + j];
+      child.visible(true);
+      child.position(s.horizontal ? { x: along, y: s.fixed } : { x: s.fixed, y: along });
+      child.rotation(s.horizontal ? 0 : 90);
+    }
+    index += k;
   }
 }
 
@@ -165,8 +233,8 @@ export function layoutSeats(seats: Konva.Group, isRound: boolean, wPx: number, h
 export function layoutPlates(k: KonvaModule, plates: Konva.Group, seats: Konva.Group): void {
   plates.destroyChildren();
   for (const seat of seats.getChildren()) {
-    if (seat.name() !== 'seat') {
-      continue;
+    if (seat.name() !== 'seat' || !seat.visible()) {
+      continue; // pas d'assiette devant une chaise masquee (cote colle).
     }
     const pos = seat.position();
     const len = Math.hypot(pos.x, pos.y);
