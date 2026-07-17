@@ -162,6 +162,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 
     <hk-reservation-detail-drawer
       [reservation]="selected()"
+      [tableReservations]="selectedTableReservations()"
       [(state)]="drawerState"
       [showUnassign]="drawerFromPlan()"
       (confirm)="onConfirm($event)"
@@ -217,6 +218,22 @@ export class ReservationsPage {
   protected readonly selected = computed(
     () => this.service.reservations().find((r) => r.id === this.selectedId()) ?? null,
   );
+
+  // Resas VIVANTES de la table de la resa affichée (frise « Soirée de la table »).
+  protected readonly selectedTableReservations = computed(() => {
+    const tableId = this.selected()?.table?.id;
+    if (!tableId) {
+      return [];
+    }
+    return this.service
+      .reservations()
+      .filter(
+        (r) =>
+          r.table?.id === tableId &&
+          (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
+      )
+      .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+  });
 
   protected readonly filtered = computed(() => {
     const status = this.statusFilter();

@@ -20,6 +20,7 @@ import {
   FloorTableView,
   bestFitTableId,
   deriveTableStatus,
+  eveningLoad,
   layoutTables,
   mergeViews,
   planAutoPlacements,
@@ -127,6 +128,18 @@ const WALK_IN_GUARD_MIN = 90;
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
             <div class="flex items-center gap-2">
+              <!-- JAUGE DE SOIREE : la charge attendue, lisible d'un coup d'oeil. -->
+              @if (!serviceMode() && load().capacity > 0) {
+                <span
+                  class="text-text-muted mr-1 text-sm whitespace-nowrap tabular-nums"
+                  data-testid="evening-load"
+                  title="Couverts attendus ce soir (réservations vivantes) rapportés à la capacité totale de la salle"
+                >
+                  Ce soir :
+                  <strong class="text-text-strong">{{ load().couverts }}</strong>
+                  / {{ load().capacity }} couv. ({{ load().pct }} %)
+                </span>
+              }
               <hk-button
                 variant="secondary"
                 size="sm"
@@ -516,6 +529,8 @@ export class HkFloorPlan {
   // noms clients, masque legende + boutons Exporter/Modifier/Mode service. Les
   // interactions (walk-in, drawer, affectation) restent identiques.
   readonly serviceMode = input(false);
+  // Nom du restaurant, imprime en en-tete de l'export PNG.
+  readonly restaurantName = input('Le Bistrot du Coin');
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
@@ -736,6 +751,9 @@ export class HkFloorPlan {
     return id ? (views.find((v) => v.table.id === id) ?? null) : null;
   });
 
+  // JAUGE DE SOIREE : couverts attendus / capacite totale (fonction pure).
+  protected readonly load = computed(() => eveningLoad(this.reservations(), this.tables()));
+
   protected readonly hoveredUnplaced = computed(() => {
     const id = this.hoveredUnplacedId();
     return id ? (this.unplaced().find((r) => r.id === id) ?? null) : null;
@@ -937,11 +955,51 @@ export class HkFloorPlan {
   }
 
   // EXPORT PNG (LOT B4) : capture le stage Konva et declenche le telechargement.
+  // EN-TETE contextualise : nom du restaurant + date/heure + jauge composes
+  // au-dessus de la capture -> l'image imprimee est AUTOPORTANTE (brief d'equipe,
+  // affichage en cuisine) sans avoir a se souvenir de quand elle date.
   protected exportPng(): void {
     // Exporte la vue AFFICHEE : plan 2D (Konva) ou maquette 3D (WebGL).
     const dataUrl = this.view3d() ? this.canvas3d()?.exportPng() : this.canvas()?.exportPng();
-    if (dataUrl) {
-      downloadDataUrl(dataUrl, 'plan-de-salle.png');
+    if (!dataUrl) {
+      return;
     }
+    const image = new Image();
+    // Si la composition echoue (contexte 2D indisponible), on livre la capture brute.
+    image.onerror = () => downloadDataUrl(dataUrl, 'plan-de-salle.png');
+    image.onload = () => {
+      const header = 72;
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height + header;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        downloadDataUrl(dataUrl, 'plan-de-salle.png');
+        return;
+      }
+      ctx.fillStyle = '#faf7f1';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#1c1917';
+      ctx.font = '600 26px system-ui, sans-serif';
+      ctx.fillText(this.restaurantName(), 24, header / 2);
+      const stamp = new Date().toLocaleString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const load = this.load();
+      const context =
+        load.capacity > 0 ? `${stamp} · ${load.couverts}/${load.capacity} couv.` : stamp;
+      ctx.font = '17px system-ui, sans-serif';
+      ctx.fillStyle = '#57534e';
+      ctx.textAlign = 'right';
+      ctx.fillText(context, canvas.width - 24, header / 2);
+      ctx.drawImage(image, 0, header);
+      downloadDataUrl(canvas.toDataURL('image/png'), 'plan-de-salle.png');
+    };
+    image.src = dataUrl;
   }
 }

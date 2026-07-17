@@ -364,7 +364,11 @@ interface CreateSpec {
                 Aligner sur la grille
               </label>
               <span class="text-text-subtle">·</span>
-              <span>{{ tableCount() }} table(s)</span>
+              <!-- COMPTEUR DE SALLE : la capacite totale se lit en editant, zero
+                   calcul mental pour dimensionner la salle. -->
+              <span data-testid="room-counter">
+                {{ tableCount() }} table(s) · {{ totalSeats() }} couverts
+              </span>
             </div>
           </div>
 
@@ -497,6 +501,10 @@ export class HkFloorPlanEditor implements OnInit {
   );
 
   protected readonly tableCount = computed(() => this.tableService.tables().length);
+  // Capacite totale de la salle, mise a jour en direct pendant l'edition.
+  protected readonly totalSeats = computed(() =>
+    this.tableService.tables().reduce((sum, t) => sum + t.capacity, 0),
+  );
 
   // Table unique selectionnee (panneau proprietes), ou null.
   protected readonly selectedTable = computed<EditorTable | null>(() => {

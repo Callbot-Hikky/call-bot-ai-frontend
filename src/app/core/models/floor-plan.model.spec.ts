@@ -9,6 +9,7 @@ import {
   buildEditorTables,
   deriveTableStatus,
   canMerge,
+  eveningLoad,
   layoutTables,
   mergeViews,
   planAutoPlacements,
@@ -558,6 +559,25 @@ describe('placement auto et fusion guidee (planAutoPlacements / suggestMergeGrou
     const group = suggestMergeGroup([a, b, c], 10);
     expect(group?.length).toBe(3);
     expect(group?.reduce((s, v) => s + v.table.capacity, 0)).toBe(12);
+  });
+});
+
+describe('eveningLoad (jauge de soiree)', () => {
+  it('somme les couverts des resas vivantes, ignore les mortes', () => {
+    const resas = [
+      { ...reservation('r1', 'confirmed', null), partySize: 4 },
+      { ...reservation('r2', 'seated', 't1'), partySize: 6 },
+      { ...reservation('r3', 'pending', null), partySize: 2 },
+      { ...reservation('r4', 'cancelled', null), partySize: 10 },
+      { ...reservation('r5', 'no_show', null), partySize: 8 },
+      { ...reservation('r6', 'completed', 't2'), partySize: 5 },
+    ];
+    const tables = [{ capacity: 4 }, { capacity: 20 }];
+    expect(eveningLoad(resas, tables)).toEqual({ couverts: 12, capacity: 24, pct: 50 });
+  });
+
+  it('salle vide : pct 0 (pas de division par zero)', () => {
+    expect(eveningLoad([], [])).toEqual({ couverts: 0, capacity: 0, pct: 0 });
   });
 });
 

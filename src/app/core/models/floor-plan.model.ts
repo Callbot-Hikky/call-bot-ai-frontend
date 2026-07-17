@@ -388,6 +388,26 @@ export function planAutoPlacements(
   return placements;
 }
 
+// JAUGE DE SOIREE : charge attendue de la salle — somme des couverts des resas
+// VIVANTES du jour (pending/confirmed/seated) rapportee a la capacite totale.
+// Le restaurateur lit d'un coup d'oeil « la soiree est a 44 % » sans compter.
+export interface EveningLoad {
+  couverts: number;
+  capacity: number;
+  pct: number;
+}
+
+export function eveningLoad(
+  reservations: readonly Reservation[],
+  tables: readonly { capacity: number }[],
+): EveningLoad {
+  const couverts = reservations
+    .filter((r) => r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated')
+    .reduce((sum, r) => sum + r.partySize, 0);
+  const capacity = tables.reduce((sum, t) => sum + t.capacity, 0);
+  return { couverts, capacity, pct: capacity > 0 ? Math.round((100 * couverts) / capacity) : 0 };
+}
+
 // SUGGESTION DE FUSION : quand AUCUNE table libre ne suffit, chercher un petit
 // groupe (2 puis 3) de tables LIBRES et VOISINES (tablesTouch) dont la somme des
 // couverts suffit — capacite totale minimale d'abord (on ne gaspille pas la
