@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, model, output } from '@angular/core';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
@@ -7,13 +7,21 @@ import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkAvatar } from '@shared/components/atoms/avatar/hk-avatar';
 import { Reservation } from '@core/models/reservation.model';
-import { ACTIVE_AFTER_MIN, simulationRange } from '@core/models/floor-plan.model';
-import { formatTime, telHref } from '@core/utils/format';
+import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
+import { telHref } from '@core/utils/format';
 
 // Détail d'une réservation dans un drawer (depuis la droite), via la primitive sheet.
 @Component({
   selector: 'hk-reservation-detail-drawer',
-  imports: [...HlmSheetImports, BrnSheetContent, HkBadge, HkButton, HkIcon, HkAvatar],
+  imports: [
+    ...HlmSheetImports,
+    BrnSheetContent,
+    HkBadge,
+    HkButton,
+    HkIcon,
+    HkAvatar,
+    HkTableTimeline,
+  ],
   template: `
     <hlm-sheet side="right" [state]="state()" (stateChanged)="state.set($event)">
       <hlm-sheet-content *brnSheetContent class="w-full p-0 sm:max-w-md">
@@ -87,35 +95,13 @@ import { formatTime, telHref } from '@core/utils/format';
               }
             </dl>
 
-            <!-- SOIREE DE LA TABLE : frise des resas successives de la table (le
-                 « second service » devient visible — on sait si la table repart). -->
-            @if (timeline(); as tl) {
+            <!-- SOIREE DE LA TABLE : frise partagee (drawer + inspector du plan). -->
+            @if (r.table && tableReservations().length > 0) {
               <div class="border-border/70 border-t px-6 pt-4 pb-2">
                 <h3 class="text-text-strong mb-2 text-sm font-semibold">
-                  Soirée de la table {{ r.table?.name }}
+                  Soirée de la table {{ r.table.name }}
                 </h3>
-                <div
-                  class="bg-muted relative h-9 overflow-hidden rounded-md"
-                  data-testid="table-timeline"
-                >
-                  @for (b of tl.blocks; track b.id) {
-                    <span
-                      class="absolute inset-y-1 flex items-center justify-center overflow-hidden rounded-sm px-1 text-[10px] font-semibold whitespace-nowrap text-white"
-                      [class]="b.current ? 'bg-primary z-10' : 'bg-st-confirmed-fg/60'"
-                      [style.left.%]="b.left"
-                      [style.width.%]="b.width"
-                      [title]="b.title"
-                    >
-                      {{ b.label }}
-                    </span>
-                  }
-                </div>
-                <div
-                  class="text-text-subtle mt-1 flex justify-between font-mono text-[10px] tabular-nums"
-                >
-                  <span>{{ tl.startLabel }}</span>
-                  <span>{{ tl.endLabel }}</span>
-                </div>
+                <hk-table-timeline [reservations]="tableReservations()" [currentId]="r.id" />
               </div>
             }
 
@@ -154,40 +140,6 @@ export class HkReservationDetailDrawer {
   // Resas VIVANTES de la meme table (triees par heure) : alimente la frise
   // « Soiree de la table ». Vide -> pas de frise (resa sans table, liste simple).
   readonly tableReservations = input<Reservation[]>([]);
-
-  // FRISE DE LA TABLE : chaque resa devient un bloc de 2 h (duree de service
-  // type, ACTIVE_AFTER_MIN) positionne sur la fenetre de la soiree
-  // (simulationRange : heures pleines, 1 h avant la premiere, 2 h apres la
-  // derniere). La resa AFFICHEE est mise en avant.
-  protected readonly timeline = computed(() => {
-    const current = this.reservation();
-    const resas = this.tableReservations();
-    if (!current?.table || resas.length === 0) {
-      return null;
-    }
-    const { start, end } = simulationRange(resas);
-    const span = end.getTime() - start.getTime();
-    if (span <= 0) {
-      return null;
-    }
-    const blocks = resas.map((r) => {
-      const left = (100 * (new Date(r.dateTime).getTime() - start.getTime())) / span;
-      const width = (100 * ACTIVE_AFTER_MIN * 60_000) / span;
-      return {
-        id: r.id,
-        left,
-        width: Math.min(width, 100 - left),
-        label: `${formatTime(r.dateTime)} · ${r.partySize}`,
-        title: `${r.customerName} — ${formatTime(r.dateTime)}, ${r.partySize} couverts`,
-        current: r.id === current.id,
-      };
-    });
-    return {
-      startLabel: formatTime(start.toISOString()),
-      endLabel: formatTime(end.toISOString()),
-      blocks,
-    };
-  });
 
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();

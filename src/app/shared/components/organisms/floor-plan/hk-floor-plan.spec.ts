@@ -68,7 +68,6 @@ const TABLES: FloorTable[] = [
       [tables]="tables"
       [geometry]="geometry"
       [serviceMode]="serviceMode"
-      (openReservation)="opened = $event"
       (assign)="recordAssign($event)"
       (mergeAssign)="merged = $event.reservationId + ':' + $event.tableIds.join('+')"
       (walkIn)="walkIn = $event.table.id + ':' + $event.partySize"
@@ -81,7 +80,6 @@ class HostComponent {
   tables: FloorTable[] = TABLES;
   geometry: GeometryMap = {};
   serviceMode = false;
-  opened: Reservation | null = null;
   assigned = '';
   assigns: string[] = [];
   merged = '';
@@ -156,7 +154,7 @@ describe('HkFloorPlan', () => {
     expect(t2.shape).toBe('square');
   });
 
-  it('clic sur une table reservee emet openReservation', async () => {
+  it('clic sur une table reservee : l INSPECTOR affiche sa reservation a droite', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     fixture.componentInstance.reservations = [reservation('r1', 'confirmed', 't1')];
     await fixture.whenStable();
@@ -168,7 +166,14 @@ describe('HkFloorPlan', () => {
     stub.tableClick.emit(reserved);
     await fixture.whenStable();
 
-    expect(fixture.componentInstance.opened?.id).toBe('r1');
+    const inspector: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="table-inspector"]',
+    );
+    expect(inspector).toBeTruthy();
+    expect(inspector.textContent).toContain('Client r1');
+    expect(inspector.textContent).toContain('Libérer la table');
+    // La table selectionnee est mise en avant sur le canvas (focus).
+    expect(stub.focusTableId()).toBe('t1');
   });
 
   it('liste les reservations non placees', async () => {
@@ -381,8 +386,10 @@ describe('HkFloorPlan', () => {
     await fixture.whenStable();
 
     const text = fixture.nativeElement.textContent;
-    expect(text).toContain('Installer des clients sur');
-    expect(text).toContain('T2');
+    // L'INSPECTOR affiche la carte de la table libre (installer des clients).
+    expect(fixture.nativeElement.querySelector('[data-testid="walkin-panel"]')).toBeTruthy();
+    expect(text).toContain('Table T2');
+    expect(text).toContain('Installer');
     // Defaut intelligent : le stepper s'ouvre a la capacite de la table.
     const counter = fixture.nativeElement.querySelector('[aria-label="Moins de couverts"]')!
       .nextElementSibling as HTMLElement;
@@ -419,7 +426,7 @@ describe('HkFloorPlan', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Installer des clients sur');
   });
 
-  it('« Annuler » ferme le bandeau walk-in sans emission', async () => {
+  it('la croix ferme l inspector sans emission', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     await fixture.whenStable();
 
@@ -429,13 +436,13 @@ describe('HkFloorPlan', () => {
     stub.tableClick.emit(stub.tables().find((v) => v.table.id === 't2')!);
     await fixture.whenStable();
 
-    const cancel = Array.from(
-      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
-    ).find((b) => b.textContent!.trim() === 'Annuler')!;
-    cancel.click();
+    const close: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[data-testid="close-inspector"]',
+    );
+    close.click();
     await fixture.whenStable();
 
-    expect(fixture.nativeElement.textContent).not.toContain('Installer des clients sur');
+    expect(fixture.nativeElement.querySelector('[data-testid="table-inspector"]')).toBeNull();
     expect(fixture.componentInstance.walkIn).toBe('');
   });
 

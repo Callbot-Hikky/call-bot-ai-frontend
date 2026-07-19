@@ -80,14 +80,16 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         [geometry]="geometry()"
         [walls]="walls()"
         [merges]="merges()"
-        [focusTableId]="focusTableId()"
         [loading]="loading()"
         [error]="error()"
-        (openReservation)="openReservation.emit($event)"
         (assign)="assign.emit($event)"
         (mergeAssign)="mergeAssign.emit($event)"
         (walkIn)="walkIn.emit($event)"
         (unassign)="unassign.emit($event)"
+        (confirmReservation)="confirmReservation.emit($event)"
+        (cancelReservation)="cancelReservation.emit($event)"
+        (callReservation)="callReservation.emit($event)"
+        (finishService)="finishService.emit($event)"
         (retry)="retry.emit()"
       />
     </div>
@@ -108,17 +110,19 @@ export class HkServiceOverlay {
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
   readonly merges = input<string[][]>([]);
-  readonly focusTableId = input<string | null>(null);
   readonly loading = input(false);
   readonly error = input(false);
 
   // Sortie du mode service (Quitter OU Echap). Nom NON DOM-natif.
   readonly exitService = output<void>();
   // Passe-plats des interactions plan (la page garde ses handlers).
-  readonly openReservation = output<Reservation>();
   readonly assign = output<AssignEvent>();
   readonly mergeAssign = output<MergeAssignEvent>();
   readonly walkIn = output<WalkInEvent>();
+  readonly confirmReservation = output<Reservation>();
+  readonly cancelReservation = output<Reservation>();
+  readonly callReservation = output<Reservation>();
+  readonly finishService = output<Reservation>();
   readonly unassign = output<Reservation>();
   readonly retry = output<void>();
 

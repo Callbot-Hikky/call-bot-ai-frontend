@@ -11,9 +11,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
-import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
-import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import {
   AssignEvent,
   HkFloorPlan,
@@ -37,13 +35,7 @@ import { formatTime } from '@core/utils/format';
 // services (signals) — une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
-  imports: [
-    HkPageHeader,
-    HkReservationDetailDrawer,
-    HkFloorPlan,
-    HkServiceOverlay,
-    HkFloorPlanEditor,
-  ],
+  imports: [HkPageHeader, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
   template: `
     @if (serviceMode()) {
       <hk-service-overlay
@@ -55,15 +47,17 @@ import { formatTime } from '@core/utils/format';
         [geometry]="floorPlan.geometry()"
         [walls]="floorPlan.walls()"
         [merges]="floorPlan.merges()"
-        [focusTableId]="drawerFocusTableId()"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (exitService)="exitServiceMode()"
-        (openReservation)="openDetail($event)"
         (assign)="onAssign($event)"
         (mergeAssign)="onMergeAssign($event)"
         (walkIn)="onWalkIn($event)"
         (unassign)="onUnassign($event)"
+        (confirmReservation)="onConfirm($event)"
+        (cancelReservation)="onCancel($event)"
+        (callReservation)="onCall($event)"
+        (finishService)="onFinish($event)"
         (retry)="reload()"
       />
     } @else {
@@ -85,16 +79,18 @@ import { formatTime } from '@core/utils/format';
             [geometry]="floorPlan.geometry()"
             [walls]="floorPlan.walls()"
             [merges]="floorPlan.merges()"
-            [focusTableId]="drawerFocusTableId()"
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
-            (openReservation)="openDetail($event)"
             (assign)="onAssign($event)"
             (mergeAssign)="onMergeAssign($event)"
             (walkIn)="onWalkIn($event)"
             (unassign)="onUnassign($event)"
+            (confirmReservation)="onConfirm($event)"
+            (cancelReservation)="onCancel($event)"
+            (callReservation)="onCall($event)"
+            (finishService)="onFinish($event)"
             (edit)="editing.set(true)"
             (enterService)="enterServiceMode()"
             (retry)="reload()"
@@ -102,18 +98,6 @@ import { formatTime } from '@core/utils/format';
         }
       </div>
     }
-
-    <hk-reservation-detail-drawer
-      [reservation]="selected()"
-      [tableReservations]="selectedTableReservations()"
-      [(state)]="drawerState"
-      [showUnassign]="true"
-      (confirm)="onConfirm($event)"
-      (cancelReservation)="onCancel($event)"
-      (call)="onCall($event)"
-      (unassign)="onUnassign($event)"
-      (endService)="onFinish($event)"
-    />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -139,40 +123,12 @@ export class FloorPlanPage {
   protected readonly restaurantId = environment.restaurantId;
   protected readonly restaurantName = 'Le Bistrot du Coin';
   private enteredFullscreen = false;
-  protected readonly selectedId = signal<string | null>(null);
-  protected readonly drawerState = signal<BrnDialogState>('closed');
   private readonly floorPlanCmp = viewChild(HkFloorPlan);
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-  });
-
-  // Drawer synchronise par id : reflete toujours l'etat a jour du service.
-  protected readonly selected = computed(
-    () => this.service.reservations().find((r) => r.id === this.selectedId()) ?? null,
-  );
-
-  // FOCUS PLAN : drawer ouvert -> la table de la resa affichee reste allumee.
-  protected readonly drawerFocusTableId = computed(() =>
-    this.drawerState() === 'open' ? (this.selected()?.table?.id ?? null) : null,
-  );
-
-  // Resas VIVANTES de la table de la resa affichee (frise « Soiree de la table »).
-  protected readonly selectedTableReservations = computed(() => {
-    const tableId = this.selected()?.table?.id;
-    if (!tableId) {
-      return [];
-    }
-    return this.service
-      .reservations()
-      .filter(
-        (r) =>
-          r.table?.id === tableId &&
-          (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
-      )
-      .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
   });
 
   // Synthese de salle du bandeau service (memes derivations que le plan).
@@ -286,11 +242,6 @@ export class FloorPlanPage {
     this.enteredFullscreen = false;
   }
 
-  protected openDetail(reservation: Reservation): void {
-    this.selectedId.set(reservation.id);
-    this.drawerState.set('open');
-  }
-
   protected reload(): void {
     this.service.loadToday();
     this.tables.loadTables();
@@ -336,10 +287,7 @@ export class FloorPlanPage {
       .finish(reservation.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
-          this.toast.show('Table libérée — service terminé', 'success');
-          this.drawerState.set('closed');
-        },
+        next: () => this.toast.show('Table libérée — service terminé', 'success'),
         error: () => this.toast.show('Échec de la clôture', 'error'),
       });
   }
@@ -349,10 +297,7 @@ export class FloorPlanPage {
       .unassign(reservation.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => {
-          this.toast.show('Table libérée');
-          this.drawerState.set('closed');
-        },
+        next: () => this.toast.show('Table libérée'),
         error: () => this.toast.show('Échec de la libération', 'error'),
       });
   }
