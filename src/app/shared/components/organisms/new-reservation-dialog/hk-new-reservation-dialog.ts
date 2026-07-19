@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, model, output, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  model,
+  output,
+  signal,
+} from '@angular/core';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
+import { formatTime } from '@core/utils/format';
 
 // Donnees saisies pour une reservation manuelle (le telephone est requis : le
 // back cree un client, et c'est la cle de rappel du restaurateur).
@@ -127,6 +136,20 @@ export class HkNewReservationDialog {
   readonly state = model<BrnDialogState>('closed');
   readonly createReservation = output<NewReservationInput>();
 
+  constructor() {
+    // Champs REINITIALISES a l'ouverture (pas au submit : en cas d'echec de
+    // creation, le dialog reste ouvert avec la saisie intacte pour corriger).
+    effect(() => {
+      if (this.state() === 'open') {
+        this.firstName.set('');
+        this.phone.set('');
+        this.notes.set('');
+        this.partySize.set(2);
+        this.time.set(defaultTime());
+      }
+    });
+  }
+
   protected readonly firstName = signal('');
   protected readonly phone = signal('');
   protected readonly time = signal(defaultTime());
@@ -163,17 +186,19 @@ export class HkNewReservationDialog {
       partySize: this.partySize(),
       notes: this.notes().trim() || null,
     });
-    // Reinitialise pour la prochaine saisie (le nom/tel changent a chaque fois).
-    this.firstName.set('');
-    this.phone.set('');
-    this.notes.set('');
   }
 }
 
-// Prochaine heure PLEINE (saisie la plus probable : « ce soir a 20 h »).
+// Prochaine heure PLEINE, bornee a AUJOURD'HUI (la page ne montre que le jour
+// courant : apres 23 h on propose 23:30 plutot que de basculer sur demain 00:00,
+// que le submit — fige sur la date du jour — transformerait en resa du passe).
 function defaultTime(): string {
-  const d = new Date();
+  const now = new Date();
+  const d = new Date(now);
   d.setHours(d.getHours() + 1, 0, 0, 0);
-  const pad = (n: number): string => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (d.getDate() !== now.getDate()) {
+    d.setTime(now.getTime());
+    d.setHours(23, 30, 0, 0);
+  }
+  return formatTime(d.toISOString());
 }
