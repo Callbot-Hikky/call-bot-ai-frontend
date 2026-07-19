@@ -25,6 +25,7 @@ import {
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { ReservationService } from '@core/services/reservation.service';
+import { ReservationActionsService } from '@core/services/reservation-actions.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
@@ -114,6 +115,7 @@ export class ReservationsPage {
   protected readonly service = inject(ReservationService);
   protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
+  private readonly actions = inject(ReservationActionsService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
 
@@ -263,37 +265,21 @@ export class ReservationsPage {
     this.drawerState.set('open');
   }
 
-  // Fin du service (drawer, resa seated) : la resa passe completed, la table
-  // redevient libre par derivation.
+  // Fin du service (drawer, resa seated) : action partagee + fermeture du drawer.
   protected onFinish(reservation: Reservation): void {
-    this.service
-      .finish(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => {
-          this.toast.show('Table libérée — service terminé', 'success');
-          this.drawerState.set('closed');
-        },
-        error: () => this.toast.show('Échec de la clôture', 'error'),
-      });
+    this.actions.finish(reservation, this.destroyRef, () => this.drawerState.set('closed'));
   }
 
   protected onConfirm(reservation: Reservation): void {
-    this.service
-      .confirm(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
+    this.actions.confirm(reservation, this.destroyRef);
   }
 
   protected onCancel(reservation: Reservation): void {
-    this.service
-      .cancel(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.toast.show('Réservation annulée'));
+    this.actions.cancel(reservation, this.destroyRef);
   }
 
   protected onCall(reservation: Reservation): void {
-    this.toast.show(`Appel de ${reservation.customerName}...`);
+    this.actions.call(reservation);
   }
 
   protected onCallBack(request: CallbackRequest): void {
