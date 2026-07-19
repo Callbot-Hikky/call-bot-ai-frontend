@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EMPTY, Observable, of } from 'rxjs';
-import { delay, map, tap } from 'rxjs/operators';
+import { delay, map, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { Reservation, ReservationStatus, RestaurantTable } from '@core/models/reservation.model';
@@ -133,6 +133,78 @@ export class ReservationService {
         return created;
       }),
     );
+  }
+
+  // NOUVELLE RESERVATION MANUELLE (dialog « Nouvelle réservation ») : cree le
+  // CLIENT d'abord (POST /customers — le back n'accepte pas de nom en ligne sur
+  // la resa), puis la reservation non placee. Elle arrive dans « Réservations
+  // non placées » : le plan (placement auto / fusion guidee) prend le relais.
+  createManual(input: {
+    firstName: string;
+    phone: string;
+    dateTime: Date;
+    partySize: number;
+    notes: string | null;
+  }): Observable<Reservation> {
+    if (environment.useMock) {
+      const created: Reservation = {
+        id: `manual-${Date.now()}`,
+        customerName: input.firstName || 'Client',
+        phone: input.phone,
+        dateTime: localIso(input.dateTime),
+        partySize: input.partySize,
+        status: 'confirmed',
+        source: 'manual',
+        notes: input.notes ?? undefined,
+      };
+      return of(created).pipe(
+        delay(200),
+        tap((res) => this._reservations.update((list) => [...list, res])),
+      );
+    }
+    return this.http
+      .post<{ id: string }>(`${environment.apiUrl}/customers`, {
+        restaurantId: environment.restaurantId,
+        phone: input.phone,
+        firstName: input.firstName || null,
+        lastName: null,
+        email: null,
+        notes: null,
+      })
+      .pipe(
+        switchMap((customer) => {
+          const body: ReservationRequestDto = {
+            restaurantId: environment.restaurantId,
+            customerId: customer.id,
+            tableId: null,
+            callId: null,
+            startsAt: localIso(input.dateTime),
+            endsAt: localIso(new Date(input.dateTime.getTime() + 2 * 60 * 60 * 1000)),
+            partySize: input.partySize,
+            status: 'confirmed',
+            source: 'manual',
+            notes: input.notes,
+          };
+          return this.http.post<ReservationDto>(this.baseUrl, body);
+        }),
+        map((dto) => {
+          // La reponse (sans ?expand) n'embarque pas le customer : on greffe le
+          // nom/telephone saisis pour un affichage immediat correct.
+          const patched: ReservationDto = {
+            ...dto,
+            customer: dto.customer ?? {
+              id: dto.customerId ?? '',
+              firstName: input.firstName || null,
+              lastName: null,
+              phone: input.phone,
+            },
+          };
+          this._raw.update((list) => [...list, patched]);
+          const created = mapReservation(patched);
+          this._reservations.update((list) => [...list, created]);
+          return created;
+        }),
+      );
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {

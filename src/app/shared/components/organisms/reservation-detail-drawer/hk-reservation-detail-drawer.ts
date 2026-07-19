@@ -68,16 +68,18 @@ import { formatTime, telHref } from '@core/utils/format';
                   <span class="text-sm">Table {{ r.table.name }}</span>
                 </div>
               }
-              <div class="flex items-center gap-3">
-                <span
-                  class="bg-muted text-text-muted flex size-8 shrink-0 items-center justify-center rounded-lg"
-                >
-                  <hk-icon name="lucidePhone" [size]="16" />
-                </span>
-                <a class="text-primary font-mono text-sm tabular-nums" [href]="telHref(r.phone)">
-                  {{ r.phone }}
-                </a>
-              </div>
+              @if (r.phone) {
+                <div class="flex items-center gap-3">
+                  <span
+                    class="bg-muted text-text-muted flex size-8 shrink-0 items-center justify-center rounded-lg"
+                  >
+                    <hk-icon name="lucidePhone" [size]="16" />
+                  </span>
+                  <a class="text-primary font-mono text-sm tabular-nums" [href]="telHref(r.phone)">
+                    {{ r.phone }}
+                  </a>
+                </div>
+              }
               @if (r.notes) {
                 <p class="text-muted-foreground border-border/70 border-t pt-4 text-sm">
                   {{ r.notes }}

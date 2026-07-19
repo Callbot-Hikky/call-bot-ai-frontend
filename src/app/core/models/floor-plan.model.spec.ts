@@ -526,6 +526,15 @@ describe('placement auto et fusion guidee (planAutoPlacements / suggestMergeGrou
     ]);
   });
 
+  it('bestFitTableId ne recommande le BAR qu en dernier recours', () => {
+    const bar = { ...freeView('bar', 6, 0.2, 0.2), shape: 'bar' as const };
+    const table = freeView('t1', 8, 0.8, 0.8);
+    // Une vraie table convient (meme plus grande) : elle gagne sur le bar.
+    expect(bestFitTableId([bar, table], 6)).toBe('t1');
+    // Aucune table assez grande : le bar reste propose.
+    expect(bestFitTableId([bar, freeView('t2', 2, 0.8, 0.8)], 6)).toBe('bar');
+  });
+
   it('planAutoPlacements laisse de cote les resas sans table suffisante', () => {
     const views = [freeView('t1', 2, 0.2, 0.2)];
     const big = { ...reservation('r-big', 'confirmed', null), partySize: 10 };

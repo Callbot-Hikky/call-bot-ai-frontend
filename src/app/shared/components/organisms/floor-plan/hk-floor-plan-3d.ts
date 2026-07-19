@@ -216,7 +216,8 @@ export function tableLabelParts(v: FloorTableView): {
   if (v.nextTime) {
     return { title, subtitle: `→ ${v.nextTime}`, color: LABEL_MUTED };
   }
-  return { title, subtitle: null, color: LABEL_MUTED };
+  // Table libre : la capacite (comme en 2D) — l'hote choisit sans zoomer.
+  return { title, subtitle: `${v.table.capacity} couv.`, color: LABEL_MUTED };
 }
 
 // Vue 3D INTERACTIVE de la salle, generee depuis NOS donnees (murs importes +

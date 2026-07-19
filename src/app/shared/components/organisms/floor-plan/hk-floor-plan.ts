@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   input,
   output,
@@ -26,6 +27,7 @@ import {
   planAutoPlacements,
   simulationRange,
   suggestMergeGroup,
+  summarizeRoom,
 } from '@core/models/floor-plan.model';
 import { from, of } from 'rxjs';
 import { catchError, concatMap } from 'rxjs/operators';
@@ -83,52 +85,30 @@ const WALK_IN_GUARD_MIN = 90;
     } @else {
       <div class="grid gap-4 lg:grid-cols-[1fr_320px]" [class.h-full]="serviceMode()">
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
-          <!-- min-h : la permutation aide-texte <-> bandeau d'affectation ne doit
-               pas faire « sauter » le plan en dessous (hauteurs differentes). -->
+          <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
+               FLOTTE desormais sur le plan (zero layout shift, pleine largeur). -->
           <div class="flex min-h-14 items-start justify-between gap-3">
-            @if (selectedUnplaced(); as r) {
-              <div
-                class="bg-st-pending-bg text-st-pending-fg flex flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm"
-              >
-                <hk-icon name="lucideInfo" [size]="16" />
-                <span>
-                  Sélectionnez une table libre pour y placer
-                  <strong>{{ r.customerName }}</strong>
-                  .
-                  @if (bestTable(); as best) {
-                    Table recommandée :
-                    <strong>{{ best.table.name }}</strong>
-                    ({{ best.table.capacity }} couv.)
-                  } @else if (mergeSuggestion()) {
-                    Aucune table libre n'est assez grande — fusionnez
-                    <strong>{{ mergeSuggestionLabel() }}</strong>
-                    en une tablée.
-                  } @else {
-                    Aucune table libre n'est assez grande pour le moment.
-                  }
-                </span>
-                @if (mergeSuggestion()) {
-                  <hk-button
-                    size="sm"
-                    data-testid="merge-assign"
-                    title="Fusionner ces tables voisines en une tablée et y placer la réservation"
-                    (click)="acceptMergeSuggestion()"
-                  >
-                    Fusionner et placer
-                  </hk-button>
-                }
-              </div>
-            } @else {
-              <p class="text-text-subtle flex-1 text-sm">
-                Cliquez une table libre pour installer des clients sans réservation, une table
-                occupée pour voir sa réservation, ou sélectionnez une réservation non placée pour
-                l'affecter.
-              </p>
-            }
+            <!-- Aide condensee : une icone + tooltip (le texte complet ecrasait la rangee). -->
+            <span
+              class="text-text-subtle inline-flex flex-1 items-center gap-1.5 text-sm"
+              title="Cliquez une table libre pour installer des clients sans réservation, une table occupée pour voir sa réservation, ou sélectionnez une réservation non placée pour l'affecter."
+            >
+              <hk-icon name="lucideInfo" [size]="15" />
+              <span class="hidden whitespace-nowrap min-[1700px]:inline">Comment ça marche ?</span>
+            </span>
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
             <div class="flex items-center gap-2">
-              <!-- JAUGE DE SOIREE : la charge attendue, lisible d'un coup d'oeil. -->
+              <!-- SYNTHESE DE SALLE + JAUGE : l'etat et la charge, d'un coup d'oeil. -->
+              @if (!serviceMode() && tableViews().length > 0) {
+                <span
+                  class="text-text-subtle mr-1 hidden text-sm whitespace-nowrap xl:inline"
+                  data-testid="room-summary"
+                >
+                  {{ summary().libres }} libres · {{ summary().reservees }} rés. ·
+                  {{ summary().installees }} inst.
+                </span>
+              }
               @if (!serviceMode() && load().capacity > 0) {
                 <span
                   class="text-text-muted mr-1 text-sm whitespace-nowrap tabular-nums"
@@ -266,6 +246,52 @@ const WALK_IN_GUARD_MIN = 90;
                  (simulation, vitrine) FLOTTENT au-dessus du canvas. Apparaitre /
                  disparaitre ne decale JAMAIS la mise en page (zero layout shift). -->
             <div class="relative" [class.min-h-0]="serviceMode()" [class.flex-1]="serviceMode()">
+              <!-- BANDEAU D'AFFECTATION : flotte sur le plan, pleine largeur —
+                   le texte respire et RIEN ne bouge en dessous (zero shift). -->
+              @if (selectedUnplaced(); as r) {
+                <div
+                  class="bg-st-pending-bg/95 border-st-pending-fg/25 absolute top-3 left-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-md"
+                  [class.right-3]="!view3d()"
+                  [class.right-24]="view3d()"
+                  data-testid="assign-banner"
+                >
+                  <hk-icon name="lucideInfo" [size]="16" class="text-st-pending-fg shrink-0" />
+                  <span class="text-st-pending-fg min-w-0 flex-1 text-sm">
+                    Sélectionnez une table libre pour y placer
+                    <strong>{{ r.customerName }}</strong>
+                    ({{ r.partySize }} couv.).
+                    @if (bestTable(); as best) {
+                      Table recommandée :
+                      <strong>{{ best.table.name }}</strong>
+                      ({{ best.table.capacity }} couv.)
+                    } @else if (mergeSuggestion()) {
+                      Aucune table libre n'est assez grande — fusionnez
+                      <strong>{{ mergeSuggestionLabel() }}</strong>
+                      en une tablée.
+                    } @else {
+                      Aucune table libre n'est assez grande pour le moment.
+                    }
+                  </span>
+                  @if (mergeSuggestion()) {
+                    <hk-button
+                      size="sm"
+                      data-testid="merge-assign"
+                      title="Fusionner ces tables voisines en une tablée et y placer la réservation"
+                      (click)="acceptMergeSuggestion()"
+                    >
+                      Fusionner et placer
+                    </hk-button>
+                  }
+                  <button
+                    type="button"
+                    class="text-st-pending-fg hover:bg-st-pending-fg/10 shrink-0 cursor-pointer rounded-sm p-1"
+                    title="Annuler la sélection"
+                    (click)="selectedUnplacedId.set(null)"
+                  >
+                    <hk-icon name="lucideX" [size]="16" />
+                  </button>
+                </div>
+              }
               @if (view3d()) {
                 <!-- Vue 3D interactive (statuts live) : memes actions qu'en 2D. -->
                 <hk-floor-plan-3d
@@ -478,6 +504,13 @@ const WALK_IN_GUARD_MIN = 90;
                       <span class="text-text-muted font-mono text-xs tabular-nums">
                         {{ formatTime(r.dateTime) }} · {{ r.partySize }} couv.
                       </span>
+                      @if (r.notes) {
+                        <!-- La note du client (« Anniversaire ») : le contexte
+                             qui aide a choisir la bonne table. -->
+                        <span class="text-text-subtle truncate text-xs italic">
+                          {{ r.notes }}
+                        </span>
+                      }
                     </span>
                     @if (selectedUnplacedId() === r.id) {
                       <hk-icon name="lucideCheck" [size]="16" class="text-st-pending-fg" />
@@ -508,6 +541,19 @@ const WALK_IN_GUARD_MIN = 90;
 })
 export class HkFloorPlan {
   private readonly toast = inject(ToastService);
+
+  constructor() {
+    // PRESELECTION (« Placer » depuis la liste) : des que l'id est present ET
+    // que la resa figure dans les non placees, on ouvre le bandeau d'affectation.
+    effect(() => {
+      const id = this.preselectId();
+      if (id && this.unplaced().some((r) => r.id === id)) {
+        this.walkInTableId.set(null);
+        this.selectedUnplacedId.set(id);
+      }
+    });
+  }
+
   // Configuration rapide (onboarding) : creation directe de vraies tables.
   private readonly tableService = inject(TableService);
   // Canvas Konva reel (undefined pendant loading/error/vide, ou stub en test).
@@ -535,6 +581,9 @@ export class HkFloorPlan {
   // FOCUS : table dont le drawer de detail est ouvert (fourni par la page) ->
   // elle reste allumee, les autres s'attenuent sur le canvas.
   readonly focusTableId = input<string | null>(null);
+  // PRESELECTION (« Placer » depuis la liste, /plan?placer=id) : la resa arrive
+  // deja selectionnee, bandeau d'affectation ouvert, meilleure table surlignee.
+  readonly preselectId = input<string | null>(null);
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
@@ -757,6 +806,10 @@ export class HkFloorPlan {
 
   // JAUGE DE SOIREE : couverts attendus / capacite totale (fonction pure).
   protected readonly load = computed(() => eveningLoad(this.reservations(), this.tables()));
+
+  // SYNTHESE DE SALLE compacte (libres / reservees / installees) hors mode
+  // service — la meme que le bandeau service, disponible en permanence.
+  protected readonly summary = computed(() => summarizeRoom(this.tableViews()));
 
   // FOCUS effectif du canvas : la table visee par le bandeau walk-in (interne)
   // prime, sinon la table du drawer ouvert (input de la page). Une table membre

@@ -538,7 +538,8 @@ export class HkFloorPlanEditorCanvas {
     // Sieges neutres : refletent les couverts pendant l'edition.
     syncSeatCount(this.konva!, node.seats, table.seats);
     styleSeats(node.seats, stroke, 0.7);
-    node.label.text(table.label);
+    // Nom + couverts : la capacite se lit en chiffres, pas qu'en sieges.
+    node.label.text(`${table.label}\n${table.seats} couv.`);
     node.label.fill(this.readVar(TEXT_VAR, TEXT_FALLBACK));
     node.group.rotation(table.rotation);
   }

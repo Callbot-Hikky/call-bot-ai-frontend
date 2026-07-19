@@ -8,7 +8,9 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute } from '@angular/router';
+import { map } from 'rxjs/operators';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
@@ -87,6 +89,7 @@ const POLL_INTERVAL_MS = 20_000;
             [walls]="floorPlan.walls()"
             [merges]="floorPlan.merges()"
             [focusTableId]="drawerFocusTableId()"
+            [preselectId]="placerId()"
             [restaurantName]="restaurantName"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
@@ -123,6 +126,13 @@ export class FloorPlanPage {
   protected readonly floorPlan = inject(FloorPlanService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+
+  // « Placer » depuis la liste : /plan?placer=<id> -> resa preselectionnee.
+  protected readonly placerId = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('placer'))),
+    { initialValue: null },
+  );
 
   // Mode edition du plan (plein cadre, masque le header de page).
   protected readonly editing = signal(false);

@@ -382,6 +382,7 @@ export function bestFitTableId(
   dateTime?: string | null,
 ): string | null {
   let best: FloorTableView | null = null;
+  let bestBar: FloorTableView | null = null;
   for (const view of views) {
     if (view.status !== 'libre' || view.table.capacity < partySize) {
       continue;
@@ -394,11 +395,19 @@ export function bestFitTableId(
         continue;
       }
     }
+    // Le BAR est un DERNIER RECOURS : on n'assoit pas une tablee au comptoir
+    // quand une vraie table convient.
+    if (view.shape === 'bar') {
+      if (!bestBar || view.table.capacity < bestBar.table.capacity) {
+        bestBar = view;
+      }
+      continue;
+    }
     if (!best || view.table.capacity < best.table.capacity) {
       best = view;
     }
   }
-  return best?.table.id ?? null;
+  return (best ?? bestBar)?.table.id ?? null;
 }
 
 // PLACEMENT AUTO (« Tout placer ») : propose une table pour CHAQUE resa non placee,

@@ -108,7 +108,7 @@ describe('tableLabelParts', () => {
     expect(parts.color).toBe('#8a8378');
   });
 
-  it('table libre sans rien : pas de sous-titre', () => {
-    expect(tableLabelParts(view({})).subtitle).toBeNull();
+  it('table libre sans rien : la capacite en sous-titre (comme en 2D)', () => {
+    expect(tableLabelParts(view({})).subtitle).toBe('4 couv.');
   });
 });
