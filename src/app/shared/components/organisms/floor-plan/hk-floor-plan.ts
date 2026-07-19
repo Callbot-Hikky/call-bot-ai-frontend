@@ -561,9 +561,10 @@ const WALK_IN_GUARD_MIN = 90;
                     }
                   </span>
                 </div>
+                <!-- Sur mobile le X du TIROIR ferme tout : un seul X a l'ecran. -->
                 <button
                   type="button"
-                  class="text-text-subtle hover:bg-muted cursor-pointer rounded-sm p-1"
+                  class="text-text-subtle hover:bg-muted cursor-pointer rounded-sm p-1 max-lg:hidden"
                   title="Fermer"
                   data-testid="close-inspector"
                   (click)="closeInspector()"
