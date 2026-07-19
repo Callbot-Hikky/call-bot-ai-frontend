@@ -23,6 +23,7 @@ import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-edito
 import { deriveTableStatus, layoutTables, mergeViews } from '@core/models/floor-plan.model';
 import { environment } from '@env/environment';
 import { ReservationService } from '@core/services/reservation.service';
+import { ReservationActionsService } from '@core/services/reservation-actions.service';
 import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
@@ -82,7 +83,10 @@ import { formatTime } from '@core/utils/format';
       </div>
     } @else {
       @if (!editing()) {
-        <hk-page-header [subtitle]="today" />
+        <!-- Paysage compact : chaque pixel vertical compte, l'en-tete saute. -->
+        <div class="max-lg:landscape:hidden">
+          <hk-page-header [subtitle]="today" />
+        </div>
       }
 
       <div class="flex flex-col gap-6">
@@ -127,6 +131,7 @@ export class FloorPlanPage {
   protected readonly tables = inject(TableService);
   protected readonly floorPlan = inject(FloorPlanService);
   private readonly toast = inject(ToastService);
+  private readonly actions = inject(ReservationActionsService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -171,11 +176,14 @@ export class FloorPlanPage {
 
   constructor() {
     // Suivi de l'orientation (mobile) : le plan n'est rendu qu'en paysage.
-    const portraitQuery = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
-    this.portraitMobile.set(portraitQuery.matches);
-    const onOrientation = (e: MediaQueryListEvent): void => this.portraitMobile.set(e.matches);
-    portraitQuery.addEventListener('change', onOrientation);
-    this.destroyRef.onDestroy(() => portraitQuery.removeEventListener('change', onOrientation));
+    // Garde jsdom : matchMedia absent en environnement de test.
+    if (typeof window.matchMedia === 'function') {
+      const portraitQuery = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
+      this.portraitMobile.set(portraitQuery.matches);
+      const onOrientation = (e: MediaQueryListEvent): void => this.portraitMobile.set(e.matches);
+      portraitQuery.addEventListener('change', onOrientation);
+      this.destroyRef.onDestroy(() => portraitQuery.removeEventListener('change', onOrientation));
+    }
 
     // Bascule liste <-> plan : si les donnees sont deja en memoire (services
     // partages), refresh silencieux au lieu d'un rechargement avec skeletons.
@@ -300,13 +308,7 @@ export class FloorPlanPage {
   }
 
   protected onAssign(event: AssignEvent): void {
-    this.service
-      .assign(event.reservationId, event.table)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'affectation", 'error'),
-      });
+    this.actions.assign(event, this.destroyRef);
   }
 
   // FUSION GUIDEE : fusion d'abord (autosave du plan), affectation sur l'ANCRE.
@@ -325,50 +327,26 @@ export class FloorPlanPage {
   }
 
   protected onWalkIn(event: WalkInEvent): void {
-    this.service
-      .createWalkIn(event.table, event.partySize)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'installation", 'error'),
-      });
+    this.actions.walkIn(event, this.destroyRef);
   }
 
   protected onFinish(reservation: Reservation): void {
-    this.service
-      .finish(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show('Table libérée — service terminé', 'success'),
-        error: () => this.toast.show('Échec de la clôture', 'error'),
-      });
+    this.actions.finish(reservation, this.destroyRef);
   }
 
   protected onUnassign(reservation: Reservation): void {
-    this.service
-      .unassign(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: () => this.toast.show('Table libérée'),
-        error: () => this.toast.show('Échec de la libération', 'error'),
-      });
+    this.actions.unassign(reservation, this.destroyRef);
   }
 
   protected onConfirm(reservation: Reservation): void {
-    this.service
-      .confirm(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
+    this.actions.confirm(reservation, this.destroyRef);
   }
 
   protected onCancel(reservation: Reservation): void {
-    this.service
-      .cancel(reservation.id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.toast.show('Réservation annulée'));
+    this.actions.cancel(reservation, this.destroyRef);
   }
 
   protected onCall(reservation: Reservation): void {
-    this.toast.show(`Appel de ${reservation.customerName}...`);
+    this.actions.call(reservation);
   }
 }

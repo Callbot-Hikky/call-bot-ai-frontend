@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   effect,
   inject,
@@ -108,7 +109,7 @@ const WALK_IN_GUARD_MIN = 90;
               (click)="helpOpen.set(!helpOpen())"
             >
               <hk-icon name="lucideInfo" [size]="15" />
-              <span class="hidden whitespace-nowrap md:inline">Comment ça marche ?</span>
+              <span class="hidden whitespace-nowrap lg:inline">Comment ça marche ?</span>
             </button>
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
@@ -125,7 +126,7 @@ const WALK_IN_GUARD_MIN = 90;
                 (click)="view3d.set(!view3d())"
               >
                 <hk-icon name="lucideBox" [size]="16" />
-                <span class="hidden md:inline">{{ view3d() ? 'Vue 2D' : 'Vue 3D' }}</span>
+                <span class="hidden lg:inline">{{ view3d() ? 'Vue 2D' : 'Vue 3D' }}</span>
               </hk-button>
               @if (!serviceMode()) {
                 <hk-button
@@ -136,7 +137,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="simulating() ? stopSim() : startSim()"
                 >
                   <hk-icon name="lucideCalendar" [size]="16" />
-                  <span class="hidden md:inline">
+                  <span class="hidden lg:inline">
                     {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
                   </span>
                 </hk-button>
@@ -147,7 +148,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="onEnterService()"
                 >
                   <hk-icon name="lucideMaximize" [size]="16" />
-                  <span class="hidden md:inline">Mode service</span>
+                  <span class="hidden lg:inline">Mode service</span>
                 </hk-button>
                 <hk-button
                   variant="secondary"
@@ -156,7 +157,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="exportPng()"
                 >
                   <hk-icon name="lucideDownload" [size]="16" />
-                  <span class="hidden md:inline">Exporter</span>
+                  <span class="hidden lg:inline">Exporter</span>
                 </hk-button>
                 <hk-button
                   variant="secondary"
@@ -165,7 +166,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="edit.emit()"
                 >
                   <hk-icon name="lucidePencil" [size]="16" />
-                  <span class="hidden md:inline">Modifier</span>
+                  <span class="hidden lg:inline">Modifier</span>
                 </hk-button>
               }
             </div>
@@ -240,7 +241,11 @@ const WALK_IN_GUARD_MIN = 90;
             <!-- ZONE DU PLAN : conteneur RELATIF -> les controles contextuels
                  (simulation, vitrine) FLOTTENT au-dessus du canvas. Apparaitre /
                  disparaitre ne decale JAMAIS la mise en page (zero layout shift). -->
-            <div class="relative" [class.min-h-0]="serviceMode()" [class.flex-1]="serviceMode()">
+            <div
+              class="relative max-lg:landscape:h-[calc(100dvh-7.5rem)]"
+              [class.min-h-0]="serviceMode()"
+              [class.flex-1]="serviceMode()"
+            >
               <!-- MOBILE : acces au panneau (inspector + non placees) via un
                    bouton flottant avec badge — le plan garde tout l'ecran. -->
               <button
@@ -369,8 +374,8 @@ const WALK_IN_GUARD_MIN = 90;
                   [walls]="walls()"
                   [orbit]="vitrine()"
                   [focusTableId]="canvasFocusId()"
-                  [fill]="serviceMode()"
-                  [class.h-full]="serviceMode()"
+                  [fill]="serviceMode() || compactLandscape()"
+                  [class.h-full]="serviceMode() || compactLandscape()"
                   (tableClick)="onTableClick($event)"
                 />
                 <!-- Vitrine : controle contextuel POSE sur la 3D (coin haut droit). -->
@@ -393,9 +398,9 @@ const WALK_IN_GUARD_MIN = 90;
                   [bestTableId]="bestTable()?.table?.id ?? null"
                   [requiredSeats]="selectedUnplaced()?.partySize ?? null"
                   [focusTableId]="canvasFocusId()"
-                  [fill]="serviceMode()"
+                  [fill]="serviceMode() || compactLandscape()"
                   [showNames]="serviceMode()"
-                  [class.h-full]="serviceMode()"
+                  [class.h-full]="serviceMode() || compactLandscape()"
                   (tableClick)="onTableClick($event)"
                 />
               }
@@ -404,41 +409,42 @@ const WALK_IN_GUARD_MIN = 90;
                    une timeline video). Fond ambre + flou : on ne confond jamais
                    projection et direct, et rien ne bouge en dessous. -->
               @if (simulating()) {
+                <!-- Carte en DEUX etages : bandeau d'identite (badge + retour au
+                     direct), puis l'heure en HEROS, la timeline et la reponse de
+                     dispo en pastille verte — on lit le resultat, pas un formulaire. -->
                 <div
-                  class="bg-st-pending-bg/95 border-st-pending-fg/25 absolute right-4 bottom-4 left-4 z-10 flex flex-col gap-2.5 rounded-xl border px-5 py-3.5 shadow-xl backdrop-blur-md"
+                  class="border-st-pending-fg/20 absolute right-4 bottom-4 left-4 z-10 overflow-hidden rounded-2xl border bg-white/95 shadow-2xl backdrop-blur-xl"
                   data-testid="sim-bar"
                 >
-                  <!-- Titre + explication : on comprend ce qu'on regarde. -->
-                  <div class="flex items-center justify-between gap-3">
+                  <div
+                    class="bg-st-pending-bg/80 border-st-pending-fg/10 flex items-center justify-between gap-3 border-b px-5 py-2"
+                  >
                     <div class="flex min-w-0 items-center gap-2.5">
                       <span
                         class="bg-st-pending-fg rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-widest text-white uppercase"
                       >
                         Simulation
                       </span>
-                      <span class="text-st-pending-fg/90 truncate text-xs">
-                        Votre salle projetée à l'heure choisie — rien n'est modifié, glissez pour
-                        explorer la soirée.
+                      <span class="text-st-pending-fg/90 hidden truncate text-xs sm:inline">
+                        Votre salle projetée à l'heure choisie — rien n'est modifié.
                       </span>
                     </div>
                     <hk-button
                       size="sm"
-                      variant="secondary"
                       title="Quitter la projection et revenir à la salle en temps réel"
                       (click)="stopSim()"
                     >
                       Revenir au direct
                     </hk-button>
                   </div>
-                  <!-- Horloge + timeline bornée + réponse de dispo. -->
-                  <div class="flex items-center gap-5">
+                  <div class="flex items-center gap-5 px-5 py-3">
                     <span
-                      class="text-st-pending-fg font-mono text-3xl leading-none font-bold tabular-nums"
+                      class="text-text-strong font-mono text-4xl leading-none font-bold tabular-nums"
                       data-testid="sim-time"
                     >
                       {{ simLabel() }}
                     </span>
-                    <div class="flex min-w-32 flex-1 flex-col gap-1">
+                    <div class="flex min-w-32 flex-1 flex-col gap-1.5">
                       <input
                         type="range"
                         class="accent-st-pending-fg h-2 w-full cursor-pointer"
@@ -451,20 +457,19 @@ const WALK_IN_GUARD_MIN = 90;
                         (input)="onSimSlide($event)"
                       />
                       <div
-                        class="text-st-pending-fg/70 flex justify-between font-mono text-[10px] tabular-nums"
+                        class="text-text-subtle flex justify-between font-mono text-[10px] tabular-nums"
                       >
                         <span>{{ simStartLabel() }}</span>
                         <span>{{ simEndLabel() }}</span>
                       </div>
                     </div>
                     <span
-                      class="text-st-pending-fg text-right text-sm leading-tight whitespace-nowrap"
+                      class="bg-st-confirmed-bg text-st-confirmed-fg hidden flex-col items-center rounded-xl px-4 py-1.5 text-center leading-tight sm:flex"
                       data-testid="sim-summary"
                     >
-                      <strong class="text-base">{{ simFree().tables }} table(s) libre(s)</strong>
-                      <br />
-                      <span class="text-st-pending-fg/80">
-                        {{ simFree().couverts }} couverts disponibles
+                      <strong class="text-lg tabular-nums">{{ simFree().tables }}</strong>
+                      <span class="text-[11px]">
+                        table(s) libre(s) · {{ simFree().couverts }} couv.
                       </span>
                     </span>
                   </div>
@@ -475,7 +480,7 @@ const WALK_IN_GUARD_MIN = 90;
 
           @if (!serviceMode()) {
             <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-              <hk-floor-plan-legend />
+              <span class="hidden lg:block"><hk-floor-plan-legend /></span>
               <!-- SYNTHESE + JAUGE : sur la ligne de legende (la rangee de
                    boutons du haut garde ses libelles sur UNE ligne). -->
               <div class="text-text-muted flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
@@ -504,7 +509,7 @@ const WALK_IN_GUARD_MIN = 90;
         <!-- MOBILE (paysage) : l'aside devient un TIROIR au-dessus du plan,
              ouvert par le bouton flottant — le plan garde toute la largeur. -->
         <aside
-          class="bg-card border-border flex flex-col rounded-md border max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-y-0 max-lg:border-r-0 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200"
+          class="bg-card border-border flex flex-col rounded-md border max-lg:fixed max-lg:top-14 max-lg:right-0 max-lg:bottom-0 max-lg:z-40 max-lg:w-80 max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-y-0 max-lg:border-r-0 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200"
           [class.max-lg:translate-x-full]="!asideOpen()"
           data-testid="plan-aside"
         >
@@ -767,6 +772,16 @@ export class HkFloorPlan {
   private walkInInitFor: string | null = null;
 
   constructor() {
+    // Suivi du paysage compact (telephone couche) pour dimensionner le canvas.
+    // Garde jsdom : matchMedia absent en environnement de test.
+    if (typeof window.matchMedia === 'function') {
+      const compactQuery = window.matchMedia('(max-width: 1023px) and (orientation: landscape)');
+      this.compactLandscape.set(compactQuery.matches);
+      const onCompact = (e: MediaQueryListEvent): void => this.compactLandscape.set(e.matches);
+      compactQuery.addEventListener('change', onCompact);
+      inject(DestroyRef).onDestroy(() => compactQuery.removeEventListener('change', onCompact));
+    }
+
     // Stepper du walk-in initialise a la capacite de la table selectionnee
     // (au clic OU quand la selection est restauree par la page).
     effect(() => {
@@ -830,6 +845,8 @@ export class HkFloorPlan {
   protected readonly helpOpen = signal(false);
   // MOBILE : tiroir droit (inspector + non placees) ouvert/ferme.
   protected readonly asideOpen = signal(false);
+  // PAYSAGE COMPACT (telephone couche) : le plan remplit la hauteur restante.
+  protected readonly compactLandscape = signal(false);
 
   // --- Configuration rapide (onboarding, aucune table) --------------------------
   // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
