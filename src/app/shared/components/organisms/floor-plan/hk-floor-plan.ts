@@ -86,8 +86,8 @@ const WALK_IN_GUARD_MIN = 90;
       <div class="grid gap-4 lg:grid-cols-[1fr_320px]" [class.h-full]="serviceMode()">
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
           <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
-               FLOTTE desormais sur le plan (zero layout shift, pleine largeur). -->
-          <div class="flex min-h-14 items-start justify-between gap-3">
+               FLOTTE sur le plan (zero layout shift, pleine largeur). -->
+          <div class="flex items-center justify-between gap-3">
             <!-- Aide condensee : une icone + tooltip (le texte complet ecrasait la rangee). -->
             <span
               class="text-text-subtle inline-flex flex-1 items-center gap-1.5 text-sm"
@@ -249,8 +249,10 @@ const WALK_IN_GUARD_MIN = 90;
               <!-- BANDEAU D'AFFECTATION : flotte sur le plan, pleine largeur —
                    le texte respire et RIEN ne bouge en dessous (zero shift). -->
               @if (selectedUnplaced(); as r) {
+                <!-- pointer-events-none : les tables sous le bandeau restent
+                     cliquables ; seuls les boutons captent les clics. -->
                 <div
-                  class="bg-st-pending-bg/95 border-st-pending-fg/25 absolute top-3 left-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-md"
+                  class="bg-st-pending-bg/85 border-st-pending-fg/25 pointer-events-none absolute top-3 left-3 z-10 flex items-center gap-3 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-sm"
                   [class.right-3]="!view3d()"
                   [class.right-24]="view3d()"
                   data-testid="assign-banner"
@@ -261,9 +263,17 @@ const WALK_IN_GUARD_MIN = 90;
                     <strong>{{ r.customerName }}</strong>
                     ({{ r.partySize }} couv.).
                     @if (bestTable(); as best) {
-                      Table recommandée :
-                      <strong>{{ best.table.name }}</strong>
-                      ({{ best.table.capacity }} couv.)
+                      @if (best.shape === 'bar' && mergeSuggestion()) {
+                        Seul le bar
+                        <strong>{{ best.table.name }}</strong>
+                        est assez grand — ou fusionnez
+                        <strong>{{ mergeSuggestionLabel() }}</strong>
+                        en une tablée.
+                      } @else {
+                        Table recommandée :
+                        <strong>{{ best.table.name }}</strong>
+                        ({{ best.table.capacity }} couv.)
+                      }
                     } @else if (mergeSuggestion()) {
                       Aucune table libre n'est assez grande — fusionnez
                       <strong>{{ mergeSuggestionLabel() }}</strong>
@@ -275,6 +285,7 @@ const WALK_IN_GUARD_MIN = 90;
                   @if (mergeSuggestion()) {
                     <hk-button
                       size="sm"
+                      class="pointer-events-auto"
                       data-testid="merge-assign"
                       title="Fusionner ces tables voisines en une tablée et y placer la réservation"
                       (click)="acceptMergeSuggestion()"
@@ -284,7 +295,7 @@ const WALK_IN_GUARD_MIN = 90;
                   }
                   <button
                     type="button"
-                    class="text-st-pending-fg hover:bg-st-pending-fg/10 shrink-0 cursor-pointer rounded-sm p-1"
+                    class="text-st-pending-fg hover:bg-st-pending-fg/10 pointer-events-auto shrink-0 cursor-pointer rounded-sm p-1"
                     title="Annuler la sélection"
                     (click)="selectedUnplacedId.set(null)"
                   >
@@ -542,12 +553,17 @@ const WALK_IN_GUARD_MIN = 90;
 export class HkFloorPlan {
   private readonly toast = inject(ToastService);
 
+  // Derniere preselection APPLIQUEE : l'effect ne rejoue pas la meme valeur
+  // (sinon chaque refresh 20 s rouvrirait un bandeau que l'hote a ferme).
+  private appliedPreselectId: string | null = null;
+
   constructor() {
-    // PRESELECTION (« Placer » depuis la liste) : des que l'id est present ET
-    // que la resa figure dans les non placees, on ouvre le bandeau d'affectation.
+    // PRESELECTION (« Placer » depuis la liste) : appliquee UNE fois par id,
+    // des que la resa figure dans les non placees.
     effect(() => {
       const id = this.preselectId();
-      if (id && this.unplaced().some((r) => r.id === id)) {
+      if (id && id !== this.appliedPreselectId && this.unplaced().some((r) => r.id === id)) {
+        this.appliedPreselectId = id;
         this.walkInTableId.set(null);
         this.selectedUnplacedId.set(id);
       }
@@ -776,10 +792,13 @@ export class HkFloorPlan {
   // Reservations du jour ACTIVES sans table (a placer). On exclut annulees /
   // no_show / terminees : les "affecter" laisserait la table Libre (incoherent).
   protected readonly unplaced = computed(() =>
-    this.reservations().filter(
-      (r) =>
-        !r.table && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
-    ),
+    this.reservations()
+      .filter(
+        (r) =>
+          !r.table && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
+      )
+      // Triees par heure : l'hote traite la file chronologiquement.
+      .sort((a, b) => a.dateTime.localeCompare(b.dateTime)),
   );
 
   protected readonly selectedUnplaced = computed(() => {
@@ -833,11 +852,13 @@ export class HkFloorPlan {
     return id ? (this.unplaced().find((r) => r.id === id) ?? null) : null;
   });
 
-  // SUGGESTION DE FUSION : la resa selectionnee ne tient sur AUCUNE table libre
-  // -> proposer un groupe de tables voisines fusionnables (couverts sommes).
+  // SUGGESTION DE FUSION : la resa selectionnee ne tient sur aucune VRAIE table
+  // libre (le bar en dernier recours ne compte pas — on n'assoit pas une tablee
+  // au comptoir sans proposer mieux) -> groupe de tables voisines fusionnables.
   protected readonly mergeSuggestion = computed<FloorTableView[] | null>(() => {
     const pending = this.selectedUnplaced();
-    if (!pending || this.simulating() || this.bestTable()) {
+    const best = this.bestTable();
+    if (!pending || this.simulating() || (best && best.shape !== 'bar')) {
       return null;
     }
     return suggestMergeGroup(this.tableViews(), pending.partySize, this.merges());

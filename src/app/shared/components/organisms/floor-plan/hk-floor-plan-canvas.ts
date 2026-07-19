@@ -19,6 +19,8 @@ import {
 } from '@core/models/floor-plan.model';
 import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
+  BAR_FILL,
+  BAR_STROKE,
   applyTableShadow,
   hoverTableShadow,
   layoutPlates,
@@ -82,12 +84,6 @@ const NAME_FALLBACK = '#26251f';
 // Nom du client (mode service) : ton discret sous le nom de table.
 const CUSTOMER_VAR = '--text-muted';
 const CUSTOMER_FALLBACK = '#8a8a84';
-
-// BAR : teinte BOIS quand il est libre (meme famille que le comptoir 3D et les
-// apercus de templates) — un bar ne ressemble pas a une table blanche. Occupee,
-// la couleur de STATUT reprend le dessus (l'information de service prime).
-const BAR_FILL = '#dfb987';
-const BAR_STROKE = '#9c6f3f';
 
 // MODE SERVICE : au-dela de ce seuil de largeur (px), le conteneur est « grand »
 // (ecran mural) -> on grossit legerement les textes pour rester lisibles de loin.
@@ -233,8 +229,9 @@ export class HkFloorPlanCanvas {
     });
 
     // Redessine quand les inputs changent (lecture de signals = fonctionne sans zone).
+    // La trame de points ne depend QUE de la taille (drawDots vit dans syncSize) :
+    // le polling / focus / surlignage ne la reconstruisent plus.
     effect(() => {
-      // Dependances : tables + surlignage + meilleur fit.
       this.tables();
       this.highlightFree();
       this.bestTableId();
@@ -243,7 +240,6 @@ export class HkFloorPlanCanvas {
       this.fill();
       this.walls();
       this.focusTableId();
-      this.drawDots();
       this.render();
     });
 
@@ -331,6 +327,7 @@ export class HkFloorPlanCanvas {
     const highlight = this.highlightFree();
     const bestId = this.bestTableId();
     const required = this.requiredSeats();
+    const focusId = this.focusTableId();
     const font = this.hostFontFamily();
 
     this.viewsById = new Map(tables.map((v) => [v.table.id, v]));
@@ -351,17 +348,7 @@ export class HkFloorPlanCanvas {
         layer.add(node.group);
       }
 
-      this.updateNodeContent(node, view, highlight, bestId, required);
-      // FOCUS : detail ouvert sur UNE table -> les autres s'attenuent, celle-ci
-      // reste pleinement allumee AVEC un anneau accent (« je suis sur cette table »).
-      const focusId = this.focusTableId();
-      const isFocus = view.table.id === focusId;
-      node.group.opacity(focusId === null || isFocus ? 1 : 0.35);
-      if (isFocus) {
-        node.shape.stroke(this.accentColor());
-        node.shape.strokeWidth(4);
-        node.shape.dash([]);
-      }
+      this.updateNodeContent(node, view, highlight, bestId, required, focusId);
       if (view.status === 'reservee' && view.lateMinutes !== null) {
         lateTags.push(node.timeTag);
       }
@@ -514,15 +501,21 @@ export class HkFloorPlanCanvas {
     highlight: boolean,
     bestId: string | null,
     required: number | null,
+    focusId: string | null = null,
   ): void {
     const colors = this.colorsFor(view.status);
     const fits = required == null || view.table.capacity >= required;
     const showHint = highlight && view.status === 'libre' && fits;
     const isBest = view.status === 'libre' && view.table.id === bestId && fits;
     const barIdle = view.shape === 'bar' && view.status === 'libre';
-    const stroke = showHint || isBest ? this.accentColor() : barIdle ? BAR_STROKE : colors.stroke;
-    const strokeWidth = isBest ? 4 : showHint ? 3 : view.status === 'libre' ? 1.5 : 2;
-    const dash = showHint && !isBest ? [6, 4] : [];
+    // FOCUS (detail ouvert) : la table visee garde un anneau accent, les autres
+    // s'attenuent — resolu ICI, avec le reste de l'etat visuel du noeud.
+    const isFocus = focusId !== null && view.table.id === focusId;
+    node.group.opacity(focusId === null || isFocus ? 1 : 0.35);
+    const stroke =
+      isFocus || showHint || isBest ? this.accentColor() : barIdle ? BAR_STROKE : colors.stroke;
+    const strokeWidth = isFocus || isBest ? 4 : showHint ? 3 : view.status === 'libre' ? 1.5 : 2;
+    const dash = showHint && !isBest && !isFocus ? [6, 4] : [];
 
     node.shape.fill(barIdle ? BAR_FILL : colors.fill);
     node.shape.stroke(stroke);

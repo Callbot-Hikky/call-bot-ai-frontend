@@ -9,7 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
@@ -22,17 +22,14 @@ import {
 } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
 import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-editor/hk-floor-plan-editor';
-import { deriveTableStatus, layoutTables } from '@core/models/floor-plan.model';
+import { deriveTableStatus, layoutTables, mergeViews } from '@core/models/floor-plan.model';
 import { environment } from '@env/environment';
 import { ReservationService } from '@core/services/reservation.service';
 import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
-import { Reservation, newReservations } from '@core/models/reservation.model';
+import { Reservation } from '@core/models/reservation.model';
 import { formatTime } from '@core/utils/format';
-
-// Intervalle du polling live : identique a la page Reservations.
-const POLL_INTERVAL_MS = 20_000;
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
 // sous les KPI), avec l'editeur, le mode service plein ecran et le drawer de
@@ -127,6 +124,7 @@ export class FloorPlanPage {
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   // « Placer » depuis la liste : /plan?placer=<id> -> resa preselectionnee.
   protected readonly placerId = toSignal(
@@ -144,7 +142,6 @@ export class FloorPlanPage {
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
   private readonly floorPlanCmp = viewChild(HkFloorPlan);
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -182,16 +179,46 @@ export class FloorPlanPage {
   protected readonly serviceTableViews = computed(() => {
     const reservations = this.service.reservations();
     const now = new Date();
-    return layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
+    const views = layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
       ...p,
       ...deriveTableStatus(p.table.id, reservations, now),
     }));
+    // Tablees fusionnees comptees comme UNE table (meme synthese que le plan).
+    return mergeViews(views, this.floorPlan.merges());
   });
 
   constructor() {
-    this.service.loadToday();
-    this.tables.loadTables();
+    // Bascule liste <-> plan : si les donnees sont deja en memoire (services
+    // partages), refresh silencieux au lieu d'un rechargement avec skeletons.
+    if (this.service.reservations().length > 0) {
+      this.service
+        .refresh()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          error: () => undefined,
+        });
+    } else {
+      this.service.loadToday();
+    }
+    if (this.tables.tables().length === 0) {
+      this.tables.loadTables();
+    }
     this.floorPlan.load(this.restaurantId);
+
+    // ?placer= est un evenement ONE-SHOT : consomme puis retire de l'URL (un
+    // refresh/bookmark ne rejoue pas la preselection).
+    effect(() => {
+      if (this.placerId()) {
+        setTimeout(() => {
+          void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { placer: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+          });
+        }, 3000);
+      }
+    });
 
     // Le vrai plein ecran peut etre quitte par le navigateur (Echap natif...) :
     // on resynchronise le mode service pour ne pas rester bloque dans l'overlay.
@@ -206,56 +233,12 @@ export class FloorPlanPage {
       document.body.classList.remove('service-mode');
     });
 
-    // LIVE LEGER : polling silencieux des reservations, page visible et hors edition.
-    effect(() => {
-      this.editing();
-      this.syncPolling(false);
+    // LIVE LEGER : polling partage (ReservationService) — pause pendant
+    // l'edition du plan, pulse a l'arrivee d'une resa placee.
+    this.service.startLivePolling(this.destroyRef, {
+      isActive: () => !this.editing(),
+      onNew: (created) => this.announceNewReservation(created),
     });
-    const onVisibility = (): void => this.syncPolling(true);
-    document.addEventListener('visibilitychange', onVisibility);
-    this.destroyRef.onDestroy(() => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      this.stopPolling();
-    });
-  }
-
-  private syncPolling(refreshNow: boolean): void {
-    const active = !this.editing() && document.visibilityState === 'visible';
-    if (!active) {
-      this.stopPolling();
-      return;
-    }
-    if (refreshNow) {
-      this.refreshSilently();
-    }
-    if (this.pollTimer === null) {
-      this.pollTimer = setInterval(() => this.refreshSilently(), POLL_INTERVAL_MS);
-    }
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  private refreshSilently(): void {
-    if (this.service.loading()) {
-      return;
-    }
-    const beforeIds = new Set(this.service.reservations().map((r) => r.id));
-    this.service
-      .refresh()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (list) => {
-          for (const r of newReservations(beforeIds, list)) {
-            this.announceNewReservation(r);
-          }
-        },
-        error: () => undefined,
-      });
   }
 
   // Toast « Nouvelle reservation » + pulse de la table si placee (plan affiche).
