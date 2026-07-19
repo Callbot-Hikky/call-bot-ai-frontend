@@ -238,13 +238,26 @@ export function layoutPlates(k: KonvaModule, plates: Konva.Group, seats: Konva.G
       continue;
     }
     // Assiette tiree vers le centre : depuis la chaise, on rentre dans le plateau.
+    // Deux cercles (bord + creux) : on RECONNAIT une assiette, pas un simple point.
     const d = Math.max(4, len - SEAT_GAP - 10);
+    const cx = (pos.x * d) / len;
+    const cy = (pos.y * d) / len;
     plates.add(
       new k.Circle({
-        x: (pos.x * d) / len,
-        y: (pos.y * d) / len,
-        radius: 3.4,
+        x: cx,
+        y: cy,
+        radius: 4.5,
         fill: '#ffffff',
+        stroke: '#b9b2a6',
+        strokeWidth: 1,
+        listening: false,
+      }),
+    );
+    plates.add(
+      new k.Circle({
+        x: cx,
+        y: cy,
+        radius: 2.4,
         stroke: '#d9d5cc',
         strokeWidth: 1,
         listening: false,
