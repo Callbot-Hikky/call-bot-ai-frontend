@@ -27,12 +27,9 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { ReservationService } from '@core/services/reservation.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
-import { Reservation, ReservationStatus, newReservations } from '@core/models/reservation.model';
+import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
 import { formatTime } from '@core/utils/format';
-
-// Intervalle du polling live (LOT B3) : leger, suffisant pour la demo.
-const POLL_INTERVAL_MS = 20_000;
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -129,8 +126,6 @@ export class ReservationsPage {
   protected readonly drawerState = signal<BrnDialogState>('closed');
   // Dialog « Nouvelle réservation » (prise manuelle).
   protected readonly newResaState = signal<BrnDialogState>('closed');
-  // Timer du polling live (LOT B3) ; null quand le polling est en pause.
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -208,60 +203,25 @@ export class ReservationsPage {
   });
 
   constructor() {
-    this.service.loadToday();
+    // Retour depuis la page Plan : donnees deja en memoire -> refresh silencieux
+    // (pas de skeletons), sinon chargement initial complet.
+    if (this.service.reservations().length > 0) {
+      this.service
+        .refresh()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          error: () => undefined,
+        });
+    } else {
+      this.service.loadToday();
+    }
     this.callbacks.loadPending();
 
-    // LIVE LEGER (LOT B3) : polling silencieux des reservations toutes les 20 s,
-    // actif seulement page visible. Le pulse de table vit sur la page Plan.
-    this.syncPolling(false);
-    const onVisibility = (): void => this.syncPolling(true);
-    document.addEventListener('visibilitychange', onVisibility);
-    this.destroyRef.onDestroy(() => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      this.stopPolling();
+    // LIVE LEGER (LOT B3) : polling partage (ReservationService), la page ne
+    // fournit que son delta — le toast d'annonce.
+    this.service.startLivePolling(this.destroyRef, {
+      onNew: (created) => this.announceNewReservation(created),
     });
-  }
-
-  // (Re)configure le polling selon la visibilite de l'onglet.
-  private syncPolling(refreshNow: boolean): void {
-    if (document.visibilityState !== 'visible') {
-      this.stopPolling();
-      return;
-    }
-    if (refreshNow) {
-      this.refreshSilently();
-    }
-    if (this.pollTimer === null) {
-      this.pollTimer = setInterval(() => this.refreshSilently(), POLL_INTERVAL_MS);
-    }
-  }
-
-  private stopPolling(): void {
-    if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
-
-  // Re-fetch SILENCIEUX (pas de spinner : refresh() ne touche pas `loading`), puis
-  // diff par id -> toast pour chaque nouvelle reservation.
-  private refreshSilently(): void {
-    if (this.service.loading()) {
-      return; // chargement initial (ou reessai) en cours : inutile de doubler.
-    }
-    const beforeIds = new Set(this.service.reservations().map((r) => r.id));
-    this.service
-      .refresh()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (list) => {
-          for (const r of newReservations(beforeIds, list)) {
-            this.announceNewReservation(r);
-          }
-        },
-        // Echec silencieux : le prochain tick retentera (pas de bandeau d'erreur).
-        error: () => undefined,
-      });
   }
 
   // Toast « Nouvelle réservation » (valorise le bot).

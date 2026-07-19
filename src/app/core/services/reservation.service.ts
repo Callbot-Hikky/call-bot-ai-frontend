@@ -1,10 +1,15 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EMPTY, Observable, of } from 'rxjs';
 import { delay, map, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
-import { Reservation, ReservationStatus, RestaurantTable } from '@core/models/reservation.model';
+import {
+  Reservation,
+  ReservationStatus,
+  RestaurantTable,
+  newReservations,
+} from '@core/models/reservation.model';
 import {
   ReservationDto,
   ReservationRequestDto,
@@ -51,8 +56,71 @@ export class ReservationService {
   // Rafraichissement SILENCIEUX (polling live, LOT B3) : recharge les reservations
   // et met a jour le signal SANS toucher `loading` ni `error` — pas de spinner ni
   // de clignotement toutes les 20 s. L'appelant recoit la liste fraiche pour diff.
+  // LIVE LEGER partage (liste ET plan) : polling silencieux toutes les 20 s,
+  // actif page visible (et isActive() vraie — ex. hors mode edition). Le diff
+  // par id declenche onNew pour chaque reservation ARRIVEE (toast, pulse...).
+  // La logique vit ICI une seule fois ; chaque page ne fournit que son delta.
+  startLivePolling(
+    destroyRef: DestroyRef,
+    options: { isActive?: () => boolean; onNew?: (created: Reservation) => void } = {},
+  ): void {
+    const POLL_INTERVAL_MS = 20_000;
+    const tick = (): void => {
+      if (document.visibilityState !== 'visible' || options.isActive?.() === false) {
+        return;
+      }
+      this.refreshSilently(options.onNew);
+    };
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    const onVisibility = (): void => tick();
+    document.addEventListener('visibilitychange', onVisibility);
+    destroyRef.onDestroy(() => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    });
+  }
+
+  // Re-fetch SILENCIEUX (pas de spinner : refresh() ne touche pas `loading`),
+  // puis diff par id -> callback pour chaque nouvelle reservation.
+  private refreshSilently(onNew?: (created: Reservation) => void): void {
+    if (this._loading()) {
+      return; // chargement initial (ou reessai) en cours : inutile de doubler.
+    }
+    const beforeIds = new Set(this._reservations().map((r) => r.id));
+    this.refresh().subscribe({
+      next: (list) => {
+        if (onNew) {
+          for (const created of newReservations(beforeIds, list)) {
+            onNew(created);
+          }
+        }
+      },
+      // Echec silencieux : le prochain tick retentera (pas de bandeau d'erreur).
+      error: () => undefined,
+    });
+  }
+
   refresh(date?: string): Observable<Reservation[]> {
-    return this.getToday(date).pipe(tap((list) => this._reservations.set(list)));
+    // MOCK : l'etat courant fait foi (les creations locales — walk-in, resa
+    // manuelle — ne doivent pas etre ecrasees par la liste de depart).
+    if (environment.useMock) {
+      return of(this._reservations()).pipe(delay(200));
+    }
+    return this.getToday(date).pipe(
+      tap((list) => {
+        // PAYLOAD IDENTIQUE -> on ne republie PAS le signal : toute la cascade
+        // en aval (liste OnPush, canvas Konva, scene 3D) reste au repos. Cle de
+        // comparaison = ce qui pilote reellement le rendu.
+        const key = (r: Reservation): string =>
+          `${r.id}|${r.status}|${r.table?.id ?? ''}|${r.dateTime}|${r.partySize}|${r.customerName}`;
+        const current = this._reservations();
+        const same =
+          current.length === list.length && current.every((r, i) => key(r) === key(list[i]));
+        if (!same) {
+          this._reservations.set(list);
+        }
+      }),
+    );
   }
 
   getToday(date?: string): Observable<Reservation[]> {
