@@ -88,38 +88,21 @@ const WALK_IN_GUARD_MIN = 90;
           <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
                FLOTTE sur le plan (zero layout shift, pleine largeur). -->
           <div class="flex items-center justify-between gap-3">
-            <!-- Aide condensee : une icone + tooltip (le texte complet ecrasait la rangee). -->
-            <span
-              class="text-text-subtle inline-flex flex-1 items-center gap-1.5 text-sm"
-              title="Cliquez une table libre pour installer des clients sans réservation, une table occupée pour voir sa réservation, ou sélectionnez une réservation non placée pour l'affecter."
+            <!-- AIDE : bouton qui ouvre un panneau explicatif des gestes et des
+                 modes (2D/3D, simulation, service) — flottant, zero shift. -->
+            <button
+              type="button"
+              data-testid="toggle-help"
+              class="text-text-subtle hover:text-text-strong inline-flex flex-1 cursor-pointer items-center gap-1.5 text-sm"
+              [attr.aria-expanded]="helpOpen()"
+              (click)="helpOpen.set(!helpOpen())"
             >
               <hk-icon name="lucideInfo" [size]="15" />
-              <span class="hidden whitespace-nowrap min-[1700px]:inline">Comment ça marche ?</span>
-            </span>
+              <span class="whitespace-nowrap">Comment ça marche ?</span>
+            </button>
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
-            <div class="flex items-center gap-2">
-              <!-- SYNTHESE DE SALLE + JAUGE : l'etat et la charge, d'un coup d'oeil. -->
-              @if (!serviceMode() && tableViews().length > 0) {
-                <span
-                  class="text-text-subtle mr-1 hidden text-sm whitespace-nowrap xl:inline"
-                  data-testid="room-summary"
-                >
-                  {{ summary().libres }} libres · {{ summary().reservees }} rés. ·
-                  {{ summary().installees }} inst.
-                </span>
-              }
-              @if (!serviceMode() && load().capacity > 0) {
-                <span
-                  class="text-text-muted mr-1 text-sm whitespace-nowrap tabular-nums"
-                  data-testid="evening-load"
-                  title="Couverts attendus ce soir (réservations vivantes) rapportés à la capacité totale de la salle"
-                >
-                  Ce soir :
-                  <strong class="text-text-strong">{{ load().couverts }}</strong>
-                  / {{ load().capacity }} couv. ({{ load().pct }} %)
-                </span>
-              }
+            <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
               <hk-button
                 variant="secondary"
                 size="sm"
@@ -246,6 +229,50 @@ const WALK_IN_GUARD_MIN = 90;
                  (simulation, vitrine) FLOTTENT au-dessus du canvas. Apparaitre /
                  disparaitre ne decale JAMAIS la mise en page (zero layout shift). -->
             <div class="relative" [class.min-h-0]="serviceMode()" [class.flex-1]="serviceMode()">
+              <!-- PANNEAU D'AIDE : les gestes et les modes, expliques la ou on
+                   en a besoin. Flottant (zero shift), fermeture au clic. -->
+              @if (helpOpen()) {
+                <div
+                  class="bg-card/95 border-border absolute top-3 left-3 z-20 flex max-w-md flex-col gap-2.5 rounded-xl border p-4 text-sm shadow-xl backdrop-blur-md"
+                  data-testid="help-panel"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <h3 class="text-text-strong font-semibold">Comment ça marche ?</h3>
+                    <button
+                      type="button"
+                      class="text-text-subtle hover:bg-muted cursor-pointer rounded-sm p-0.5"
+                      title="Fermer"
+                      (click)="helpOpen.set(false)"
+                    >
+                      <hk-icon name="lucideX" [size]="15" />
+                    </button>
+                  </div>
+                  <p class="text-text-muted">
+                    <strong class="text-text-strong">Sur le plan :</strong>
+                    cliquez une table libre pour installer des clients sans réservation, une table
+                    colorée pour ouvrir sa réservation. Sélectionnez une réservation non placée (à
+                    droite) puis une table libre pour l'y placer — la meilleure est surlignée.
+                  </p>
+                  <p class="text-text-muted">
+                    <strong class="text-text-strong">Vue 3D :</strong>
+                    votre salle comme si vous y étiez — les tables restent cliquables.
+                  </p>
+                  <p class="text-text-muted">
+                    <strong class="text-text-strong">Simuler ma soirée :</strong>
+                    projette la salle à l'heure de votre choix pour repérer les trous et les rushes.
+                    Rien n'est modifié : c'est une prévision.
+                  </p>
+                  <p class="text-text-muted">
+                    <strong class="text-text-strong">Mode service :</strong>
+                    plein écran pour le poste d'accueil pendant le coup de feu.
+                  </p>
+                  <p class="text-text-muted">
+                    <strong class="text-text-strong">Modifier :</strong>
+                    déplacez et créez des tables, tracez des murs, fusionnez des tablées.
+                  </p>
+                </div>
+              }
+
               <!-- BANDEAU D'AFFECTATION : flotte sur le plan, pleine largeur —
                    le texte respire et RIEN ne bouge en dessous (zero shift). -->
               @if (selectedUnplaced(); as r) {
@@ -310,6 +337,7 @@ const WALK_IN_GUARD_MIN = 90;
                   [views]="tableViews()"
                   [walls]="walls()"
                   [orbit]="vitrine()"
+                  [focusTableId]="canvasFocusId()"
                   [fill]="serviceMode()"
                   [class.h-full]="serviceMode()"
                   (tableClick)="onTableClick($event)"
@@ -415,7 +443,30 @@ const WALK_IN_GUARD_MIN = 90;
           }
 
           @if (!serviceMode()) {
-            <hk-floor-plan-legend />
+            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+              <hk-floor-plan-legend />
+              <!-- SYNTHESE + JAUGE : sur la ligne de legende (la rangee de
+                   boutons du haut garde ses libelles sur UNE ligne). -->
+              <div class="text-text-muted flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
+                @if (tableViews().length > 0) {
+                  <span data-testid="room-summary">
+                    {{ summary().libres }} libres · {{ summary().reservees }} réservées ·
+                    {{ summary().installees }} installées
+                  </span>
+                }
+                @if (load().capacity > 0) {
+                  <span
+                    class="whitespace-nowrap tabular-nums"
+                    data-testid="evening-load"
+                    title="Couverts attendus ce soir (réservations vivantes) rapportés à la capacité totale de la salle"
+                  >
+                    Ce soir :
+                    <strong class="text-text-strong">{{ load().couverts }}</strong>
+                    / {{ load().capacity }} couv. ({{ load().pct }} %)
+                  </span>
+                }
+              </div>
+            </div>
           }
         </div>
 
@@ -606,6 +657,8 @@ export class HkFloorPlan {
   protected readonly view3d = signal(false);
   // Mode VITRINE de la 3D : orbite lente automatique (ecran d'accueil/mural).
   protected readonly vitrine = signal(false);
+  // Panneau d'aide (« Comment ça marche ? ») : flottant sur le plan.
+  protected readonly helpOpen = signal(false);
 
   // --- Configuration rapide (onboarding, aucune table) --------------------------
   // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
@@ -985,7 +1038,10 @@ export class HkFloorPlan {
       return;
     }
     if (view.reservation) {
-      // Table occupee : on ouvre le detail de sa reservation.
+      // Table occupee : on ouvre le detail de sa reservation. Le bandeau
+      // walk-in en cours se ferme (sinon le focus resterait accroche a
+      // l'ANCIENNE table pendant que le drawer en montre une autre).
+      this.cancelWalkIn();
       this.openReservation.emit(view.reservation);
     }
   }
