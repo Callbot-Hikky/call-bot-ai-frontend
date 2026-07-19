@@ -68,6 +68,7 @@ const TABLES: FloorTable[] = [
       [tables]="tables"
       [geometry]="geometry"
       [serviceMode]="serviceMode"
+      [(selectedTableId)]="selectedTableId"
       (assign)="recordAssign($event)"
       (mergeAssign)="merged = $event.reservationId + ':' + $event.tableIds.join('+')"
       (walkIn)="walkIn = $event.table.id + ':' + $event.partySize"
@@ -80,6 +81,8 @@ class HostComponent {
   tables: FloorTable[] = TABLES;
   geometry: GeometryMap = {};
   serviceMode = false;
+  // Selection detenue par l'hote (comme la page) : survit aux re-instanciations.
+  selectedTableId: string | null = null;
   assigned = '';
   assigns: string[] = [];
   merged = '';
@@ -424,6 +427,30 @@ describe('HkFloorPlan', () => {
     expect(fixture.componentInstance.walkIn).toBe('t2:3');
     // Le bandeau se ferme apres l'emission.
     expect(fixture.nativeElement.textContent).not.toContain('Installer des clients sur');
+  });
+
+  it('la selection remonte a l hote (survit au passage mode service)', async () => {
+    const fixture = TestBed.createComponent(HostComponent);
+    await fixture.whenStable();
+
+    const stub: CanvasStub = fixture.debugElement.query(
+      (el) => el.componentInstance instanceof CanvasStub,
+    ).componentInstance;
+    stub.tableClick.emit(stub.tables().find((v) => v.table.id === 't2')!);
+    await fixture.whenStable();
+    // Le two-way binding pousse la selection vers l'hote : une nouvelle
+    // instance du plan (mode service) la retrouvera.
+    expect(fixture.componentInstance.selectedTableId).toBe('t2');
+
+    // Et une selection FOURNIE par l'hote ouvre l'inspector d'emblee.
+    fixture.componentInstance.selectedTableId = 't1';
+    fixture.changeDetectorRef.detectChanges();
+    await fixture.whenStable();
+    expect(
+      fixture.nativeElement
+        .querySelector('[data-testid="table-inspector"]')
+        ?.textContent?.includes('Table T1'),
+    ).toBe(true);
   });
 
   it('la croix ferme l inspector sans emission', async () => {

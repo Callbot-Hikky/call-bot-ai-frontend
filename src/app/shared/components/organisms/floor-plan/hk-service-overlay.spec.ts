@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, model, output } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { HkServiceOverlay } from './hk-service-overlay';
 import { HkFloorPlan, AssignEvent, WalkInEvent } from './hk-floor-plan';
@@ -19,7 +19,7 @@ class FloorPlanStub {
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
   readonly merges = input<string[][]>([]);
-  readonly focusTableId = input<string | null>(null);
+  readonly selectedTableId = model<string | null>(null);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);

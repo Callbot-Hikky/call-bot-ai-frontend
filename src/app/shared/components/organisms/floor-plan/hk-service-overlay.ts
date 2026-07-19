@@ -6,6 +6,7 @@ import {
   computed,
   inject,
   input,
+  model,
   output,
   signal,
 } from '@angular/core';
@@ -75,6 +76,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
       <hk-floor-plan
         class="block h-full min-h-0"
         [serviceMode]="true"
+        [(selectedTableId)]="selectedTableId"
         [reservations]="reservations()"
         [tables]="tables()"
         [geometry]="geometry()"
@@ -110,6 +112,9 @@ export class HkServiceOverlay {
   readonly geometry = input<GeometryMap>({});
   readonly walls = input<WallSegment[]>([]);
   readonly merges = input<string[][]>([]);
+  // Selection de table partagee avec la page : survit a l'entree/sortie du
+  // mode service (les deux instances du plan lisent le meme etat).
+  readonly selectedTableId = model<string | null>(null);
   readonly loading = input(false);
   readonly error = input(false);
 

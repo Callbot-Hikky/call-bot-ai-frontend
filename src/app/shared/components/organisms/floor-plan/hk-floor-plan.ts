@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  model,
   output,
   signal,
   viewChild,
@@ -760,7 +761,26 @@ export class HkFloorPlan {
   // (sinon chaque refresh 20 s rouvrirait un bandeau que l'hote a ferme).
   private appliedPreselectId: string | null = null;
 
+  // Derniere table pour laquelle le stepper walk-in a ete initialise : une
+  // selection RESTAUREE (retour du mode service) retrouve un defaut correct
+  // sans ecraser un reglage en cours sur la meme table.
+  private walkInInitFor: string | null = null;
+
   constructor() {
+    // Stepper du walk-in initialise a la capacite de la table selectionnee
+    // (au clic OU quand la selection est restauree par la page).
+    effect(() => {
+      const sel = this.selectedTableView();
+      if (!sel) {
+        this.walkInInitFor = null; // fermeture : la prochaine selection repart au defaut.
+        return;
+      }
+      if (sel.status === 'libre' && this.walkInInitFor !== sel.table.id) {
+        this.walkInInitFor = sel.table.id;
+        this.walkInSize.set(sel.table.capacity);
+      }
+    });
+
     // PRESELECTION (« Placer » depuis la liste) : appliquee UNE fois par id,
     // des que la resa figure dans les non placees.
     effect(() => {
@@ -1128,10 +1148,11 @@ export class HkFloorPlan {
     this.selectedUnplacedId.set(reservation.id);
   }
 
-  // INSPECTOR : table SELECTIONNEE (libre ou occupee). On stocke l'ID et on
-  // derive la vue COURANTE : si le statut change (polling, walk-in, fin de
-  // service), la carte suit l'etat reel — jamais d'etat perime.
-  private readonly selectedTableId = signal<string | null>(null);
+  // INSPECTOR : table SELECTIONNEE (libre ou occupee). MODEL (two-way) : la
+  // page peut detenir cet etat pour qu'il SURVIVE au passage mode normal <->
+  // mode service (deux instances du plan). On derive la vue COURANTE : si le
+  // statut change (polling, walk-in, fin de service), la carte suit l'etat reel.
+  readonly selectedTableId = model<string | null>(null);
   protected readonly walkInSize = signal(1);
   protected readonly selectedTableView = computed<FloorTableView | null>(() => {
     const id = this.selectedTableId();
@@ -1209,9 +1230,6 @@ export class HkFloorPlan {
     // SELECTION UNIFIEE : toute table cliquee s'affiche dans l'inspector a
     // droite (libre = installer des clients, occupee = sa reservation). Meme
     // geste, meme endroit, mise a jour instantanee au clic suivant.
-    if (view.status === 'libre') {
-      this.walkInSize.set(view.table.capacity);
-    }
     this.selectedTableId.set(view.table.id);
     // Mobile : le tiroir s'ouvre pour montrer la carte de la table.
     this.asideOpen.set(true);

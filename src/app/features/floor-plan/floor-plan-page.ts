@@ -48,6 +48,7 @@ import { formatTime } from '@core/utils/format';
         [geometry]="floorPlan.geometry()"
         [walls]="floorPlan.walls()"
         [merges]="floorPlan.merges()"
+        [(selectedTableId)]="selectedTableId"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (exitService)="exitServiceMode()"
@@ -98,6 +99,7 @@ import { formatTime } from '@core/utils/format';
             [geometry]="floorPlan.geometry()"
             [walls]="floorPlan.walls()"
             [merges]="floorPlan.merges()"
+            [(selectedTableId)]="selectedTableId"
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
             [loading]="service.loading() || tables.loading()"
@@ -139,6 +141,9 @@ export class FloorPlanPage {
   protected readonly editing = signal(false);
   // MOBILE : petit ecran EN PORTRAIT -> invite a tourner le telephone.
   protected readonly portraitMobile = signal(false);
+  // Table selectionnee (inspector) : detenue ICI pour survivre au passage
+  // mode normal <-> mode service (deux instances du plan).
+  protected readonly selectedTableId = signal<string | null>(null);
   // MODE SERVICE plein ecran (« poste d'accueil »).
   protected readonly serviceMode = signal(false);
   protected readonly restaurantId = environment.restaurantId;
