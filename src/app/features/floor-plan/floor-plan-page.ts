@@ -27,6 +27,7 @@ import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
+import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { formatTime } from '@core/utils/format';
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
@@ -35,7 +36,7 @@ import { formatTime } from '@core/utils/format';
 // services (signals) — une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
-  imports: [HkPageHeader, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
+  imports: [HkPageHeader, HkIcon, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
   template: `
     @if (serviceMode()) {
       <hk-service-overlay
@@ -60,6 +61,24 @@ import { formatTime } from '@core/utils/format';
         (finishService)="onFinish($event)"
         (retry)="reload()"
       />
+    } @else if (portraitMobile()) {
+      <!-- MOBILE PORTRAIT : une salle est un espace LARGE — le plan ne se lit
+           qu'en paysage. On le dit clairement plutot que d'afficher une bouillie. -->
+      <div
+        class="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-8 text-center"
+        data-testid="rotate-hint"
+      >
+        <span
+          class="border-border bg-card flex h-20 w-12 rotate-90 items-center justify-center rounded-xl border-2 shadow-sm transition-transform"
+        >
+          <hk-icon name="lucideGrid2x2" [size]="22" class="text-text-subtle -rotate-90" />
+        </span>
+        <h2 class="text-text-strong text-lg font-semibold">Tournez votre téléphone</h2>
+        <p class="text-text-subtle max-w-xs text-sm">
+          Le plan de salle s'affiche en mode paysage : basculez votre téléphone à l'horizontale pour
+          voir vos tables.
+        </p>
+      </div>
     } @else {
       @if (!editing()) {
         <hk-page-header [subtitle]="today" />
@@ -91,7 +110,7 @@ import { formatTime } from '@core/utils/format';
             (cancelReservation)="onCancel($event)"
             (callReservation)="onCall($event)"
             (finishService)="onFinish($event)"
-            (edit)="editing.set(true)"
+            (edit)="onEdit()"
             (enterService)="enterServiceMode()"
             (retry)="reload()"
           />
@@ -118,6 +137,8 @@ export class FloorPlanPage {
 
   // Mode edition du plan (plein cadre, masque le header de page).
   protected readonly editing = signal(false);
+  // MOBILE : petit ecran EN PORTRAIT -> invite a tourner le telephone.
+  protected readonly portraitMobile = signal(false);
   // MODE SERVICE plein ecran (« poste d'accueil »).
   protected readonly serviceMode = signal(false);
   protected readonly restaurantId = environment.restaurantId;
@@ -144,6 +165,13 @@ export class FloorPlanPage {
   });
 
   constructor() {
+    // Suivi de l'orientation (mobile) : le plan n'est rendu qu'en paysage.
+    const portraitQuery = window.matchMedia('(max-width: 767px) and (orientation: portrait)');
+    this.portraitMobile.set(portraitQuery.matches);
+    const onOrientation = (e: MediaQueryListEvent): void => this.portraitMobile.set(e.matches);
+    portraitQuery.addEventListener('change', onOrientation);
+    this.destroyRef.onDestroy(() => portraitQuery.removeEventListener('change', onOrientation));
+
     // Bascule liste <-> plan : si les donnees sont deja en memoire (services
     // partages), refresh silencieux au lieu d'un rechargement avec skeletons.
     if (this.service.reservations().length > 0) {
@@ -215,6 +243,16 @@ export class FloorPlanPage {
     this.editing.set(false);
   }
 
+  // L'EDITION du plan demande la souris (drag precis, poignees) : sur petit
+  // ecran on l'assume honnetement plutot que d'offrir une experience ratee.
+  protected onEdit(): void {
+    if (window.innerWidth < 768) {
+      this.toast.show('Modifiez votre salle sur ordinateur ou tablette (gestes de précision).');
+      return;
+    }
+    this.editing.set(true);
+  }
+
   protected enterServiceMode(): void {
     this.serviceMode.set(true);
     document.body.classList.add('service-mode');
@@ -222,7 +260,16 @@ export class FloorPlanPage {
       const req = document.documentElement.requestFullscreen?.();
       if (req) {
         this.enteredFullscreen = true;
-        req.catch(() => (this.enteredFullscreen = false));
+        req
+          .then(() => {
+            // MOBILE : verrouille le paysage quand l'API le permet (Android en
+            // plein ecran) ; ailleurs, l'invite « tournez votre telephone » reste.
+            const orientation = screen.orientation as ScreenOrientation & {
+              lock?: (o: string) => Promise<void>;
+            };
+            orientation.lock?.('landscape').catch(() => undefined);
+          })
+          .catch(() => (this.enteredFullscreen = false));
       }
     } catch {
       this.enteredFullscreen = false;

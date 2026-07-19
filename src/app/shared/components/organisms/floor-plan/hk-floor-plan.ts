@@ -107,7 +107,7 @@ const WALK_IN_GUARD_MIN = 90;
               (click)="helpOpen.set(!helpOpen())"
             >
               <hk-icon name="lucideInfo" [size]="15" />
-              <span class="whitespace-nowrap">Comment ça marche ?</span>
+              <span class="hidden whitespace-nowrap md:inline">Comment ça marche ?</span>
             </button>
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
@@ -124,7 +124,7 @@ const WALK_IN_GUARD_MIN = 90;
                 (click)="view3d.set(!view3d())"
               >
                 <hk-icon name="lucideBox" [size]="16" />
-                {{ view3d() ? 'Vue 2D' : 'Vue 3D' }}
+                <span class="hidden md:inline">{{ view3d() ? 'Vue 2D' : 'Vue 3D' }}</span>
               </hk-button>
               @if (!serviceMode()) {
                 <hk-button
@@ -135,7 +135,9 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="simulating() ? stopSim() : startSim()"
                 >
                   <hk-icon name="lucideCalendar" [size]="16" />
-                  {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
+                  <span class="hidden md:inline">
+                    {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
+                  </span>
                 </hk-button>
                 <hk-button
                   variant="secondary"
@@ -144,7 +146,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="onEnterService()"
                 >
                   <hk-icon name="lucideMaximize" [size]="16" />
-                  Mode service
+                  <span class="hidden md:inline">Mode service</span>
                 </hk-button>
                 <hk-button
                   variant="secondary"
@@ -153,7 +155,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="exportPng()"
                 >
                   <hk-icon name="lucideDownload" [size]="16" />
-                  Exporter
+                  <span class="hidden md:inline">Exporter</span>
                 </hk-button>
                 <hk-button
                   variant="secondary"
@@ -162,7 +164,7 @@ const WALK_IN_GUARD_MIN = 90;
                   (click)="edit.emit()"
                 >
                   <hk-icon name="lucidePencil" [size]="16" />
-                  Modifier
+                  <span class="hidden md:inline">Modifier</span>
                 </hk-button>
               }
             </div>
@@ -238,6 +240,25 @@ const WALK_IN_GUARD_MIN = 90;
                  (simulation, vitrine) FLOTTENT au-dessus du canvas. Apparaitre /
                  disparaitre ne decale JAMAIS la mise en page (zero layout shift). -->
             <div class="relative" [class.min-h-0]="serviceMode()" [class.flex-1]="serviceMode()">
+              <!-- MOBILE : acces au panneau (inspector + non placees) via un
+                   bouton flottant avec badge — le plan garde tout l'ecran. -->
+              <button
+                type="button"
+                class="bg-primary text-primary-foreground absolute right-3 bottom-3 z-30 hidden size-11 cursor-pointer items-center justify-center rounded-full shadow-lg max-lg:flex"
+                title="Réservations non placées et détail de table"
+                data-testid="open-aside"
+                (click)="asideOpen.set(!asideOpen())"
+              >
+                <hk-icon name="lucideUsers" [size]="18" />
+                @if (unplaced().length > 0) {
+                  <span
+                    class="bg-st-cancelled-fg absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                  >
+                    {{ unplaced().length }}
+                  </span>
+                }
+              </button>
+
               <!-- PANNEAU D'AIDE : les gestes et les modes, expliques la ou on
                    en a besoin. Flottant (zero shift), fermeture au clic. -->
               @if (helpOpen()) {
@@ -479,7 +500,21 @@ const WALK_IN_GUARD_MIN = 90;
           }
         </div>
 
-        <aside class="bg-card border-border flex flex-col rounded-md border">
+        <!-- MOBILE (paysage) : l'aside devient un TIROIR au-dessus du plan,
+             ouvert par le bouton flottant — le plan garde toute la largeur. -->
+        <aside
+          class="bg-card border-border flex flex-col rounded-md border max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:w-80 max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-y-0 max-lg:border-r-0 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200"
+          [class.max-lg:translate-x-full]="!asideOpen()"
+          data-testid="plan-aside"
+        >
+          <button
+            type="button"
+            class="text-text-subtle hover:bg-muted absolute top-2 right-2 z-10 hidden cursor-pointer rounded-sm p-1 max-lg:block"
+            title="Fermer le panneau"
+            (click)="asideOpen.set(false)"
+          >
+            <hk-icon name="lucideX" [size]="16" />
+          </button>
           <!-- INSPECTOR : la table SELECTIONNEE s'affiche ICI, a droite — meme
                endroit pour tout (libre = installer, occupee = sa reservation).
                Cliquer une autre table met simplement la carte a jour : rapide,
@@ -773,6 +808,8 @@ export class HkFloorPlan {
   protected readonly vitrine = signal(false);
   // Panneau d'aide (« Comment ça marche ? ») : flottant sur le plan.
   protected readonly helpOpen = signal(false);
+  // MOBILE : tiroir droit (inspector + non placees) ouvert/ferme.
+  protected readonly asideOpen = signal(false);
 
   // --- Configuration rapide (onboarding, aucune table) --------------------------
   // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
@@ -1176,6 +1213,8 @@ export class HkFloorPlan {
       this.walkInSize.set(view.table.capacity);
     }
     this.selectedTableId.set(view.table.id);
+    // Mobile : le tiroir s'ouvre pour montrer la carte de la table.
+    this.asideOpen.set(true);
   }
 
   protected stepWalkIn(delta: number): void {
