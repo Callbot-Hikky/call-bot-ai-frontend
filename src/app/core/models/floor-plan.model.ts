@@ -154,6 +154,21 @@ export function deriveTableStatus(
   return { status: 'libre', reservation: null, ...none };
 }
 
+// RETARD d'une reservation attendue (badge de la LISTE) : memes seuils que la
+// pastille du plan — signale de +15 min (LATE_THRESHOLD_MIN) jusqu'a la fin de
+// la fenetre active (+120 min, ACTIVE_AFTER_MIN). Au-dela, le plan considere la
+// table liberee (no-show a annuler) : la liste arrete donc aussi de crier.
+export function reservationLateMinutes(reservation: Reservation, now: Date): number | null {
+  if (reservation.status !== 'pending' && reservation.status !== 'confirmed') {
+    return null;
+  }
+  const elapsedMin = (now.getTime() - new Date(reservation.dateTime).getTime()) / MINUTE_MS;
+  if (elapsedMin <= LATE_THRESHOLD_MIN || elapsedMin > ACTIVE_AFTER_MIN) {
+    return null;
+  }
+  return Math.round(elapsedMin);
+}
+
 // PLAGE DE SIMULATION (« Simuler ma soiree ») : de 1 h avant la premiere
 // reservation vivante du jour a 2 h apres la derniere, bornes arrondies a
 // l'heure pleine. Sans reservation : soiree type 18:00 -> 23:00. Fonction PURE :
@@ -218,7 +233,6 @@ export function tablesTouch(
 // COTES BLOQUES d'une table : les cotes ou une AUTRE table est collee (pas de
 // chaises entre deux tables bord a bord — elles traverseraient le plateau
 // voisin). Oriente ecran : n = au-dessus, s = dessous, w = gauche, e = droite.
-// Meme metrique que tablesTouch (rects englobants, rotation ignoree).
 export interface BlockedSides {
   n: boolean;
   s: boolean;
@@ -226,32 +240,96 @@ export interface BlockedSides {
   w: boolean;
 }
 
+// Valeur neutre partagee (aucun cote bloque) : les moteurs de rendu 2D/3D/
+// editeur consomment la MEME reference par defaut.
+export const NO_BLOCKED_SIDES: Readonly<BlockedSides> = { n: false, s: false, e: false, w: false };
+
+// Seuil de CONTACT pour le blocage des chaises : plus STRICT que tablesTouch
+// (0.035, tolerance de fusion) — les rangees generees (espacement 0.032) ne
+// doivent PAS perdre leurs chaises, seules les tables reellement bord a bord.
+const BLOCK_GAP = 0.015;
+
 export function blockedSides(
-  table: { x: number; y: number; w: number; h: number },
-  others: readonly { x: number; y: number; w: number; h: number }[],
-  gap = 0.035,
+  table: { x: number; y: number; w: number; h: number; rotation?: number },
+  others: readonly { x: number; y: number; w: number; h: number; rotation?: number }[],
+  gap = BLOCK_GAP,
 ): BlockedSides {
+  // Table TOURNEE : ses cotes locaux ne correspondent plus aux axes ecran du
+  // calcul — on ne masque rien plutot que de masquer le mauvais cote.
+  if ((table.rotation ?? 0) % 360 !== 0) {
+    return { ...NO_BLOCKED_SIDES };
+  }
   const blocked: BlockedSides = { n: false, s: false, e: false, w: false };
   for (const b of others) {
+    if ((b.rotation ?? 0) % 360 !== 0) {
+      continue; // voisin tourne : bbox non fiable, on l'ignore.
+    }
     const dx = Math.abs(table.x * ASPECT_W - b.x * ASPECT_W) - (table.w + b.w) / 2;
     const dy = Math.abs(table.y - b.y) - (table.h + b.h) / 2;
     if (dx > gap || dy > gap) {
       continue; // pas collees.
     }
-    // L'axe du contact est celui dont l'ecart est le plus GRAND (le bord commun).
+    // L'axe du contact est celui dont l'ecart est le plus GRAND (le bord
+    // commun) ; l'autre axe doit VRAIMENT se chevaucher (ecart negatif), sinon
+    // c'est un simple contact de coin — aucune chaise a masquer.
     if (dx >= dy) {
+      if (dy >= 0) {
+        continue;
+      }
       if (b.x > table.x) {
         blocked.e = true;
       } else {
         blocked.w = true;
       }
-    } else if (b.y > table.y) {
-      blocked.s = true;
     } else {
-      blocked.n = true;
+      if (dx >= 0) {
+        continue;
+      }
+      if (b.y > table.y) {
+        blocked.s = true;
+      } else {
+        blocked.n = true;
+      }
     }
   }
   return blocked;
+}
+
+// ANGLES LIBRES d'une table RONDE : repartit `count` chaises uniformement sur
+// les arcs NON bloques (quadrant de 90° par cote colle). Repere ecran : angle 0
+// = est, PI/2 = sud (y vers le bas) — identique en 2D (x,y) et 3D (x,z).
+// Aucune chaise n'est perdue : elles se resserrent sur les arcs libres.
+export function freeRingAngles(count: number, blocked: BlockedSides): number[] {
+  const sides: { side: keyof BlockedSides; center: number }[] = [
+    { side: 'e', center: 0 },
+    { side: 's', center: Math.PI / 2 },
+    { side: 'w', center: Math.PI },
+    { side: 'n', center: (3 * Math.PI) / 2 },
+  ];
+  const free = sides.filter((s) => !blocked[s.side]);
+  if (free.length === 0 || count <= 0) {
+    return [];
+  }
+  if (free.length === 4) {
+    return Array.from({ length: count }, (_, i) => (i / count) * 2 * Math.PI);
+  }
+  // Chaque cote libre porte un arc de 90° centre sur lui ; les chaises sont
+  // reparties proportionnellement, en evitant les bords d'arc (marge 10 %).
+  const angles: number[] = [];
+  let placed = 0;
+  for (const [i, s] of free.entries()) {
+    const k =
+      i === free.length - 1
+        ? count - placed
+        : Math.min(count - placed, Math.round(count / free.length));
+    placed += k;
+    const span = (Math.PI / 2) * 0.8;
+    for (let j = 0; j < k; j++) {
+      const t = k === 1 ? 0.5 : j / (k - 1);
+      angles.push(s.center - span / 2 + t * span);
+    }
+  }
+  return angles;
 }
 
 // Un groupe est fusionnable si chaque table touche au moins une autre du groupe

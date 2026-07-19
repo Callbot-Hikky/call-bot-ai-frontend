@@ -3,7 +3,8 @@ import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { Reservation, reservationLateMinutes } from '@core/models/reservation.model';
+import { Reservation } from '@core/models/reservation.model';
+import { reservationLateMinutes } from '@core/models/floor-plan.model';
 import { formatTime } from '@core/utils/format';
 
 // La zone d'ouverture est un bouton (focusable au clavier). Les actions sont des

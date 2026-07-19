@@ -70,12 +70,14 @@ describe('chairSlots', () => {
     expect(slots.every((s) => s.z < 0)).toBe(true); // bascules au nord.
   });
 
-  it('ronde collee a droite : les chaises cote est disparaissent', () => {
+  it('ronde collee a droite : aucune chaise dans le quadrant est, compte preserve', () => {
     const blocked = { n: false, s: false, e: true, w: false };
     const slots = chairSlots('round', 1.2, 1.2, 8, blocked);
-    expect(slots.length).toBeLessThan(8);
+    // Les chaises se RESSERRENT sur les arcs libres : aucune n'est perdue...
+    expect(slots.length).toBe(8);
+    // ...et aucune ne tombe dans le quadrant est (±45° autour de l'axe +x).
     const r = 1.2 / 2 + 0.32;
-    expect(slots.some((s) => s.x > r * 0.45)).toBe(false);
+    expect(slots.some((s) => s.x > r * Math.cos(Math.PI / 4) + 1e-9)).toBe(false);
   });
 });
 

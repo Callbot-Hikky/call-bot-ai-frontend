@@ -12,7 +12,13 @@ import {
 } from '@angular/core';
 import type * as THREE from 'three';
 import type { OrbitControls as OrbitControlsType } from 'three/examples/jsm/controls/OrbitControls.js';
-import { BlockedSides, FloorTableView, blockedSides } from '@core/models/floor-plan.model';
+import {
+  BlockedSides,
+  FloorTableView,
+  NO_BLOCKED_SIDES,
+  blockedSides,
+  freeRingAngles,
+} from '@core/models/floor-plan.model';
 import { TableShape, WallSegment } from '@core/models/floor-plan-editor.model';
 import { formatTime } from '@core/utils/format';
 
@@ -81,14 +87,12 @@ interface ChairSlot {
 // COTES BLOQUES (`blocked`) : une table collee sur un cote -> AUCUNE chaise de
 // ce cote (elle traverserait le plateau voisin) ; les chaises se redistribuent
 // sur les cotes libres.
-const FREE_SIDES: BlockedSides = { n: false, s: false, e: false, w: false };
-
 export function chairSlots(
   shape: TableShape,
   wU: number,
   dU: number,
   count: number,
-  blocked: BlockedSides = FREE_SIDES,
+  blocked: BlockedSides = NO_BLOCKED_SIDES,
 ): ChairSlot[] {
   const n = Math.min(count, MAX_CHAIRS);
   const gap = 0.32;
@@ -99,22 +103,11 @@ export function chairSlots(
 
   if (shape === 'round') {
     const r = wU / 2 + gap;
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      // Une chaise majoritairement du cote bloque est SUPPRIMEE (une ronde
-      // collee a une table n'a pas de chaises cote contact).
-      if (
-        (blocked.e && x > r * 0.45) ||
-        (blocked.w && x < -r * 0.45) ||
-        (blocked.s && z > r * 0.45) ||
-        (blocked.n && z < -r * 0.45)
-      ) {
-        continue;
-      }
+    // Angles sur les arcs LIBRES uniquement (cotes colles sans chaises) : les
+    // chaises se resserrent, aucune n'est perdue.
+    for (const a of freeRingAngles(n, blocked)) {
       // Dossier vers l'exterieur : +Z local de la chaise pointe (cos a, sin a).
-      slots.push({ x, z, rotationY: Math.PI / 2 - a });
+      slots.push({ x: Math.cos(a) * r, z: Math.sin(a) * r, rotationY: Math.PI / 2 - a });
     }
     return slots;
   }

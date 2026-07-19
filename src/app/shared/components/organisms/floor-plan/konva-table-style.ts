@@ -1,11 +1,16 @@
 import type Konva from 'konva';
-import { BlockedSides } from '@core/models/floor-plan.model';
+import { BlockedSides, NO_BLOCKED_SIDES, freeRingAngles } from '@core/models/floor-plan.model';
 
 // Style partage des tables Konva (vue service + editeur) : sieges dessines
 // autour des tables et ombre douce. C'est ce qui donne l'aspect « vrai logiciel
 // de plan de salle » (les outils du marche dessinent les chaises).
 
 type KonvaModule = typeof Konva;
+
+// BAR : teinte BOIS partagee entre la vue service, l'editeur (et alignee sur le
+// comptoir 3D). SOURCE UNIQUE : un ajustement ici suit partout.
+export const BAR_FILL = '#dfb987';
+export const BAR_STROKE = '#9c6f3f';
 
 // Nombre max de sieges dessines = la borne du champ Couverts de l'editeur (20).
 // On dessine TOUJOURS autant de sieges que de couverts : deux tables de
@@ -107,14 +112,12 @@ export function styleSeats(seats: Konva.Group, fill: string, opacity = 0.55): vo
 // COTES BLOQUES (`blocked`, cf. blockedSides) : une table collee sur un cote ->
 // aucune chaise de ce cote (elle passerait SOUS le plateau voisin) ; les
 // chaises se redistribuent sur les cotes libres.
-const FREE_SIDES: BlockedSides = { n: false, s: false, e: false, w: false };
-
 export function layoutSeats(
   seats: Konva.Group,
   isRound: boolean,
   wPx: number,
   hPx: number,
-  blocked: BlockedSides = FREE_SIDES,
+  blocked: BlockedSides = NO_BLOCKED_SIDES,
 ): void {
   const children = seats.getChildren().filter((c) => c.name() === 'seat');
   const n = children.length;
@@ -139,22 +142,15 @@ export function layoutSeats(
 
   if (isRound) {
     const r = wPx / 2 + SEAT_GAP;
+    // Angles sur les arcs LIBRES (cotes colles sans chaises) : les chaises se
+    // resserrent, la capacite visuelle reste exacte.
+    const angles = freeRingAngles(n, blocked);
     for (let i = 0; i < n; i++) {
-      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / n;
-      const x = Math.cos(angle) * r;
-      const y = Math.sin(angle) * r;
-      children[i].position({ x, y });
+      const angle = angles[i] ?? 0;
+      children[i].visible(i < angles.length);
+      children[i].position({ x: Math.cos(angle) * r, y: Math.sin(angle) * r });
       // Chaise tangente au cercle : elle « regarde » le centre de la table.
       children[i].rotation((angle * 180) / Math.PI + 90);
-      // Chaise majoritairement du cote d'une table collee : masquee.
-      children[i].visible(
-        !(
-          (blocked.e && x > r * 0.45) ||
-          (blocked.w && x < -r * 0.45) ||
-          (blocked.s && y > r * 0.45) ||
-          (blocked.n && y < -r * 0.45)
-        ),
-      );
     }
     return;
   }

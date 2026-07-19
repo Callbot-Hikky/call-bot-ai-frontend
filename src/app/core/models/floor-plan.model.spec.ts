@@ -14,6 +14,7 @@ import {
   layoutTables,
   mergeViews,
   planAutoPlacements,
+  reservationLateMinutes,
   simulationRange,
   suggestMergeGroup,
   summarizeRoom,
@@ -614,6 +615,50 @@ describe('blockedSides (cotes ou une table est collee)', () => {
       e: false,
       w: false,
     });
+  });
+
+  it('l espacement d une rangee generee (0.02 de largeur) ne bloque PAS', () => {
+    // rowGeometries espace les tables de 0.02 en fraction de largeur
+    // (= 0.032 petit cote) : elles ne se touchent pas, chaises conservees.
+    const rowGap = (0.14 + 0.02 * 1.6) / 1.6;
+    expect(blockedSides(at(0.5, 0.5), [at(0.5 + rowGap, 0.5)]).e).toBe(false);
+  });
+
+  it('un contact coin a coin ne bloque aucun cote', () => {
+    // Voisine en diagonale exacte : dx et dy ~0 mais aucun chevauchement franc.
+    const diag = at(0.5 + side, 0.5 + 0.14);
+    expect(blockedSides(at(0.5, 0.5), [diag])).toEqual({
+      n: false,
+      s: false,
+      e: false,
+      w: false,
+    });
+  });
+
+  it('table (ou voisine) TOURNEE : pas de blocage plutot qu un mauvais cote', () => {
+    const turned = { ...at(0.5, 0.5), rotation: 45 };
+    expect(blockedSides(turned, [at(0.5 + side, 0.5)]).e).toBe(false);
+    const neighborTurned = { ...at(0.5 + side, 0.5), rotation: 90 };
+    expect(blockedSides(at(0.5, 0.5), [neighborTurned]).e).toBe(false);
+  });
+});
+
+describe('reservationLateMinutes (badge retard de la liste)', () => {
+  const at2000 = '2026-07-19T20:00:00+02:00';
+
+  it('memes seuils que le plan : signale entre +15 et +120 min', () => {
+    const r = reservation('r1', 'confirmed', null, at2000);
+    const t = (min: number) => new Date(new Date(at2000).getTime() + min * 60_000);
+    expect(reservationLateMinutes(r, t(10))).toBeNull();
+    expect(reservationLateMinutes(r, t(30))).toBe(30);
+    // Au-dela de la fenetre active, le plan libere la table : la liste se tait.
+    expect(reservationLateMinutes(r, t(150))).toBeNull();
+  });
+
+  it('ignore les statuts non attendus (installee, annulee...)', () => {
+    const t = new Date(new Date(at2000).getTime() + 30 * 60_000);
+    expect(reservationLateMinutes(reservation('r1', 'seated', 't1', at2000), t)).toBeNull();
+    expect(reservationLateMinutes(reservation('r1', 'cancelled', null, at2000), t)).toBeNull();
   });
 });
 
