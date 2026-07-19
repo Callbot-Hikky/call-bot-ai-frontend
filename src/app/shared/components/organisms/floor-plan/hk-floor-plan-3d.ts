@@ -247,6 +247,9 @@ export class HkFloorPlan3d {
   // MODE VITRINE : orbite lente automatique (ecran d'accueil / mural). L'utilisateur
   // garde la main : un drag interrompt le tour, qui reprend ensuite tout seul.
   readonly orbit = input(false);
+  // FOCUS : table dont le detail est ouvert (drawer) -> les autres s'attenuent,
+  // comme en 2D. null = tout le monde a pleine opacite.
+  readonly focusTableId = input<string | null>(null);
 
   // Clic sur une table : memes actions que la 2D (drawer / walk-in / affectation).
   readonly tableClick = output<FloorTableView>();
@@ -307,6 +310,23 @@ export class HkFloorPlan3d {
       this.views();
       this.walls();
       this.buildRoom();
+    });
+
+    // FOCUS : attenue les tables non visees (memes 35 % que la 2D). Opere sur
+    // les materiaux des groupes existants — pas de rebuild de la scene.
+    effect(() => {
+      const focusId = this.focusTableId();
+      this.views(); // depend aussi du rebuild (nouveaux materiaux).
+      for (const [id, group] of this.groupByTableId) {
+        const dimmed = focusId !== null && id !== focusId;
+        group.traverse((obj) => {
+          const material = (obj as THREE.Mesh).material as THREE.Material | undefined;
+          if (material) {
+            material.transparent = dimmed || material.transparent;
+            material.opacity = dimmed ? 0.3 : 1;
+          }
+        });
+      }
     });
 
     // Mode vitrine : suit l'input a chaud (OrbitControls reprend l'orbite tout
