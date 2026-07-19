@@ -37,7 +37,7 @@ import {
   rowGeometries,
   seedMissingGeometry,
 } from '@core/models/floor-plan-editor.model';
-import { buildEditorTables, canMerge } from '@core/models/floor-plan.model';
+import { buildEditorTables, canMerge, pushApart, tablesTouch } from '@core/models/floor-plan.model';
 import { downloadDataUrl } from '@core/utils/download';
 import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-canvas';
 import { HkPascalImport, PascalImportPayload } from './hk-pascal-import';
@@ -928,7 +928,48 @@ export class HkFloorPlanEditor implements OnInit {
       const shape = current?.shape ?? view?.shape ?? 'square';
       geometry[c.id] = { x: c.x, y: c.y, w: c.width, h: c.height, rotation: c.rotation, shape };
     }
+
+    // ANTI-CHEVAUCHEMENT (drag simple) : une table lachee SUR une voisine non
+    // fusionnee est repoussee a un petit ecart — et on propose la fusion, le
+    // geste que ce rapprochement suggere.
+    if (changes.length === 1) {
+      const moved = changes[0];
+      const merges = this.store.merges();
+      const sameGroup = new Set(merges.find((group) => group.includes(moved.id)) ?? []);
+      const neighbors = this.editorTables()
+        .filter((t) => t.id !== moved.id && !sameGroup.has(t.id))
+        .map((t) => ({ id: t.id, label: t.label, x: t.x, y: t.y, w: t.width, h: t.height }));
+      const movedBox = { x: moved.x, y: moved.y, w: moved.width, h: moved.height };
+      const touched = neighbors.find((o) => tablesTouch(movedBox, o, 0.01));
+      const corrected = pushApart(movedBox, neighbors);
+      if (corrected.x !== moved.x || corrected.y !== moved.y) {
+        geometry[moved.id] = { ...geometry[moved.id], x: corrected.x, y: corrected.y };
+        if (touched) {
+          const movedLabel = tablesById.get(moved.id)?.label ?? 'La table';
+          this.toast.show(
+            `${movedLabel} touchait ${touched.label} : léger écart appliqué. Grande tablée ?`,
+            'default',
+            {
+              label: 'Fusionner',
+              run: () => this.mergeTables([moved.id, touched.id]),
+            },
+          );
+        }
+      }
+    }
     this.store.commit(geometry);
+  }
+
+  // Fusionne un couple d'ids (action du toast anti-chevauchement) : quitte les
+  // anciens groupes puis cree la tablee, comme mergeSelection.
+  private mergeTables(ids: string[]): void {
+    const idSet = new Set(ids);
+    const others = this.store
+      .merges()
+      .map((group) => group.filter((id) => !idSet.has(id)))
+      .filter((group) => group.length >= 2);
+    this.store.setMerges([...others, ids]);
+    this.toast.show('Tablée créée : visible sur le plan de service (2D et 3D).');
   }
 
   // --- Snap / sauvegarde -----------------------------------------------------

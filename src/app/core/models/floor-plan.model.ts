@@ -295,6 +295,45 @@ export function blockedSides(
   return blocked;
 }
 
+// ANTI-CHEVAUCHEMENT (editeur) : repousse une table deplacee pour garantir un
+// petit ecart (minGap, unites petit cote) avec ses voisines NON fusionnees.
+// L'ecart choisi (0.02) est > BLOCK_GAP (les chaises restent dessinees) et
+// < la tolerance de fusion (0.035) : les tables restent fusionnables en un
+// clic, mais ne se chevauchent jamais par accident.
+export const EDITOR_MIN_GAP = 0.02;
+
+export function pushApart(
+  moved: { x: number; y: number; w: number; h: number },
+  others: readonly { x: number; y: number; w: number; h: number }[],
+  minGap = EDITOR_MIN_GAP,
+): { x: number; y: number } {
+  let x = moved.x;
+  let y = moved.y;
+  for (let pass = 0; pass < 4; pass++) {
+    let collided = false;
+    for (const o of others) {
+      const dx = Math.abs(x * ASPECT_W - o.x * ASPECT_W) - (moved.w + o.w) / 2;
+      const dy = Math.abs(y - o.y) - (moved.h + o.h) / 2;
+      if (dx >= minGap || dy >= minGap) {
+        continue; // assez separees sur au moins un axe.
+      }
+      collided = true;
+      // Poussee le long de l'axe demandant la PLUS PETITE correction.
+      const pushX = minGap - dx;
+      const pushY = minGap - dy;
+      if (pushX <= pushY) {
+        x += ((x >= o.x ? 1 : -1) * pushX) / ASPECT_W;
+      } else {
+        y += (y >= o.y ? 1 : -1) * pushY;
+      }
+    }
+    if (!collided) {
+      break;
+    }
+  }
+  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+}
+
 // ANGLES LIBRES d'une table RONDE : repartit `count` chaises uniformement sur
 // les arcs NON bloques (quadrant de 90° par cote colle). Repere ecran : angle 0
 // = est, PI/2 = sud (y vers le bas) — identique en 2D (x,y) et 3D (x,z).

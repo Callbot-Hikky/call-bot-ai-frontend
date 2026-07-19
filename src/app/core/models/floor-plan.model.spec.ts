@@ -14,6 +14,7 @@ import {
   layoutTables,
   mergeViews,
   planAutoPlacements,
+  pushApart,
   reservationLateMinutes,
   simulationRange,
   suggestMergeGroup,
@@ -640,6 +641,22 @@ describe('blockedSides (cotes ou une table est collee)', () => {
     expect(blockedSides(turned, [at(0.5 + side, 0.5)]).e).toBe(false);
     const neighborTurned = { ...at(0.5 + side, 0.5), rotation: 90 };
     expect(blockedSides(at(0.5, 0.5), [neighborTurned]).e).toBe(false);
+  });
+});
+
+describe('pushApart (anti-chevauchement editeur)', () => {
+  const at = (x: number, y: number) => ({ x, y, w: 0.14, h: 0.14 });
+
+  it('ecarte une table lachee sur une voisine (gap minimal respecte)', () => {
+    const moved = at(0.52, 0.5); // chevauche la voisine a 0.5
+    const corrected = pushApart(moved, [at(0.5, 0.5)]);
+    const dx = Math.abs(corrected.x * 1.6 - 0.5 * 1.6) - 0.14;
+    expect(dx).toBeGreaterThanOrEqual(0.02 - 1e-9);
+  });
+
+  it('ne bouge pas une table deja assez eloignee', () => {
+    const moved = at(0.8, 0.8);
+    expect(pushApart(moved, [at(0.5, 0.5)])).toEqual({ x: 0.8, y: 0.8 });
   });
 });
 
