@@ -107,7 +107,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 </button>
               </p>
             } @else {
-              <p class="text-text-muted text-xs">À placer — touchez une réservation :</p>
+              <p class="text-text-muted text-xs">À placer - touchez une réservation :</p>
             }
             <div class="flex flex-wrap gap-1.5">
               @for (r of unplaced(); track r.id) {
@@ -199,7 +199,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                FLOTTE sur le plan (zero layout shift, pleine largeur). -->
           <div class="flex items-center justify-between gap-3">
             <!-- AIDE : bouton qui ouvre un panneau explicatif des gestes et des
-                 modes (2D/3D, simulation, service) — flottant, zero shift.
+                 modes (2D/3D, simulation, service) - flottant, zero shift.
                  Masque en mode service (poste d'accueil) : pas de bruit d'aide. -->
             @if (!serviceMode()) {
               <button
@@ -347,7 +347,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
               [class.flex-1]="serviceMode()"
             >
               <!-- MOBILE : acces au panneau (inspector + non placees) via un
-                   bouton flottant avec badge — le plan garde tout l'ecran. -->
+                   bouton flottant avec badge - le plan garde tout l'ecran. -->
               <button
                 type="button"
                 class="bg-primary text-primary-foreground absolute right-3 bottom-3 z-30 hidden size-11 cursor-pointer items-center justify-center rounded-full shadow-lg max-lg:flex"
@@ -409,7 +409,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 </div>
               }
 
-              <!-- BANDEAU D'AFFECTATION : flotte sur le plan, pleine largeur —
+              <!-- BANDEAU D'AFFECTATION : flotte sur le plan, pleine largeur -
                    le texte respire et RIEN ne bouge en dessous (zero shift). -->
               @if (selectedUnplaced(); as r) {
                 <!-- pointer-events-none : les tables sous le bandeau restent
@@ -429,7 +429,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                       @if (best.shape === 'bar' && mergeSuggestion()) {
                         Seul le bar
                         <strong>{{ best.table.name }}</strong>
-                        est assez grand — ou fusionnez
+                        est assez grand - ou fusionnez
                         <strong>{{ mergeSuggestionLabel() }}</strong>
                         en une tablée.
                       } @else {
@@ -438,7 +438,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                         ({{ best.table.capacity }} couv.)
                       }
                     } @else if (mergeSuggestion()) {
-                      Aucune table libre n'est assez grande — fusionnez
+                      Aucune table libre n'est assez grande - fusionnez
                       <strong>{{ mergeSuggestionLabel() }}</strong>
                       en une tablée.
                     } @else {
@@ -511,7 +511,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
               @if (simulating()) {
                 <!-- Carte en DEUX etages : bandeau d'identite (badge + retour au
                      direct), puis l'heure en HEROS, la timeline et la reponse de
-                     dispo en pastille verte — on lit le resultat, pas un formulaire. -->
+                     dispo en pastille verte - on lit le resultat, pas un formulaire. -->
                 <div
                   class="border-st-pending-fg/20 absolute right-4 bottom-4 left-4 z-10 overflow-hidden rounded-2xl border bg-white/95 shadow-2xl backdrop-blur-xl"
                   data-testid="sim-bar"
@@ -607,7 +607,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
         </div>
 
         <!-- MOBILE (paysage) : l'aside devient un TIROIR au-dessus du plan,
-             ouvert par le bouton flottant — le plan garde toute la largeur. -->
+             ouvert par le bouton flottant - le plan garde toute la largeur. -->
         <aside
           class="bg-card border-border flex flex-col rounded-md border max-lg:fixed max-lg:top-14 max-lg:right-0 max-lg:bottom-0 max-lg:z-40 max-lg:w-80 max-lg:overflow-y-auto max-lg:rounded-none max-lg:border-y-0 max-lg:border-r-0 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200"
           [class.max-lg:translate-x-full]="!asideOpen()"
@@ -621,7 +621,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
           >
             <hk-icon name="lucideX" [size]="16" />
           </button>
-          <!-- INSPECTOR : la table SELECTIONNEE s'affiche ICI, a droite — meme
+          <!-- INSPECTOR : la table SELECTIONNEE s'affiche ICI, a droite - meme
                endroit pour tout (libre = installer, occupee = sa reservation).
                En paysage compact la carte passe en BOTTOM SHEET (plus bas) :
                ici on la masque pour eviter le doublon. -->
@@ -827,7 +827,7 @@ export class HkFloorPlan {
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
   // model() : l'etat 2D/3D est PARTAGE avec la page, donc il survit au passage
-  // en mode service (deux instances du plan) — la 3D ne retombe plus en 2D.
+  // en mode service (deux instances du plan) - la 3D ne retombe plus en 2D.
   readonly view3d = model(false);
   // Mode VITRINE de la 3D : orbite lente automatique (ecran d'accueil/mural).
   // model() partage : l'orbite choisie survit au passage en mode service (un
@@ -931,9 +931,9 @@ export class HkFloorPlan {
 
   // Tables positionnees + statut derive des vraies reservations.
   // HEURE DE REFERENCE des statuts :
-  //  - en direct : capturee a chaque reevaluation du computed — donc a chaque
+  //  - en direct : capturee a chaque reevaluation du computed - donc a chaque
   //    refresh du polling (20 s). Fraicheur suffisante, sans timer dedie ;
-  //  - en SIMULATION : l'heure du slider remplace l'horloge — toute la salle
+  //  - en SIMULATION : l'heure du slider remplace l'horloge - toute la salle
   //    (2D ET 3D, memes vues) se projette a l'instant choisi.
   protected readonly tableViews = computed<FloorTableView[]>(() => {
     const reservations = this.reservations();
@@ -951,7 +951,7 @@ export class HkFloorPlan {
 
   // --- Simulation de la soiree (« Simuler ma soiree ») ---------------------------
   // La derivation de statut est une fonction PURE de `now` : simuler = glisser
-  // l'heure de reference. Aucune donnee modifiee, aucune requete — projection pure.
+  // l'heure de reference. Aucune donnee modifiee, aucune requete - projection pure.
   protected readonly simulating = signal(false);
   // Position du slider : minutes ecoulees depuis le debut de la plage.
   protected readonly simMinutes = signal(0);
@@ -984,7 +984,7 @@ export class HkFloorPlan {
   protected readonly simEndLabel = computed(() =>
     this.simRange().end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
   );
-  // « A 20:30 : 5 tables libres · 18 couverts disponibles » — la reponse a
+  // « A 20:30 : 5 tables libres · 18 couverts disponibles » - la reponse a
   // « puis-je accepter une resa a cette heure-la ? », lisible sans compter.
   protected readonly simFree = computed(() => {
     const free = this.tableViews().filter((v) => v.status === 'libre');
@@ -1071,10 +1071,10 @@ export class HkFloorPlan {
   protected readonly load = computed(() => eveningLoad(this.reservations(), this.tables()));
 
   // SYNTHESE DE SALLE compacte (libres / reservees / installees) hors mode
-  // service — la meme que le bandeau service, disponible en permanence.
+  // service - la meme que le bandeau service, disponible en permanence.
   protected readonly summary = computed(() => summarizeRoom(this.tableViews()));
 
-  // TUILES (portrait) : tables triees par URGENCE — en retard d'abord, puis
+  // TUILES (portrait) : tables triees par URGENCE - en retard d'abord, puis
   // reservees (par heure), installees, libres. L'hote traite le plus pressant.
   protected readonly tilesOrder = computed<FloorTableView[]>(() => {
     const rank = (v: FloorTableView): number => {
@@ -1125,7 +1125,7 @@ export class HkFloorPlan {
   });
 
   // SUGGESTION DE FUSION : la resa selectionnee ne tient sur aucune VRAIE table
-  // libre (le bar en dernier recours ne compte pas — on n'assoit pas une tablee
+  // libre (le bar en dernier recours ne compte pas - on n'assoit pas une tablee
   // au comptoir sans proposer mieux) -> groupe de tables voisines fusionnables.
   protected readonly mergeSuggestion = computed<FloorTableView[] | null>(() => {
     const pending = this.selectedUnplaced();
@@ -1277,10 +1277,10 @@ export class HkFloorPlan {
 
   // Clic table. GARDE-FOU CAPACITE (LOT B1) place ICI (et pas dans la page) : c'est
   // le seul endroit qui connait a la fois la selection, la capacite de la table
-  // cliquee et le nombre de couverts — l'output `assign` garde son contrat intact
+  // cliquee et le nombre de couverts - l'output `assign` garde son contrat intact
   // (la page continue de faire l'appel reseau + les toasts succes/erreur).
   protected onTableClick(view: FloorTableView): void {
-    // SIMULATION : la salle affichee est une projection — agir sur une table
+    // SIMULATION : la salle affichee est une projection - agir sur une table
     // libre « du futur » creerait une resa au present. On guide vers le direct.
     if (this.simulating() && view.status === 'libre') {
       this.toast.show('Mode simulation : revenez au direct pour agir sur les tables.', 'default', {
@@ -1322,7 +1322,7 @@ export class HkFloorPlan {
 
   // La carte de table (hk-table-card) porte deja le garde-fou temporel : ici on
   // relaie l'installation validee. La selection RESTE : la carte bascule
-  // d'elle-meme vers « installes » (statut derive) — l'hote voit son geste.
+  // d'elle-meme vers « installes » (statut derive) - l'hote voit son geste.
   protected confirmWalkInFromCard(event: WalkInEvent): void {
     this.walkIn.emit(event);
   }

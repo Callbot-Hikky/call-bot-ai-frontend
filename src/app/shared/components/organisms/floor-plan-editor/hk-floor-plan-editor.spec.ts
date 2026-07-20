@@ -404,7 +404,7 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     inputEl.dispatchEvent(new Event('input'));
 
     // Debounce : pas de requete immediate vers les TABLES (le plan, lui, peut
-    // avoir son propre PUT /floor-plans d'autosave — hors sujet ici).
+    // avoir son propre PUT /floor-plans d'autosave - hors sujet ici).
     httpMock.expectNone((r) => r.method === 'PUT' && r.url.includes('/tables'));
     await new Promise((resolve) => setTimeout(resolve, 500));
 

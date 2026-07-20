@@ -4,7 +4,7 @@ import { HkFloorPlanCanvas } from './hk-floor-plan-canvas';
 
 // Konva a besoin d'un vrai <canvas> (indispo en jsdom) : le composant degrade sans
 // casser (init Konva en try/catch). On teste donc UNIQUEMENT le host DOM (classes /
-// style), independant du rendu Konva — c'est la contribution du mode service (fill).
+// style), independant du rendu Konva - c'est la contribution du mode service (fill).
 @Component({
   selector: 'hk-canvas-host',
   imports: [HkFloorPlanCanvas],

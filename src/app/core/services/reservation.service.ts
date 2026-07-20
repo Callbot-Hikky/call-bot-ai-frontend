@@ -19,7 +19,7 @@ import {
 import { localDateKey, localIso } from '@core/utils/format';
 
 // Service des réservations. Deux modes selon environment.useMock :
-//  - mock : données de test (of(...).pipe(delay), aucun réseau) — pour la démo et les tests ;
+//  - mock : données de test (of(...).pipe(delay), aucun réseau) - pour la démo et les tests ;
 //  - réel : appels HTTP au backend (GET ?expand=table,customer, PUT pour le statut).
 // On ne change que l'intérieur du service : les écrans consomment toujours `reservations`.
 @Injectable({ providedIn: 'root' })
@@ -54,10 +54,10 @@ export class ReservationService {
   }
 
   // Rafraichissement SILENCIEUX (polling live, LOT B3) : recharge les reservations
-  // et met a jour le signal SANS toucher `loading` ni `error` — pas de spinner ni
+  // et met a jour le signal SANS toucher `loading` ni `error` - pas de spinner ni
   // de clignotement toutes les 20 s. L'appelant recoit la liste fraiche pour diff.
   // LIVE LEGER partage (liste ET plan) : polling silencieux toutes les 20 s,
-  // actif page visible (et isActive() vraie — ex. hors mode edition). Le diff
+  // actif page visible (et isActive() vraie - ex. hors mode edition). Le diff
   // par id declenche onNew pour chaque reservation ARRIVEE (toast, pulse...).
   // La logique vit ICI une seule fois ; chaque page ne fournit que son delta.
   startLivePolling(
@@ -101,8 +101,8 @@ export class ReservationService {
   }
 
   refresh(date?: string): Observable<Reservation[]> {
-    // MOCK : l'etat courant fait foi (les creations locales — walk-in, resa
-    // manuelle — ne doivent pas etre ecrasees par la liste de depart).
+    // MOCK : l'etat courant fait foi (les creations locales - walk-in, resa
+    // manuelle - ne doivent pas etre ecrasees par la liste de depart).
     if (environment.useMock) {
       return of(this._reservations()).pipe(delay(200));
     }
@@ -155,7 +155,7 @@ export class ReservationService {
 
   // WALK-IN : installe des clients SANS reservation sur une table libre.
   // Cree une reservation immediate `seated` / `manual` sans client (le back accepte
-  // customerId null — fait verifie), fenetre de 2 h, en heure LOCALE avec fuseau.
+  // customerId null - fait verifie), fenetre de 2 h, en heure LOCALE avec fuseau.
   createWalkIn(table: RestaurantTable, partySize: number): Observable<Reservation> {
     const now = new Date();
     if (environment.useMock) {
@@ -204,7 +204,7 @@ export class ReservationService {
   }
 
   // NOUVELLE RESERVATION MANUELLE (dialog « Nouvelle réservation ») : cree le
-  // CLIENT d'abord (POST /customers — le back n'accepte pas de nom en ligne sur
+  // CLIENT d'abord (POST /customers - le back n'accepte pas de nom en ligne sur
   // la resa), puis la reservation non placee. Elle arrive dans « Réservations
   // non placées » : le plan (placement auto / fusion guidee) prend le relais.
   createManual(input: {

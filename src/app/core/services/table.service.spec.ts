@@ -48,7 +48,7 @@ describe('TableService', () => {
     expect(service.loading()).toBe(false);
   });
 
-  it('ne renvoie que les tables actives (isActive !== false) — A3', () => {
+  it('ne renvoie que les tables actives (isActive !== false) - A3', () => {
     service.loadTables();
     const req = httpMock.expectOne((r) => r.url.includes('/tables'));
     req.flush([

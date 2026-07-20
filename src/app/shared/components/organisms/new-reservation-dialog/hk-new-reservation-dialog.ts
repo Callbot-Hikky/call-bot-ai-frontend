@@ -167,7 +167,7 @@ export class HkNewReservationDialog {
 
   // Heure choisie ANTERIEURE a maintenant (le jour est fige a aujourd'hui) : une
   // reservation dans le passe n'a pas de sens. Recalcule a chaque frappe (lit
-  // l'heure courante a la volee) — suffisant pour une saisie interactive.
+  // l'heure courante a la volee) - suffisant pour une saisie interactive.
   protected readonly timeInPast = computed(() => {
     const t = this.time();
     if (!/^\d{2}:\d{2}$/.test(t)) {
@@ -215,7 +215,7 @@ export class HkNewReservationDialog {
 
 // Prochaine heure PLEINE, bornee a AUJOURD'HUI (la page ne montre que le jour
 // courant : apres 23 h on propose 23:30 plutot que de basculer sur demain 00:00,
-// que le submit — fige sur la date du jour — transformerait en resa du passe).
+// que le submit - fige sur la date du jour - transformerait en resa du passe).
 function defaultTime(): string {
   const now = new Date();
   const d = new Date(now);

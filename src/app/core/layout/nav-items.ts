@@ -24,5 +24,5 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // Navigation A PLAT (drawer mobile) : les groupes sont remplaces par leurs
-// enfants — sur mobile, pas de hierarchie, chaque ecran est une entree directe.
+// enfants - sur mobile, pas de hierarchie, chaque ecran est une entree directe.
 export const FLAT_NAV_ITEMS: NavItem[] = NAV_ITEMS.flatMap((item) => item.children ?? [item]);

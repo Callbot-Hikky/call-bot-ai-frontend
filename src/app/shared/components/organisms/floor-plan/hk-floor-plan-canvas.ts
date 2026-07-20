@@ -125,10 +125,10 @@ interface TableNode {
 //
 // REFACTOR (prerequis Phase 2) : noeuds Konva PERSISTANTS.
 // Auparavant draw() faisait layer.destroyChildren() puis recreait tout a chaque
-// frame — incompatible avec le drag/resize a venir. Desormais :
+// frame - incompatible avec le drag/resize a venir. Desormais :
 //  - syncNodes()  : reconcilie la liste de tables avec une Map<id, TableNode>
-//                   (cree les nouveaux, supprime les disparus) — le « contenu » ;
-//  - layout()     : (re)positionne/dimensionne les noeuds en pixels — appele aussi
+//                   (cree les nouveaux, supprime les disparus) - le « contenu » ;
+//  - layout()     : (re)positionne/dimensionne les noeuds en pixels - appele aussi
 //                   au resize (coords stockees normalisees 0..1).
 // Le mode service (lecture seule) reste identique cote API (inputs/outputs).
 @Component({
@@ -159,8 +159,8 @@ export class HkFloorPlanCanvas {
   // (trait plein, plus epais). Calcule par hk-floor-plan (bestFitTableId).
   readonly bestTableId = input<string | null>(null);
   // Couverts de la reservation en cours d'affectation : les tables libres TROP
-  // PETITES ne sont PAS surlignees (decision B2 : elles restent cliquables — le
-  // garde-fou B1 intercepte — mais sans halo, pour ne pas suggerer un mauvais choix).
+  // PETITES ne sont PAS surlignees (decision B2 : elles restent cliquables - le
+  // garde-fou B1 intercepte - mais sans halo, pour ne pas suggerer un mauvais choix).
   readonly requiredSeats = input<number | null>(null);
   // MODE SERVICE : le host remplit son conteneur (h-full, pas d'aspect-ratio 16/10)
   // pour occuper tout l'ecran mural au lieu d'un petit carre.
@@ -491,7 +491,7 @@ export class HkFloorPlanCanvas {
   // Met a jour le CONTENU d'un noeud (couleurs, texte, surlignage). Pas de geometrie
   // ici : la taille/position pixel est calculee dans layout() (depend du conteneur).
   // Surlignage a 3 niveaux pendant l'affectation (LOT B2) :
-  //  - table recommandee (bestId)      : trait PLEIN epais accent — rendu MEME
+  //  - table recommandee (bestId)      : trait PLEIN epais accent - rendu MEME
   //    sans selection (survol d'une resa non placee : la salle repond deja) ;
   //  - libre de capacite suffisante    : trait pointille accent (selection seule) ;
   //  - libre trop petite               : AUCUN surlignage (mais reste cliquable, B1).
@@ -509,7 +509,7 @@ export class HkFloorPlanCanvas {
     const isBest = view.status === 'libre' && view.table.id === bestId && fits;
     const barIdle = view.shape === 'bar' && view.status === 'libre';
     // FOCUS (detail ouvert) : la table visee garde un anneau accent, les autres
-    // s'attenuent — resolu ICI, avec le reste de l'etat visuel du noeud.
+    // s'attenuent - resolu ICI, avec le reste de l'etat visuel du noeud.
     const isFocus = focusId !== null && view.table.id === focusId;
     node.group.opacity(focusId === null || isFocus ? 1 : 0.35);
     const stroke =

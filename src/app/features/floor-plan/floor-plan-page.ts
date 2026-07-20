@@ -34,7 +34,7 @@ import { formatTime } from '@core/utils/format';
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
 // sous les KPI), avec l'editeur, le mode service plein ecran et le drawer de
 // detail. La page Reservations garde la liste ; les deux partagent les MEMES
-// services (signals) — une affectation faite ici est visible la-bas.
+// services (signals) - une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
   imports: [HkPageHeader, HkIcon, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
@@ -255,7 +255,7 @@ export class FloorPlanPage {
       }
     });
 
-    // LIVE LEGER : polling partage (ReservationService) — pause pendant
+    // LIVE LEGER : polling partage (ReservationService) - pause pendant
     // l'edition du plan, pulse a l'arrivee d'une resa placee.
     this.service.startLivePolling(this.destroyRef, {
       isActive: () => !this.editing(),
@@ -267,9 +267,9 @@ export class FloorPlanPage {
   private announceNewReservation(r: Reservation): void {
     const detail = `${r.customerName}, ${r.partySize} couv., ${formatTime(r.dateTime)}`;
     if (r.source === 'callbot') {
-      this.toast.show(`Nouvelle réservation prise par le bot — ${detail}`, 'success');
+      this.toast.show(`Nouvelle réservation prise par le bot - ${detail}`, 'success');
     } else {
-      this.toast.show(`Nouvelle réservation — ${detail}`);
+      this.toast.show(`Nouvelle réservation - ${detail}`);
     }
     if (r.table && !this.editing()) {
       // Le plan est soit direct (mode normal), soit dans l'overlay (mode service).

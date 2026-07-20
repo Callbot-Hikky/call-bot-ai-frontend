@@ -34,7 +34,7 @@ const WALL_HEIGHT = 1.15;
 const TABLE_TOP_Y = 0.42;
 const TABLE_TOP_THICKNESS = 0.06;
 // Anatomie d'un BAR : comptoir haut avec corps plein et tabourets (un bar n'est
-// pas une grande table — il doit se reconnaitre au premier regard).
+// pas une grande table - il doit se reconnaitre au premier regard).
 const BAR_TOP_Y = 0.62;
 const BAR_TOP_THICKNESS = 0.07;
 const STOOL_SEAT_Y = 0.42;
@@ -49,7 +49,7 @@ const CAMERA_INTRO_MS = 1700;
 const CAMERA_RESET_MS = 750;
 
 // Palette « restaurant » : sol chaud, murs sable, bois pour les tables libres,
-// nappe verte (reservee) / bleue (installee) / rouge (retard) — memes codes
+// nappe verte (reservee) / bleue (installee) / rouge (retard) - memes codes
 // couleur que la legende 2D.
 const COLOR_FLOOR = 0xf3efe7;
 const COLOR_WALL = 0xd6cfc4;
@@ -209,7 +209,7 @@ export function tableLabelParts(v: FloorTableView): {
   if (v.nextTime) {
     return { title, subtitle: `→ ${v.nextTime}`, color: LABEL_MUTED };
   }
-  // Table libre : la capacite (comme en 2D) — l'hote choisit sans zoomer.
+  // Table libre : la capacite (comme en 2D) - l'hote choisit sans zoomer.
   return { title, subtitle: `${v.table.capacity} couv.`, color: LABEL_MUTED };
 }
 
@@ -313,7 +313,7 @@ export class HkFloorPlan3d {
     });
 
     // FOCUS : attenue les tables non visees (memes 35 % que la 2D). Opere sur
-    // les materiaux des groupes existants — pas de rebuild de la scene.
+    // les materiaux des groupes existants - pas de rebuild de la scene.
     effect(() => {
       const focusId = this.focusTableId();
       this.views(); // depend aussi du rebuild (nouveaux materiaux).
@@ -330,7 +330,7 @@ export class HkFloorPlan3d {
     });
 
     // Mode vitrine : suit l'input a chaud (OrbitControls reprend l'orbite tout
-    // seul apres une manipulation utilisateur — comportement voulu en vitrine).
+    // seul apres une manipulation utilisateur - comportement voulu en vitrine).
     effect(() => {
       const orbit = this.orbit();
       if (this.controls) {
@@ -558,7 +558,7 @@ export class HkFloorPlan3d {
   }
 
   // Libere TOUTES les ressources GPU d'un groupe : geometries, materiaux ET
-  // textures (les etiquettes portent une CanvasTexture — `material.dispose()`
+  // textures (les etiquettes portent une CanvasTexture - `material.dispose()`
   // seul ne la libere pas -> fuite GPU a chaque rebuild du polling sinon).
   private disposeGroup(group: THREE.Group): void {
     group.traverse((obj) => {
@@ -750,7 +750,7 @@ export class HkFloorPlan3d {
   }
 
   // PULSE « nouvelle reservation » : la table grossit-degrossit deux fois (~1 s).
-  // Meme signal que le pulse 2D — en mode vitrine, on VOIT le bot travailler.
+  // Meme signal que le pulse 2D - en mode vitrine, on VOIT le bot travailler.
   pulseTable(tableId: string): void {
     const group = this.groupByTableId.get(tableId);
     if (group) {

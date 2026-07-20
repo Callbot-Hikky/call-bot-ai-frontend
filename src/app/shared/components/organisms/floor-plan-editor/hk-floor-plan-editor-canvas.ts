@@ -55,7 +55,7 @@ const GRID_FALLBACK = '#ededec';
 const DANGER_VAR = '--st-cancelled-fg';
 const DANGER_FALLBACK = '#a33d2e';
 
-// Bornes pixel d'une table (lisible / tactile) — sert au resize.
+// Bornes pixel d'une table (lisible / tactile) - sert au resize.
 const MIN_SIZE_PX = 32;
 
 // Noeud persistant d'une table editable.
@@ -117,7 +117,7 @@ export class HkFloorPlanEditorCanvas {
   private konva: KonvaModule | null = null;
   private stage: Konva.Stage | null = null;
   private gridLayer: Konva.Layer | null = null;
-  // Couche des murs, INTERACTIVE (clic pour supprimer) — sous les tables.
+  // Couche des murs, INTERACTIVE (clic pour supprimer) - sous les tables.
   private wallLayer: Konva.Layer | null = null;
   private layer: Konva.Layer | null = null;
   private transformer: Konva.Transformer | null = null;

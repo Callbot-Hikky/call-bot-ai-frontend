@@ -46,7 +46,7 @@ export class TableService {
   private readonly _error = signal(false);
 
   // Seules les tables ACTIVES sont exposees (une table desactivee cote back ne
-  // doit pas apparaitre sur le plan) — correctif A3.
+  // doit pas apparaitre sur le plan) - correctif A3.
   readonly tables = computed(() => this._tables().filter((t) => t.isActive !== false));
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();

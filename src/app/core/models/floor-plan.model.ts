@@ -80,7 +80,7 @@ export interface DerivedTableStatus {
 //
 // `projected` (mode SIMULATION) : en live, une table seated reste installee tant
 // que le staff n'a pas termine le service (regle 1, sans horloge). En projection
-// du futur, on l'estime liberee apres la duree de service (+120 min) — sinon la
+// du futur, on l'estime liberee apres la duree de service (+120 min) - sinon la
 // simulation mentirait (« occupee pour toujours »).
 export function deriveTableStatus(
   tableId: string,
@@ -131,7 +131,7 @@ export function deriveTableStatus(
       nextTime: null,
       nextDateTime: null,
       // RETARD : concept TEMPS REEL uniquement. En projection (simulation), on
-      // suppose que le client arrivera a l'heure — signaler « +30 min » sur une
+      // suppose que le client arrivera a l'heure - signaler « +30 min » sur une
       // resa future serait un mensonge visuel.
       lateMinutes: !projected && elapsedMin > LATE_THRESHOLD_MIN ? Math.round(elapsedMin) : null,
     };
@@ -155,7 +155,7 @@ export function deriveTableStatus(
 }
 
 // RETARD d'une reservation attendue (badge de la LISTE) : memes seuils que la
-// pastille du plan — signale de +15 min (LATE_THRESHOLD_MIN) jusqu'a la fin de
+// pastille du plan - signale de +15 min (LATE_THRESHOLD_MIN) jusqu'a la fin de
 // la fenetre active (+120 min, ACTIVE_AFTER_MIN). Au-dela, le plan considere la
 // table liberee (no-show a annuler) : la liste arrete donc aussi de crier.
 export function reservationLateMinutes(reservation: Reservation, now: Date): number | null {
@@ -231,7 +231,7 @@ export function tablesTouch(
 }
 
 // COTES BLOQUES d'une table : les cotes ou une AUTRE table est collee (pas de
-// chaises entre deux tables bord a bord — elles traverseraient le plateau
+// chaises entre deux tables bord a bord - elles traverseraient le plateau
 // voisin). Oriente ecran : n = au-dessus, s = dessous, w = gauche, e = droite.
 export interface BlockedSides {
   n: boolean;
@@ -245,7 +245,7 @@ export interface BlockedSides {
 export const NO_BLOCKED_SIDES: Readonly<BlockedSides> = { n: false, s: false, e: false, w: false };
 
 // Seuil de CONTACT pour le blocage des chaises : plus STRICT que tablesTouch
-// (0.035, tolerance de fusion) — les rangees generees (espacement 0.032) ne
+// (0.035, tolerance de fusion) - les rangees generees (espacement 0.032) ne
 // doivent PAS perdre leurs chaises, seules les tables reellement bord a bord.
 const BLOCK_GAP = 0.015;
 
@@ -255,7 +255,7 @@ export function blockedSides(
   gap = BLOCK_GAP,
 ): BlockedSides {
   // Table TOURNEE : ses cotes locaux ne correspondent plus aux axes ecran du
-  // calcul — on ne masque rien plutot que de masquer le mauvais cote.
+  // calcul - on ne masque rien plutot que de masquer le mauvais cote.
   if ((table.rotation ?? 0) % 360 !== 0) {
     return { ...NO_BLOCKED_SIDES };
   }
@@ -271,7 +271,7 @@ export function blockedSides(
     }
     // L'axe du contact est celui dont l'ecart est le plus GRAND (le bord
     // commun) ; l'autre axe doit VRAIMENT se chevaucher (ecart negatif), sinon
-    // c'est un simple contact de coin — aucune chaise a masquer.
+    // c'est un simple contact de coin - aucune chaise a masquer.
     if (dx >= dy) {
       if (dy >= 0) {
         continue;
@@ -336,7 +336,7 @@ export function pushApart(
 
 // ANGLES LIBRES d'une table RONDE : repartit `count` chaises uniformement sur
 // les arcs NON bloques (quadrant de 90° par cote colle). Repere ecran : angle 0
-// = est, PI/2 = sud (y vers le bas) — identique en 2D (x,y) et 3D (x,z).
+// = est, PI/2 = sud (y vers le bas) - identique en 2D (x,y) et 3D (x,z).
 // Aucune chaise n'est perdue : elles se resserrent sur les arcs libres.
 export function freeRingAngles(count: number, blocked: BlockedSides): number[] {
   const sides: { side: keyof BlockedSides; center: number }[] = [
@@ -463,7 +463,7 @@ export function mergeViews(
 // « poste d'accueil ». Fonction PURE (testable sans monter de composant) :
 //  - libres/reservees/installees : nombre de tables par statut ;
 //  - couverts : total des couverts effectivement EN SALLE (tables reservees +
-//    installees qui portent une reservation) — la charge reelle du service.
+//    installees qui portent une reservation) - la charge reelle du service.
 export interface RoomSummary {
   libres: number;
   reservees: number;
@@ -496,7 +496,7 @@ export function summarizeRoom(views: readonly FloorTableView[]): RoomSummary {
 // premiere rencontree. null si aucune table libre ne suffit.
 // GARDE-FOU HORAIRE (optionnel) : avec `dateTime` (l'heure de la resa a placer),
 // une table libre dont la PROCHAINE resa tombe a moins d'une duree de service
-// (ACTIVE_AFTER_MIN) est ecartee — on ne cree pas de double-booking silencieux.
+// (ACTIVE_AFTER_MIN) est ecartee - on ne cree pas de double-booking silencieux.
 export function bestFitTableId(
   views: readonly FloorTableView[],
   partySize: number,
@@ -532,7 +532,7 @@ export function bestFitTableId(
 }
 
 // PLACEMENT AUTO (« Tout placer ») : propose une table pour CHAQUE resa non placee,
-// en glouton — les plus grandes tablees d'abord (les plus dures a caser), chaque
+// en glouton - les plus grandes tablees d'abord (les plus dures a caser), chaque
 // table proposee au plus une fois. Fonction PURE : le composant emet ensuite les
 // affectations reelles ; les resas sans solution restent simplement non placees.
 export interface AutoPlacement {
@@ -557,7 +557,7 @@ export function planAutoPlacements(
   return placements;
 }
 
-// JAUGE DE SOIREE : charge attendue de la salle — somme des couverts des resas
+// JAUGE DE SOIREE : charge attendue de la salle - somme des couverts des resas
 // VIVANTES du jour (pending/confirmed/seated) rapportee a la capacite totale.
 // Le restaurateur lit d'un coup d'oeil « la soiree est a 44 % » sans compter.
 export interface EveningLoad {
@@ -579,7 +579,7 @@ export function eveningLoad(
 
 // SUGGESTION DE FUSION : quand AUCUNE table libre ne suffit, chercher un petit
 // groupe (2 puis 3) de tables LIBRES et VOISINES (tablesTouch) dont la somme des
-// couverts suffit — capacite totale minimale d'abord (on ne gaspille pas la
+// couverts suffit - capacite totale minimale d'abord (on ne gaspille pas la
 // salle). Les tables deja membres d'une tablee sont ecartees (leur bloc fusionne
 // porte deja la capacite sommee). null si rien ne convient.
 export function suggestMergeGroup(
@@ -630,7 +630,7 @@ export function suggestMergeGroup(
 
 // HEURE SUR LA TABLE (LOT B5) : une table Reservee ou Installee affiche l'heure de
 // SA reservation (petit texte sous la capacite). Choix sobre : la meme heure courte
-// pour les deux statuts (pas de prefixe « depuis » — la couleur porte deja le statut).
+// pour les deux statuts (pas de prefixe « depuis » - la couleur porte deja le statut).
 // ALERTE RETARD : une table Reservee en retard complete l'heure avec « · +25 min »
 // (la pastille passe en couleur danger cote canvas).
 export function tableTimeLabel(

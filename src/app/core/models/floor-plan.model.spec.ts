@@ -699,7 +699,7 @@ describe('reservationLateMinutes (badge retard de la liste)', () => {
 describe('simulationRange', () => {
   it('encadre la soiree : 1 h avant la premiere resa, 2 h apres la derniere, heures pleines', () => {
     // Assertions en EPOCH (jamais getHours()) : le fuseau du runner CI (UTC)
-    // ne doit pas influencer le test — seule l'arithmetique de bornage compte.
+    // ne doit pas influencer le test - seule l'arithmetique de bornage compte.
     const first = new Date('2026-06-22T19:30:00+02:00').getTime();
     const last = new Date('2026-06-22T21:15:00+02:00').getTime();
     const HOUR = 60 * 60_000;

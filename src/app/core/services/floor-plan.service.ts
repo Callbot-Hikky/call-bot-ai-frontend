@@ -23,7 +23,7 @@ const HISTORY_LIMIT = 50;
 //
 // MODELE : le plan ne stocke que de la GEOMETRIE keyee par l'id BACK de la table
 // ({ tableId -> { x, y, w, h, rotation, shape } }). Nom/couverts restent dans
-// TableService (source de verite unique) — plus de split-brain.
+// TableService (source de verite unique) - plus de split-brain.
 //
 // PERSISTANCE (deux modes, comme TableService) :
 //  - mock : localStorage seul (une cle par restaurant), aucun reseau ;
@@ -207,7 +207,7 @@ export class FloorPlanService {
   // declenche l'autosave. C'est LE point d'entree de toute mutation de l'editeur :
   // pose, drag, resize, suppression, alignement, changement de forme...
   // `recordHistory` false : pose la geometrie SANS cran d'annulation. Sert a la
-  // creation/suppression de tables — celles-ci s'annulent via leur propre toast
+  // creation/suppression de tables - celles-ci s'annulent via leur propre toast
   // « Annuler » (elles touchent le back), pas via l'historique de deplacement.
   commit(next: GeometryMap, recordHistory = true): void {
     const current = this._plan();
@@ -225,7 +225,7 @@ export class FloorPlanService {
   }
 
   // Fusionne des entrees SANS empiler d'historique : sert au semis initial
-  // (completer la geometrie des tables reelles sans entree) — un undo juste apres
+  // (completer la geometrie des tables reelles sans entree) - un undo juste apres
   // l'ouverture ne doit pas « vider » le plan.
   merge(entries: GeometryMap): void {
     const current = this._plan();
@@ -309,7 +309,7 @@ export class FloorPlanService {
   }
 
   // Reconstruit le plan : PRESERVE les murs courants (ils ne participent pas a
-  // l'historique de geometrie — un undo/commit ne doit jamais les effacer).
+  // l'historique de geometrie - un undo/commit ne doit jamais les effacer).
   private makePlan(geometry: GeometryMap): FloorPlan {
     return {
       version: FLOOR_PLAN_VERSION,

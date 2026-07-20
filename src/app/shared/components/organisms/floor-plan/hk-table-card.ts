@@ -21,7 +21,7 @@ import { formatTime } from '@core/utils/format';
 // table tombe dans moins de 90 min (le service risque de deborder dessus).
 const WALK_IN_GUARD_MIN = 90;
 
-// CARTE DE TABLE : l'etat d'UNE table et ses actions — libre = installer des
+// CARTE DE TABLE : l'etat d'UNE table et ses actions - libre = installer des
 // clients (stepper + garde-fou), occupee = sa reservation (frise + actions).
 // Reutilisee par l'inspector du plan (desktop/paysage) ET la vue tuiles mobile
 // (bottom sheet) : un seul endroit qui sait « agir sur une table ».
@@ -88,7 +88,7 @@ const WALK_IN_GUARD_MIN = 90;
               <p class="text-text-muted text-xs">
                 Réservée plus tard à
                 <strong class="text-text-strong">{{ sel.nextTime }}</strong>
-                — la table doit être libérée à temps.
+                - la table doit être libérée à temps.
               </p>
             }
             <div class="flex items-center gap-2 text-sm">
@@ -245,7 +245,7 @@ export class HkTableCard {
     this.walkInSize.update((n) => Math.min(max, Math.max(1, n + delta)));
   }
 
-  // « Installer » : GARDE-FOU TEMPOREL — si la prochaine reservation tombe dans
+  // « Installer » : GARDE-FOU TEMPOREL - si la prochaine reservation tombe dans
   // moins de 90 min, pas d'installation directe (toast avec action).
   protected confirmWalkIn(): void {
     const target = this.freeView();

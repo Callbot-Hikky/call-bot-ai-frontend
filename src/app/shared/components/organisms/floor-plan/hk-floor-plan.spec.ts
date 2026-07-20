@@ -29,7 +29,7 @@ class CanvasStub {
 
 // Heure de reservation relative a MAINTENANT : la derivation est desormais
 // TEMPORELLE (fenetre active [t − 45 min, t + 120 min]), le composant capture
-// new Date() — les fixtures doivent donc vivre autour de l'heure du test.
+// new Date() - les fixtures doivent donc vivre autour de l'heure du test.
 function isoIn(minutesFromNow: number): string {
   return new Date(Date.now() + minutesFromNow * 60_000).toISOString();
 }

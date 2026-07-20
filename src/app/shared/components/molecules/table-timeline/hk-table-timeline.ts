@@ -4,7 +4,7 @@ import { ACTIVE_AFTER_MIN, simulationRange } from '@core/models/floor-plan.model
 import { formatTime } from '@core/utils/format';
 
 // FRISE « Soiree de la table » : les resas successives d'une table posees sur
-// la fenetre de la soiree — le « second service » se voit d'un coup d'oeil.
+// la fenetre de la soiree - le « second service » se voit d'un coup d'oeil.
 // Partagee entre le drawer (page Liste) et l'inspector du plan.
 @Component({
   selector: 'hk-table-timeline',
@@ -60,7 +60,7 @@ export class HkTableTimeline {
         left,
         width: Math.min(width, 100 - left),
         label: `${formatTime(r.dateTime)} · ${r.partySize}`,
-        title: `${r.customerName} — ${formatTime(r.dateTime)}, ${r.partySize} couverts`,
+        title: `${r.customerName} - ${formatTime(r.dateTime)}, ${r.partySize} couverts`,
         current: r.id === currentId,
       };
     });

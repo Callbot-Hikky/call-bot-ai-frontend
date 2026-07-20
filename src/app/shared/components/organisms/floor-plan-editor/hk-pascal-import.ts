@@ -60,7 +60,7 @@ export interface PascalImportPayload {
 
         @if (!result()) {
           <!-- GUIDE PAS-A-PAS : Pascal est un outil externe (page en anglais,
-               connexion requise, export peu visible) — sans ces 4 etapes, un
+               connexion requise, export peu visible) - sans ces 4 etapes, un
                restaurateur qui decouvre est perdu. Verifie en conditions reelles. -->
           <ol class="flex flex-col gap-2.5" data-testid="pascal-guide">
             <li class="flex items-start gap-3">
@@ -79,7 +79,7 @@ export interface PascalImportPayload {
                   Ouvrez editor.pascal.app ↗
                 </a>
                 <span class="text-text-subtle">
-                  puis « Start building ». C'est gratuit — connexion Google en 10 secondes.
+                  puis « Start building ». C'est gratuit - connexion Google en 10 secondes.
                 </span>
               </span>
             </li>
@@ -92,7 +92,7 @@ export interface PascalImportPayload {
               <span class="text-sm">
                 <span class="text-text-strong font-semibold">Créez votre salle :</span>
                 <span class="text-text-subtle">
-                  dessinez les murs et posez les tables — ou scannez votre restaurant avec l'app
+                  dessinez les murs et posez les tables - ou scannez votre restaurant avec l'app
                   iPhone « Pascal Capture » (le scan arrive tout seul dans votre projet).
                 </span>
               </span>
@@ -267,7 +267,7 @@ export class HkPascalImport {
     inject(DestroyRef).onDestroy(() => (this.destroyed = true));
   }
 
-  // Echap ferme le dialogue GLOBALEMENT (pas besoin que la carte ait le focus —
+  // Echap ferme le dialogue GLOBALEMENT (pas besoin que la carte ait le focus -
   // un listener pose sur l'element ne tirerait qu'avec le focus dedans).
   @HostListener('document:keydown.escape')
   protected onEscape(): void {

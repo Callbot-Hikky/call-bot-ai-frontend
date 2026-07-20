@@ -125,7 +125,7 @@ export class HkServiceOverlay {
   // Orbite auto de la 3D : partagee pour survivre a l'entree en service.
   readonly vitrine = model(false);
   // PORTRAIT MOBILE : bascule le plan en vue TUILES (operable) plutot que le plan
-  // spatial ecrase — le poste d'accueil reste utilisable sur un telephone tenu droit.
+  // spatial ecrase - le poste d'accueil reste utilisable sur un telephone tenu droit.
   readonly portrait = input(false);
   readonly loading = input(false);
   readonly error = input(false);

@@ -106,7 +106,7 @@ interface DeletedTableSnapshot {
               class="border-border hover:border-primary hover:bg-muted focus-visible:ring-primary flex flex-col gap-2 rounded-md border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
               (click)="useTemplate(preview.key)"
             >
-              <!-- APERCU : la vraie geometrie du template, en miniature — on
+              <!-- APERCU : la vraie geometrie du template, en miniature - on
                    choisit une salle en la voyant, pas en lisant sa description. -->
               <svg
                 viewBox="0 0 160 100"
@@ -536,7 +536,7 @@ export class HkFloorPlanEditor implements OnInit {
 
   constructor() {
     // SEMIS : des que plan + tables reelles sont disponibles, complete la geometrie
-    // manquante (position auto-grille) SANS entree d'historique — les positions de
+    // manquante (position auto-grille) SANS entree d'historique - les positions de
     // depart sont ainsi stables et persistees.
     effect(() => {
       if (!this.store.loaded() || this.store.isEmpty()) {
@@ -794,7 +794,7 @@ export class HkFloorPlanEditor implements OnInit {
   }
 
   // Supprime des tables SANS garde (usage interne : annuler une creation qu'on
-  // vient de faire — aucune reservation ne peut encore y etre attachee).
+  // vient de faire - aucune reservation ne peut encore y etre attachee).
   private removeTables(ids: string[]): void {
     from(ids)
       .pipe(
@@ -1048,7 +1048,7 @@ export class HkFloorPlanEditor implements OnInit {
     }
 
     // ANTI-CHEVAUCHEMENT (drag simple) : une table lachee SUR une voisine non
-    // fusionnee est repoussee a un petit ecart — et on propose la fusion, le
+    // fusionnee est repoussee a un petit ecart - et on propose la fusion, le
     // geste que ce rapprochement suggere.
     if (changes.length === 1) {
       const moved = changes[0];

@@ -244,7 +244,7 @@ export function parsePascalScene(json: string): PascalImportResult {
     return failure('Aucun meuble ni mur exploitable dans cette scène.');
   }
 
-  // Cadre de la scene (metres) : murs ET items — un meuble pose HORS de
+  // Cadre de la scene (metres) : murs ET items - un meuble pose HORS de
   // l'emprise des murs (scan imparfait) doit rester visible sur le canvas,
   // jamais projete hors [0,1].
   let minX = Infinity;

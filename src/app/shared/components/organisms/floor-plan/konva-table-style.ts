@@ -157,7 +157,7 @@ export function layoutSeats(
 
   if (!anyBlocked) {
     // Grandes tablees : 2 sieges en bouts de table (comme un banquet), le reste
-    // reparti sur les bords haut/bas — ca respire au lieu de s'entasser.
+    // reparti sur les bords haut/bas - ca respire au lieu de s'entasser.
     children.forEach((c) => c.visible(true));
     const ends = n >= 10 ? 2 : 0;
     const remaining = n - ends;
