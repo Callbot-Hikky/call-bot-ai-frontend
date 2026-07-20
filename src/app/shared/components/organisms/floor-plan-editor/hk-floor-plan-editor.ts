@@ -607,10 +607,27 @@ export class HkFloorPlanEditor implements OnInit {
   }
 
   protected addRow(): void {
-    // Rangee de 4 tables carrees de 4 par defaut (preset le plus courant).
+    // Rangee de 4 tables carrees de 4 par defaut (preset le plus courant), posee
+    // SOUS les tables existantes (zone libre) et non au centre, pour ne pas la
+    // superposer a la salle en place.
     const preset = this.presets.find((p) => p.key === 'square-4') ?? this.presets[0];
-    const specs = rowGeometries(preset, 4).map((geo) => ({ capacity: preset.seats, geo }));
+    const specs = rowGeometries(preset, 4, this.nextRowY(preset)).map((geo) => ({
+      capacity: preset.seats,
+      geo,
+    }));
     this.createTables(specs);
+  }
+
+  // Ordonnee de la prochaine rangee : juste sous la table la plus basse (ou le
+  // centre si la salle est vide), bornee pour rester dans le plan.
+  private nextRowY(preset: TablePreset): number {
+    const geos = Object.values(this.store.geometry());
+    const h = geometryFromPreset(preset, { x: 0.5, y: 0.5 }).h;
+    if (geos.length === 0) {
+      return 0.5;
+    }
+    const lowest = Math.max(...geos.map((g) => g.y + g.h / 2));
+    return Math.max(h / 2, Math.min(1 - h / 2, lowest + 0.03 + h / 2));
   }
 
   // Dupliquer = creer une VRAIE table de meme capacite par element selectionne,
