@@ -31,6 +31,7 @@ import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
 import { formatTime } from '@core/utils/format';
+import { conflictMessage } from '@core/utils/http-error';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -44,7 +45,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 
 // Écran « Réservations du jour » (US 6.2) : KPI, demandes de rappel et LISTE.
 // Le plan de salle vit desormais sur SA page (« Plan de salle », sidebar) ;
-// les deux ecrans partagent les memes services (signals) — une affectation
+// les deux ecrans partagent les memes services (signals) - une affectation
 // faite sur le plan est visible ici immediatement.
 @Component({
   selector: 'app-reservations',
@@ -223,7 +224,7 @@ export class ReservationsPage {
     this.callbacks.loadPending();
 
     // LIVE LEGER (LOT B3) : polling partage (ReservationService), la page ne
-    // fournit que son delta — le toast d'annonce.
+    // fournit que son delta - le toast d'annonce.
     this.service.startLivePolling(this.destroyRef, {
       onNew: (created) => this.announceNewReservation(created),
     });
@@ -233,9 +234,9 @@ export class ReservationsPage {
   private announceNewReservation(r: Reservation): void {
     const detail = `${r.customerName}, ${r.partySize} couv., ${formatTime(r.dateTime)}`;
     if (r.source === 'callbot') {
-      this.toast.show(`Nouvelle réservation prise par le bot — ${detail}`, 'success');
+      this.toast.show(`Nouvelle réservation prise par le bot : ${detail}`, 'success');
     } else {
-      this.toast.show(`Nouvelle réservation — ${detail}`);
+      this.toast.show(`Nouvelle réservation : ${detail}`);
     }
   }
 
@@ -253,14 +254,17 @@ export class ReservationsPage {
         next: (created) => {
           this.creatingManual.set(false);
           this.newResaState.set('closed');
-          this.toast.show(`Réservation créée — ${created.customerName}`, 'success', {
+          this.toast.show(`Réservation créée pour ${created.customerName}`, 'success', {
             label: 'Placer sur le plan',
             run: () => this.onPlace(created),
           });
         },
-        error: () => {
+        error: (err) => {
           this.creatingManual.set(false);
-          this.toast.show('Échec de la création. Vérifiez le téléphone.', 'error');
+          this.toast.show(
+            conflictMessage(err, 'Échec de la création. Vérifiez le téléphone.'),
+            'error',
+          );
         },
       });
   }

@@ -4,9 +4,10 @@ import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
 import { Reservation } from '@core/models/reservation.model';
 import { AssignEvent, WalkInEvent } from '@shared/components/organisms/floor-plan/hk-floor-plan';
+import { conflictMessage } from '@core/utils/http-error';
 
 // ACTIONS RESERVATION partagees (page Liste + page Plan) : chaque action fait
-// l'appel reseau ET le toast — au meme endroit, avec le meme wording. Les pages
+// l'appel reseau ET le toast - au meme endroit, avec le meme wording. Les pages
 // ne gardent que leurs specificites (fermeture de drawer, fusion...).
 // Statuts TERMINAUX : plus aucune action de cycle de vie (une resa annulee ou
 // terminee ne se re-confirme pas, ne se rappelle pas). Garde-fou contre la
@@ -33,7 +34,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'affectation", 'error'),
+        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'affectation"), 'error'),
       });
   }
 
@@ -43,7 +44,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: () => this.toast.show("Échec de l'installation", 'error'),
+        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'installation"), 'error'),
       });
   }
 
@@ -57,7 +58,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée — service terminé', 'success');
+          this.toast.show('Table libérée - service terminé', 'success');
           onDone?.();
         },
         error: () => this.toast.show('Échec de la clôture', 'error'),
