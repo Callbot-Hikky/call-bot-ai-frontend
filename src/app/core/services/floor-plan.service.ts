@@ -206,7 +206,10 @@ export class FloorPlanService {
   // Remplace la geometrie du plan, en empilant l'etat PRECEDENT pour l'undo, puis
   // declenche l'autosave. C'est LE point d'entree de toute mutation de l'editeur :
   // pose, drag, resize, suppression, alignement, changement de forme...
-  commit(next: GeometryMap): void {
+  // `recordHistory` false : pose la geometrie SANS cran d'annulation. Sert a la
+  // creation/suppression de tables — celles-ci s'annulent via leur propre toast
+  // « Annuler » (elles touchent le back), pas via l'historique de deplacement.
+  commit(next: GeometryMap, recordHistory = true): void {
     const current = this._plan();
     if (!current) {
       // Pas de plan initialise : on en cree un (cas limite, robustesse).
@@ -214,7 +217,9 @@ export class FloorPlanService {
       this.scheduleAutosave();
       return;
     }
-    this.pushHistory(current.geometry);
+    if (recordHistory) {
+      this.pushHistory(current.geometry);
+    }
     this._plan.set({ ...current, geometry: this.clone(next) });
     this.scheduleAutosave();
   }
@@ -262,6 +267,8 @@ export class FloorPlanService {
   }
 
   // Annule la derniere mutation (Ctrl/Cmd+Z). Bascule l'etat courant vers redo.
+  // Ne concerne QUE les gestes de deplacement/forme : creation et suppression de
+  // tables s'annulent via leur toast « Annuler » (elles touchent le back).
   undo(): void {
     const previous = this.undoStack.pop();
     if (previous === undefined) {

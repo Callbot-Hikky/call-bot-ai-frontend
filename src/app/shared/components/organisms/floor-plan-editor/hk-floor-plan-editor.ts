@@ -65,6 +65,14 @@ interface CreateSpec {
   geo: TableGeometryEntry;
 }
 
+// Table supprimee memorisee pour l'annulation (toast « Annuler ») : on la recree
+// a l'identique (nom, couverts, geometrie).
+interface DeletedTableSnapshot {
+  name: string;
+  capacity: number;
+  geo: TableGeometryEntry;
+}
+
 // Editeur de plan de salle (Phase 2, revise LOT A : bridge tables reelles).
 //
 // SOURCE DE VERITE : les tables viennent de TableService (ids back reels) ; le plan
@@ -755,7 +763,9 @@ export class HkFloorPlanEditor implements OnInit {
                   // celles creees plus tot dans ce meme lot).
                   const current = this.store.geometry();
                   const { x, y } = pushApart(spec.geo, Object.values(current));
-                  this.store.commit({ ...current, [table.id]: { ...spec.geo, x, y } });
+                  // Sans historique : la creation s'annule via son toast dedie
+                  // (elle touche le back), pas via l'undo de deplacement.
+                  this.store.commit({ ...current, [table.id]: { ...spec.geo, x, y } }, false);
                 }
                 return of(table);
               }),
@@ -767,12 +777,67 @@ export class HkFloorPlanEditor implements OnInit {
           this.creating.set(false);
           if (createdIds.length > 0) {
             this.selectedIds.set(createdIds);
+            const ids = [...createdIds];
+            const n = ids.length;
+            // Annulation de la creation : coherent avec les murs (toast dedie),
+            // et le seul moyen fiable de defaire une creation qui touche le back.
+            this.toast.show(`${n} table${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''}`, 'default', {
+              label: 'Annuler',
+              run: () => this.removeTables(ids),
+            });
           }
           if (failed) {
             this.toast.show('Impossible de créer la table. Réessayez.', 'error');
           }
         },
       });
+  }
+
+  // Supprime des tables SANS garde (usage interne : annuler une creation qu'on
+  // vient de faire — aucune reservation ne peut encore y etre attachee).
+  private removeTables(ids: string[]): void {
+    from(ids)
+      .pipe(
+        concatMap((id) =>
+          this.tableService.remove(id).pipe(
+            concatMap(() => {
+              this.store.removeEntry(id);
+              this.dropFromMerges(id);
+              return of(id);
+            }),
+            catchError(() => {
+              this.toast.show('Échec de la suppression de la table.', 'error');
+              return of(null);
+            }),
+          ),
+        ),
+      )
+      .subscribe({ complete: () => this.selectedIds.set([]) });
+  }
+
+  // Recree des tables supprimees (annulation d'une suppression) : nouveau POST
+  // (donc nouvel id back) avec le nom et la geometrie d'origine. Les eventuelles
+  // reservations passees ne sont pas restaurees (la suppression n'est autorisee
+  // que sur des tables sans reservation active).
+  private restoreTables(snapshots: DeletedTableSnapshot[]): void {
+    const createdIds: string[] = [];
+    from(snapshots)
+      .pipe(
+        concatMap((snap) =>
+          this.tableService.create({ name: snap.name, capacity: snap.capacity, zone: null }).pipe(
+            concatMap((table) => {
+              createdIds.push(table.id);
+              this.store.commit({ ...this.store.geometry(), [table.id]: snap.geo }, false);
+              return of(table);
+            }),
+            catchError(() => {
+              this.toast.show('Échec de la restauration de la table.', 'error');
+              return of(null);
+            }),
+          ),
+        ),
+      )
+      .subscribe({ complete: () => this.selectedIds.set(createdIds) });
   }
 
   // --- Suppression (garde-fou reservations) --------------------------------------
@@ -805,6 +870,16 @@ export class HkFloorPlanEditor implements OnInit {
       return;
     }
 
+    // Instantane AVANT suppression (nom, couverts, geometrie) : permet l'annulation.
+    const geometry = this.store.geometry();
+    const snapshots: DeletedTableSnapshot[] = deletable
+      .map((id) => {
+        const t = tablesById.get(id);
+        const geo = geometry[id];
+        return t && geo ? { name: t.label, capacity: t.seats, geo } : null;
+      })
+      .filter((s): s is DeletedTableSnapshot => s != null);
+
     from(deletable)
       .pipe(
         concatMap((id) =>
@@ -822,7 +897,17 @@ export class HkFloorPlanEditor implements OnInit {
         ),
       )
       .subscribe({
-        complete: () => this.selectedIds.set(blocked),
+        complete: () => {
+          this.selectedIds.set(blocked);
+          if (snapshots.length > 0) {
+            const n = snapshots.length;
+            this.toast.show(
+              `${n} table${n > 1 ? 's' : ''} supprimée${n > 1 ? 's' : ''}`,
+              'default',
+              { label: 'Annuler', run: () => this.restoreTables(snapshots) },
+            );
+          }
+        },
       });
   }
 

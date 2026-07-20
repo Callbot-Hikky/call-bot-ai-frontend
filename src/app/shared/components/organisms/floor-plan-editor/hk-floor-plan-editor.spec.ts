@@ -325,6 +325,69 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     expect(store.geometry()['t2']).toBeUndefined();
   });
 
+  it('annuler la creation (toast) : DELETE la table et retire sa geometrie', async () => {
+    const fixture = await open();
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    fixture.nativeElement.querySelector('[data-testid="preset-square-4"]').click();
+    await fixture.whenStable();
+    httpMock
+      .expectOne((r) => r.method === 'POST' && r.url.endsWith('/tables'))
+      .flush({ id: 't-new', restaurantId: RESTAURANT, name: 'T4', capacity: 4, isActive: true });
+    await fixture.whenStable();
+
+    // Un toast « ajoutée » propose l'annulation : on la declenche.
+    const added = toast.toasts().find((t) => t.message.includes('ajoutée'));
+    expect(added?.action).toBeTruthy();
+    added!.action!.run();
+    await fixture.whenStable();
+
+    httpMock.expectOne((r) => r.method === 'DELETE' && r.url.endsWith('/tables/t-new')).flush(null);
+    await fixture.whenStable();
+
+    expect(tables.tables().some((t) => t.id === 't-new')).toBe(false);
+    expect(store.geometry()['t-new']).toBeUndefined();
+  });
+
+  it('annuler la suppression (toast) : POST recree la table et sa geometrie', async () => {
+    const fixture = await open((h) => {
+      h.reservations = [reservation('r1', 'confirmed', 't1')];
+    });
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    const originalName = tables.tables().find((t) => t.id === 't2')!.name;
+
+    findCanvas(fixture).selectionChange.emit(['t2']);
+    await fixture.whenStable();
+    findButton(fixture, 'Supprimer').click();
+    await fixture.whenStable();
+    httpMock.expectOne((r) => r.method === 'DELETE' && r.url.endsWith('/tables/t2')).flush(null);
+    await fixture.whenStable();
+    expect(tables.tables().some((t) => t.id === 't2')).toBe(false);
+
+    // Un toast « supprimée » propose l'annulation : elle recree la table.
+    const removed = toast.toasts().find((t) => t.message.includes('supprimée'));
+    expect(removed?.action).toBeTruthy();
+    removed!.action!.run();
+    await fixture.whenStable();
+
+    const req = httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/tables'));
+    expect(req.request.body).toMatchObject({ name: originalName });
+    req.flush({
+      id: 't2-bis',
+      restaurantId: RESTAURANT,
+      name: originalName,
+      capacity: 2,
+      isActive: true,
+    });
+    await fixture.whenStable();
+
+    expect(tables.tables().some((t) => t.id === 't2-bis')).toBe(true);
+    expect(store.geometry()['t2-bis']).toBeTruthy();
+  });
+
   it('renommer (panneau proprietes) declenche un PUT /tables/{id} apres debounce', async () => {
     const fixture = await open();
     fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
