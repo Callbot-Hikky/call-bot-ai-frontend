@@ -167,11 +167,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 variant="secondary"
                 size="sm"
                 data-testid="toggle-3d"
-                [title]="
-                  view3d()
-                    ? 'Revenir au plan 2D (vue de travail)'
-                    : 'Voir votre salle en 3D, comme si vous y étiez'
-                "
+                [title]="view3d() ? 'Revenir au plan 2D' : 'Afficher la salle en 3D'"
                 (click)="view3d.set(!view3d())"
               >
                 <hk-icon name="lucideBox" [size]="16" />
@@ -182,7 +178,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   [variant]="simulating() ? 'primary' : 'secondary'"
                   size="sm"
                   data-testid="toggle-sim"
-                  title="Projeter votre salle à n'importe quelle heure de la soirée : voyez où seront les trous et les rushes"
+                  title="Voir la salle à une heure choisie de la soirée"
                   (click)="simulating() ? stopSim() : startSim()"
                 >
                   <hk-icon name="lucideCalendar" [size]="16" />
@@ -193,7 +189,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 <hk-button
                   variant="secondary"
                   size="sm"
-                  title="Plein écran pour le poste d'accueil pendant le service"
+                  title="Affichage plein écran pour le poste d'accueil"
                   (click)="onEnterService()"
                 >
                   <hk-icon name="lucideMaximize" [size]="16" />
@@ -202,7 +198,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 <hk-button
                   variant="secondary"
                   size="sm"
-                  title="Télécharger le plan affiché en image (brief d'équipe, impression)"
+                  title="Télécharger le plan en image"
                   (click)="exportPng()"
                 >
                   <hk-icon name="lucideDownload" [size]="16" />
@@ -211,7 +207,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 <hk-button
                   variant="secondary"
                   size="sm"
-                  title="Modifier la salle : déplacer, créer, supprimer des tables et des murs"
+                  title="Modifier la salle (tables et murs)"
                   (click)="edit.emit()"
                 >
                   <hk-icon name="lucidePencil" [size]="16" />
@@ -334,22 +330,22 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   </div>
                   <p class="text-text-muted">
                     <strong class="text-text-strong">Sur le plan :</strong>
-                    cliquez une table libre pour installer des clients sans réservation, une table
-                    colorée pour ouvrir sa réservation. Sélectionnez une réservation non placée (à
-                    droite) puis une table libre pour l'y placer — la meilleure est surlignée.
+                    cliquez une table libre pour y installer des clients, une table colorée pour
+                    ouvrir sa réservation. Sélectionnez une réservation non placée (à droite) puis
+                    une table libre pour l'affecter ; la table conseillée est surlignée.
                   </p>
                   <p class="text-text-muted">
                     <strong class="text-text-strong">Vue 3D :</strong>
-                    votre salle comme si vous y étiez — les tables restent cliquables.
+                    la salle en trois dimensions, les tables restent cliquables.
                   </p>
                   <p class="text-text-muted">
                     <strong class="text-text-strong">Simuler ma soirée :</strong>
-                    projette la salle à l'heure de votre choix pour repérer les trous et les rushes.
-                    Rien n'est modifié : c'est une prévision.
+                    affiche la salle à une heure choisie pour anticiper les creux et les pics.
+                    Aucune réservation n'est modifiée.
                   </p>
                   <p class="text-text-muted">
                     <strong class="text-text-strong">Mode service :</strong>
-                    plein écran pour le poste d'accueil pendant le coup de feu.
+                    affichage plein écran pour le poste d'accueil.
                   </p>
                   <p class="text-text-muted">
                     <strong class="text-text-strong">Modifier :</strong>
@@ -475,7 +471,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                         Simulation
                       </span>
                       <span class="text-st-pending-fg/90 hidden truncate text-xs sm:inline">
-                        Votre salle projetée à l'heure choisie — rien n'est modifié.
+                        Projection : aucune réservation n'est modifiée.
                       </span>
                     </div>
                     <hk-button
