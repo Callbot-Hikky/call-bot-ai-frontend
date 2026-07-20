@@ -218,47 +218,54 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
             <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
-              <hk-button
-                variant="secondary"
-                size="sm"
-                data-testid="toggle-3d"
-                [title]="view3d() ? 'Revenir au plan 2D' : 'Afficher la salle en 3D'"
-                (click)="view3d.set(!view3d())"
-              >
-                <hk-icon name="lucideBox" [size]="16" />
-                <span class="hidden lg:inline">{{ view3d() ? 'Vue 2D' : 'Vue 3D' }}</span>
-              </hk-button>
+              <!-- Vue 3D / Simuler / Mode service / Exporter n'ont de sens qu'avec
+                   des tables : masques en onboarding (salle vide) pour eviter les
+                   boutons sans effet. Seul « Modifier » reste, pour creer la salle. -->
+              @if (tableViews().length > 0) {
+                <hk-button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="toggle-3d"
+                  [title]="view3d() ? 'Revenir au plan 2D' : 'Afficher la salle en 3D'"
+                  (click)="view3d.set(!view3d())"
+                >
+                  <hk-icon name="lucideBox" [size]="16" />
+                  <span class="hidden lg:inline">{{ view3d() ? 'Vue 2D' : 'Vue 3D' }}</span>
+                </hk-button>
+              }
               @if (!serviceMode()) {
-                <hk-button
-                  [variant]="simulating() ? 'primary' : 'secondary'"
-                  size="sm"
-                  data-testid="toggle-sim"
-                  title="Voir la salle à une heure choisie de la soirée"
-                  (click)="simulating() ? stopSim() : startSim()"
-                >
-                  <hk-icon name="lucideCalendar" [size]="16" />
-                  <span class="hidden lg:inline">
-                    {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
-                  </span>
-                </hk-button>
-                <hk-button
-                  variant="secondary"
-                  size="sm"
-                  title="Affichage plein écran pour le poste d'accueil"
-                  (click)="onEnterService()"
-                >
-                  <hk-icon name="lucideMaximize" [size]="16" />
-                  <span class="hidden lg:inline">Mode service</span>
-                </hk-button>
-                <hk-button
-                  variant="secondary"
-                  size="sm"
-                  title="Télécharger le plan en image"
-                  (click)="exportPng()"
-                >
-                  <hk-icon name="lucideDownload" [size]="16" />
-                  <span class="hidden lg:inline">Exporter</span>
-                </hk-button>
+                @if (tableViews().length > 0) {
+                  <hk-button
+                    [variant]="simulating() ? 'primary' : 'secondary'"
+                    size="sm"
+                    data-testid="toggle-sim"
+                    title="Voir la salle à une heure choisie de la soirée"
+                    (click)="simulating() ? stopSim() : startSim()"
+                  >
+                    <hk-icon name="lucideCalendar" [size]="16" />
+                    <span class="hidden lg:inline">
+                      {{ simulating() ? 'Quitter la simulation' : 'Simuler ma soirée' }}
+                    </span>
+                  </hk-button>
+                  <hk-button
+                    variant="secondary"
+                    size="sm"
+                    title="Affichage plein écran pour le poste d'accueil"
+                    (click)="onEnterService()"
+                  >
+                    <hk-icon name="lucideMaximize" [size]="16" />
+                    <span class="hidden lg:inline">Mode service</span>
+                  </hk-button>
+                  <hk-button
+                    variant="secondary"
+                    size="sm"
+                    title="Télécharger le plan en image"
+                    (click)="exportPng()"
+                  >
+                    <hk-icon name="lucideDownload" [size]="16" />
+                    <span class="hidden lg:inline">Exporter</span>
+                  </hk-button>
+                }
                 <hk-button
                   variant="secondary"
                   size="sm"
@@ -666,7 +673,11 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
 
           @if (unplaced().length === 0) {
             <p class="text-text-subtle px-4 py-8 text-center text-sm">
-              Toutes les réservations du jour sont placées.
+              @if (reservations().length === 0) {
+                Aucune réservation aujourd'hui.
+              } @else {
+                Toutes les réservations du jour sont placées.
+              }
             </p>
           } @else {
             <ul class="divide-border flex flex-col divide-y">
@@ -1357,6 +1368,9 @@ export class HkFloorPlan {
     // Exporte la vue AFFICHEE : plan 2D (Konva) ou maquette 3D (WebGL).
     const dataUrl = this.view3d() ? this.canvas3d()?.exportPng() : this.canvas()?.exportPng();
     if (!dataUrl) {
+      // Rien a capturer (aucune table, ou canvas indisponible) : on l'explique
+      // au lieu d'un clic sans effet.
+      this.toast.show('Ajoutez des tables avant d’exporter le plan.');
       return;
     }
     const image = new Image();
