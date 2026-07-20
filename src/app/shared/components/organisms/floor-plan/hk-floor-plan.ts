@@ -18,6 +18,7 @@ import { HkFloorPlanCanvas } from './hk-floor-plan-canvas';
 import { HkFloorPlan3d } from './hk-floor-plan-3d';
 import { HkFloorPlanLegend } from './hk-floor-plan-legend';
 import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
+import { HkTableCard } from './hk-table-card';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
 import {
@@ -40,31 +41,8 @@ import { ToastService } from '@core/services/toast.service';
 import { formatTime } from '@core/utils/format';
 import { downloadDataUrl } from '@core/utils/download';
 
-export interface AssignEvent {
-  reservationId: string;
-  table: FloorTable;
-}
-
-// FUSION GUIDEE : « aucune table assez grande » -> le plan propose de fusionner
-// des tables voisines ET d'y placer la reservation en un clic. La page fait la
-// fusion (FloorPlanService.setMerges) puis l'affectation sur l'ANCRE du groupe.
-export interface MergeAssignEvent {
-  reservationId: string;
-  // Ids des tables a fusionner (la premiere est l'ancre).
-  tableIds: string[];
-  // Table ANCRE (cible de l'affectation reseau).
-  table: FloorTable;
-}
-
-// WALK-IN : installation immediate de clients sans reservation sur une table libre.
-export interface WalkInEvent {
-  table: FloorTable;
-  partySize: number;
-}
-
-// Garde-fou temporel du walk-in : on previent si la prochaine reservation de la
-// table tombe dans moins de 90 min (le service risque de deborder dessus).
-const WALK_IN_GUARD_MIN = 90;
+import { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan-events';
+export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan-events';
 
 // Plan de salle (Phase 1) : canvas Konva + panneau des non placees + legende.
 // Orchestre la derivation de statut et l'affectation au clic. Etats chargement
@@ -79,6 +57,7 @@ const WALK_IN_GUARD_MIN = 90;
     HkFloorPlan3d,
     HkFloorPlanLegend,
     HkTableTimeline,
+    HkTableCard,
   ],
   template: `
     @if (error()) {
@@ -93,6 +72,76 @@ const WALK_IN_GUARD_MIN = 90;
         <hk-skeleton height="360px" />
         <hk-skeleton height="360px" />
       </div>
+    } @else if (portrait()) {
+      <!-- MOBILE PORTRAIT : tuiles triees par urgence + bottom sheet d'action.
+           Le plan spatial revient en paysage ; ici on OPERE la salle. -->
+      <div class="flex flex-col gap-3">
+        <div class="text-text-muted flex items-center justify-between px-1 text-xs">
+          <span>{{ summary().libres }} libres · {{ summary().installees }} occupées</span>
+          @if (unplaced().length > 0) {
+            <span class="text-st-cancelled-fg font-semibold">
+              {{ unplaced().length }} à placer
+            </span>
+          }
+        </div>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="portrait-tiles">
+          @for (v of tilesOrder(); track v.table.id) {
+            <button
+              type="button"
+              class="flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors"
+              [class]="tileClasses(v)"
+              (click)="selectTile(v)"
+            >
+              <span class="flex items-center justify-between">
+                <span class="text-text-strong text-sm font-bold">{{ v.table.name }}</span>
+                <span class="text-text-subtle text-[11px]">{{ v.table.capacity }} c.</span>
+              </span>
+              <span class="text-[11px] font-medium" [class]="tileStatusClass(v)">
+                @if (v.lateMinutes; as late) {
+                  +{{ late }} min de retard
+                } @else if (v.status === 'installee') {
+                  Installée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
+                } @else if (v.status === 'reservee') {
+                  Réservée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
+                } @else {
+                  Libre{{ v.nextTime ? ' · → ' + v.nextTime : '' }}
+                }
+              </span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- BOTTOM SHEET : la carte de la table remonte du bas (portrait ET
+           paysage compact). On garde le contexte du plan/tuiles derriere. -->
+      @if (selectedTableView()) {
+        <button
+          type="button"
+          class="fixed inset-0 z-40 cursor-default bg-black/30"
+          aria-label="Fermer la carte de table"
+          data-testid="sheet-backdrop"
+          (click)="closeInspector()"
+        ></button>
+        <div
+          class="bg-card fixed inset-x-0 bottom-0 z-50 max-h-[75vh] overflow-y-auto rounded-t-2xl border-t shadow-2xl"
+          data-testid="table-sheet"
+        >
+          <div class="flex justify-center pt-2">
+            <span class="bg-border h-1 w-10 rounded-full"></span>
+          </div>
+          <hk-table-card
+            [view]="selectedTableView()"
+            [tableReservations]="selectedTableReservations()"
+            [showClose]="false"
+            (walkIn)="confirmWalkInFromCard($event)"
+            (confirmReservation)="confirmReservation.emit($event)"
+            (cancelReservation)="cancelReservation.emit($event)"
+            (callReservation)="callReservation.emit($event)"
+            (finishService)="finishService.emit($event)"
+            (unassign)="unassign.emit($event)"
+          />
+        </div>
+      }
     } @else {
       <div class="grid gap-4 lg:grid-cols-[1fr_320px]" [class.h-full]="serviceMode()">
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
@@ -523,154 +572,21 @@ const WALK_IN_GUARD_MIN = 90;
           </button>
           <!-- INSPECTOR : la table SELECTIONNEE s'affiche ICI, a droite — meme
                endroit pour tout (libre = installer, occupee = sa reservation).
-               Cliquer une autre table met simplement la carte a jour : rapide,
-               le plan reste visible, aucun sheet a ouvrir/fermer. -->
-          @if (selectedTableView(); as sel) {
-            <div
-              class="border-border flex flex-col gap-3 border-b p-4"
-              [class.bg-st-pending-bg]="sel.status === 'libre'"
-              data-testid="table-inspector"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex min-w-0 flex-col gap-0.5">
-                  <span class="text-text-strong text-sm font-semibold">
-                    Table {{ sel.table.name }}
-                    <span class="text-text-muted font-normal">
-                      · {{ sel.table.capacity }} couv.
-                    </span>
-                  </span>
-                  <span
-                    class="text-xs font-medium"
-                    [class]="
-                      sel.status === 'libre'
-                        ? 'text-st-pending-fg'
-                        : sel.status === 'installee'
-                          ? 'text-st-seated-fg'
-                          : 'text-st-confirmed-fg'
-                    "
-                  >
-                    {{
-                      sel.status === 'libre'
-                        ? 'Libre'
-                        : sel.status === 'installee'
-                          ? 'Clients installés'
-                          : 'Réservée'
-                    }}
-                    @if (sel.lateMinutes; as late) {
-                      <span class="text-st-cancelled-fg">· +{{ late }} min de retard</span>
-                    }
-                  </span>
-                </div>
-                <!-- Sur mobile le X du TIROIR ferme tout : un seul X a l'ecran. -->
-                <button
-                  type="button"
-                  class="text-text-subtle hover:bg-muted cursor-pointer rounded-sm p-1 max-lg:hidden"
-                  title="Fermer"
-                  data-testid="close-inspector"
-                  (click)="closeInspector()"
-                >
-                  <hk-icon name="lucideX" [size]="15" />
-                </button>
-              </div>
-
-              @if (sel.status === 'libre') {
-                <!-- Table LIBRE : installer des clients sans reservation. -->
-                <div class="flex flex-col gap-3" data-testid="walkin-panel">
-                  @if (sel.nextTime) {
-                    <p class="text-text-muted text-xs">
-                      Réservée plus tard à
-                      <strong class="text-text-strong">{{ sel.nextTime }}</strong>
-                      — la table doit être libérée à temps.
-                    </p>
-                  }
-                  <div class="flex items-center gap-2 text-sm">
-                    <button
-                      type="button"
-                      class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
-                      aria-label="Moins de couverts"
-                      [disabled]="walkInSize() <= 1"
-                      (click)="stepWalkIn(-1)"
-                    >
-                      −
-                    </button>
-                    <span
-                      class="min-w-7 text-center font-mono text-base font-semibold tabular-nums"
-                    >
-                      {{ walkInSize() }}
-                    </span>
-                    <button
-                      type="button"
-                      class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
-                      aria-label="Plus de couverts"
-                      [disabled]="walkInSize() >= sel.table.capacity"
-                      (click)="stepWalkIn(1)"
-                    >
-                      +
-                    </button>
-                    <span class="text-text-subtle">couverts</span>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <hk-button size="sm" class="flex-1" (click)="confirmWalkIn()">
-                      Installer
-                    </hk-button>
-                  </div>
-                </div>
-              } @else if (sel.reservation; as res) {
-                <!-- Table OCCUPEE : la reservation, sa frise et ses actions. -->
-                <div class="flex flex-col gap-3" data-testid="reservation-panel">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="text-text-strong truncate text-sm font-medium">
-                      {{ res.customerName }}
-                    </span>
-                    <span class="text-text-muted font-mono text-xs tabular-nums">
-                      {{ formatTime(res.dateTime) }} · {{ res.partySize }} couv.
-                    </span>
-                    @if (res.notes) {
-                      <span class="text-text-subtle text-xs italic">{{ res.notes }}</span>
-                    }
-                  </div>
-                  @if (selectedTableReservations().length > 0) {
-                    <hk-table-timeline
-                      [reservations]="selectedTableReservations()"
-                      [currentId]="res.id"
-                    />
-                  }
-                  <div class="flex flex-col gap-1.5">
-                    @if (sel.status === 'installee') {
-                      <hk-button size="sm" (click)="finishService.emit(res)">
-                        Terminer le service
-                      </hk-button>
-                    } @else {
-                      @if (res.status === 'pending') {
-                        <hk-button size="sm" (click)="confirmReservation.emit(res)">
-                          Confirmer
-                        </hk-button>
-                      }
-                      <hk-button size="sm" variant="secondary" (click)="unassign.emit(res)">
-                        Libérer la table
-                      </hk-button>
-                    }
-                    <div class="flex items-center gap-1.5">
-                      <hk-button
-                        size="sm"
-                        variant="secondary"
-                        class="flex-1"
-                        (click)="callReservation.emit(res)"
-                      >
-                        Appeler
-                      </hk-button>
-                      <hk-button
-                        size="sm"
-                        variant="danger"
-                        class="flex-1"
-                        (click)="cancelReservation.emit(res)"
-                      >
-                        Annuler
-                      </hk-button>
-                    </div>
-                  </div>
-                </div>
-              }
+               En paysage compact la carte passe en BOTTOM SHEET (plus bas) :
+               ici on la masque pour eviter le doublon. -->
+          @if (selectedTableView() && !compactLandscape()) {
+            <div class="border-border border-b">
+              <hk-table-card
+                [view]="selectedTableView()"
+                [tableReservations]="selectedTableReservations()"
+                (closeCard)="closeInspector()"
+                (walkIn)="confirmWalkInFromCard($event)"
+                (confirmReservation)="confirmReservation.emit($event)"
+                (cancelReservation)="cancelReservation.emit($event)"
+                (callReservation)="callReservation.emit($event)"
+                (finishService)="finishService.emit($event)"
+                (unassign)="unassign.emit($event)"
+              />
             </div>
           }
           <div class="border-border flex items-center justify-between gap-2 border-b px-4 py-3">
@@ -756,6 +672,37 @@ const WALK_IN_GUARD_MIN = 90;
           }
         </aside>
       </div>
+
+      <!-- BOTTOM SHEET (paysage compact) : la carte de table remonte du bas
+           plutot que le tiroir lateral qui mangeait la largeur du plan. -->
+      @if (selectedTableView() && compactLandscape()) {
+        <button
+          type="button"
+          class="fixed inset-0 z-40 cursor-default bg-black/30"
+          aria-label="Fermer la carte de table"
+          data-testid="sheet-backdrop"
+          (click)="closeInspector()"
+        ></button>
+        <div
+          class="bg-card fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t shadow-2xl"
+          data-testid="table-sheet"
+        >
+          <div class="flex justify-center pt-2">
+            <span class="bg-border h-1 w-10 rounded-full"></span>
+          </div>
+          <hk-table-card
+            [view]="selectedTableView()"
+            [tableReservations]="selectedTableReservations()"
+            [showClose]="false"
+            (walkIn)="confirmWalkInFromCard($event)"
+            (confirmReservation)="confirmReservation.emit($event)"
+            (cancelReservation)="cancelReservation.emit($event)"
+            (callReservation)="callReservation.emit($event)"
+            (finishService)="finishService.emit($event)"
+            (unassign)="unassign.emit($event)"
+          />
+        </div>
+      }
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -767,11 +714,6 @@ export class HkFloorPlan {
   // (sinon chaque refresh 20 s rouvrirait un bandeau que l'hote a ferme).
   private appliedPreselectId: string | null = null;
 
-  // Derniere table pour laquelle le stepper walk-in a ete initialise : une
-  // selection RESTAUREE (retour du mode service) retrouve un defaut correct
-  // sans ecraser un reglage en cours sur la meme table.
-  private walkInInitFor: string | null = null;
-
   constructor() {
     // Suivi du paysage compact (telephone couche) pour dimensionner le canvas.
     // Garde jsdom : matchMedia absent en environnement de test.
@@ -782,20 +724,6 @@ export class HkFloorPlan {
       compactQuery.addEventListener('change', onCompact);
       inject(DestroyRef).onDestroy(() => compactQuery.removeEventListener('change', onCompact));
     }
-
-    // Stepper du walk-in initialise a la capacite de la table selectionnee
-    // (au clic OU quand la selection est restauree par la page).
-    effect(() => {
-      const sel = this.selectedTableView();
-      if (!sel) {
-        this.walkInInitFor = null; // fermeture : la prochaine selection repart au defaut.
-        return;
-      }
-      if (sel.status === 'libre' && this.walkInInitFor !== sel.table.id) {
-        this.walkInInitFor = sel.table.id;
-        this.walkInSize.set(sel.table.capacity);
-      }
-    });
 
     // PRESELECTION (« Placer » depuis la liste) : appliquee UNE fois par id,
     // des que la resa figure dans les non placees.
@@ -831,6 +759,10 @@ export class HkFloorPlan {
   // noms clients, masque legende + boutons Exporter/Modifier/Mode service. Les
   // interactions (walk-in, drawer, affectation) restent identiques.
   readonly serviceMode = input(false);
+  // MODE TUILES (mobile PORTRAIT) : le plan spatial ne se lit pas sur un ecran
+  // etroit -> on affiche les tables en GRILLE triee par urgence, avec la meme
+  // carte d'action (bottom sheet). Le geste et l'info sont identiques.
+  readonly portrait = input(false);
   // Nom du restaurant, imprime en en-tete de l'export PNG.
   readonly restaurantName = input('Le Bistrot du Coin');
   // PRESELECTION (« Placer » depuis la liste, /plan?placer=id) : la resa arrive
@@ -1076,6 +1008,32 @@ export class HkFloorPlan {
   // service — la meme que le bandeau service, disponible en permanence.
   protected readonly summary = computed(() => summarizeRoom(this.tableViews()));
 
+  // TUILES (portrait) : tables triees par URGENCE — en retard d'abord, puis
+  // reservees (par heure), installees, libres. L'hote traite le plus pressant.
+  protected readonly tilesOrder = computed<FloorTableView[]>(() => {
+    const rank = (v: FloorTableView): number => {
+      if (v.lateMinutes != null) {
+        return 0;
+      }
+      if (v.status === 'reservee') {
+        return 1;
+      }
+      if (v.status === 'installee') {
+        return 2;
+      }
+      return 3;
+    };
+    return [...this.tableViews()].sort((a, b) => {
+      const r = rank(a) - rank(b);
+      if (r !== 0) {
+        return r;
+      }
+      const at = a.reservation?.dateTime ?? a.nextDateTime ?? '';
+      const bt = b.reservation?.dateTime ?? b.nextDateTime ?? '';
+      return at.localeCompare(bt) || a.table.name.localeCompare(b.table.name);
+    });
+  });
+
   // FOCUS effectif du canvas : la table selectionnee dans l'inspector. Une
   // table membre d'une tablee fusionnee est resolue vers son ANCRE (seul noeud
   // rendu pour le groupe).
@@ -1171,19 +1129,12 @@ export class HkFloorPlan {
   // mode service (deux instances du plan). On derive la vue COURANTE : si le
   // statut change (polling, walk-in, fin de service), la carte suit l'etat reel.
   readonly selectedTableId = model<string | null>(null);
-  protected readonly walkInSize = signal(1);
   protected readonly selectedTableView = computed<FloorTableView | null>(() => {
     const id = this.selectedTableId();
     if (!id) {
       return null;
     }
     return this.tableViews().find((v) => v.table.id === id) ?? null;
-  });
-
-  // Cible du walk-in (table selectionnee LIBRE) — utilisee par confirmWalkIn.
-  protected readonly walkInTarget = computed<FloorTableView | null>(() => {
-    const sel = this.selectedTableView();
-    return sel && sel.status === 'libre' ? sel : null;
   });
 
   // Resas VIVANTES de la table selectionnee (frise de l'inspector).
@@ -1203,6 +1154,40 @@ export class HkFloorPlan {
 
   protected closeInspector(): void {
     this.selectedTableId.set(null);
+  }
+
+  // Selection d'une tuile (portrait) : ouvre la carte en bottom sheet.
+  protected selectTile(view: FloorTableView): void {
+    this.selectedTableId.set(view.table.id);
+  }
+
+  // Fond de la tuile selon le statut (couleurs alignees sur les badges/canvas).
+  protected tileClasses(v: FloorTableView): string {
+    const selected = v.table.id === this.selectedTableId();
+    const ring = selected ? 'ring-2 ring-primary ' : '';
+    if (v.lateMinutes != null) {
+      return ring + 'border-st-cancelled-fg/40 bg-st-cancelled-bg';
+    }
+    if (v.status === 'reservee') {
+      return ring + 'border-st-confirmed-fg/30 bg-st-confirmed-bg';
+    }
+    if (v.status === 'installee') {
+      return ring + 'border-st-seated-fg/30 bg-st-seated-bg';
+    }
+    return ring + 'border-border bg-surface';
+  }
+
+  protected tileStatusClass(v: FloorTableView): string {
+    if (v.lateMinutes != null) {
+      return 'text-st-cancelled-fg';
+    }
+    if (v.status === 'reservee') {
+      return 'text-st-confirmed-fg';
+    }
+    if (v.status === 'installee') {
+      return 'text-st-seated-fg';
+    }
+    return 'text-text-subtle';
   }
 
   protected toggleUnplaced(reservation: Reservation): void {
@@ -1249,50 +1234,22 @@ export class HkFloorPlan {
     // droite (libre = installer des clients, occupee = sa reservation). Meme
     // geste, meme endroit, mise a jour instantanee au clic suivant.
     this.selectedTableId.set(view.table.id);
-    // Mobile : le tiroir s'ouvre pour montrer la carte de la table.
-    this.asideOpen.set(true);
+    // Paysage compact : la carte remonte en bottom sheet (pas le tiroir). Sur
+    // les autres petits ecrans (tablette portrait), on ouvre le tiroir.
+    if (!this.compactLandscape()) {
+      this.asideOpen.set(true);
+    }
   }
 
-  protected stepWalkIn(delta: number): void {
-    const max = this.walkInTarget()?.table.capacity ?? 1;
-    this.walkInSize.update((n) => Math.min(max, Math.max(1, n + delta)));
+  // La carte de table (hk-table-card) porte deja le garde-fou temporel : ici on
+  // relaie l'installation validee. La selection RESTE : la carte bascule
+  // d'elle-meme vers « installes » (statut derive) — l'hote voit son geste.
+  protected confirmWalkInFromCard(event: WalkInEvent): void {
+    this.walkIn.emit(event);
   }
 
   protected cancelWalkIn(): void {
     this.selectedTableId.set(null);
-  }
-
-  // « Installer » : GARDE-FOU TEMPOREL (meme pattern que le garde-fou capacite B1) —
-  // si la prochaine reservation de la table tombe dans moins de 90 min, pas
-  // d'installation directe : toast avec action « Installer quand meme ». Le bandeau
-  // reste ouvert pour laisser le choix d'une autre table si le toast est ignore.
-  protected confirmWalkIn(): void {
-    const target = this.walkInTarget();
-    if (!target) {
-      return;
-    }
-    const partySize = this.walkInSize();
-    if (target.nextDateTime) {
-      const minutesUntil = (new Date(target.nextDateTime).getTime() - Date.now()) / 60_000;
-      if (minutesUntil < WALK_IN_GUARD_MIN) {
-        this.toast.show(
-          `${target.table.name} est réservée à ${target.nextTime} (dans ${Math.max(0, Math.round(minutesUntil))} min).`,
-          'default',
-          {
-            label: 'Installer quand même',
-            run: () => this.doWalkIn(target.table, partySize),
-          },
-        );
-        return;
-      }
-    }
-    this.doWalkIn(target.table, partySize);
-  }
-
-  private doWalkIn(table: FloorTable, partySize: number): void {
-    this.walkIn.emit({ table, partySize });
-    // La selection RESTE : la carte bascule d'elle-meme vers « installes »
-    // (statut derive) — l'hote voit le resultat de son geste.
   }
 
   private doAssign(reservationId: string, table: FloorTable): void {
