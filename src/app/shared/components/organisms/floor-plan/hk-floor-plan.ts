@@ -859,14 +859,22 @@ export class HkFloorPlan {
   protected readonly quickCreating = signal(false);
 
   protected onQuickTables(event: Event): void {
-    const raw = Number((event.target as HTMLInputElement).value);
+    const value = (event.target as HTMLInputElement).value;
+    if (value === '') {
+      return; // champ vide en cours de frappe : on ne force pas 1 sous les doigts.
+    }
+    const raw = Number(value);
     if (Number.isFinite(raw)) {
       this.quickTables.set(Math.max(1, Math.min(40, Math.round(raw))));
     }
   }
 
   protected onQuickSeats(event: Event): void {
-    const raw = Number((event.target as HTMLInputElement).value);
+    const value = (event.target as HTMLInputElement).value;
+    if (value === '') {
+      return;
+    }
+    const raw = Number(value);
     if (Number.isFinite(raw)) {
       this.quickSeats.set(Math.max(1, Math.min(20, Math.round(raw))));
     }
