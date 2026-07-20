@@ -64,23 +64,30 @@ import { formatTime } from '@core/utils/format';
         (retry)="reload()"
       />
     } @else if (portraitMobile()) {
-      <!-- MOBILE PORTRAIT : une salle est un espace LARGE — le plan ne se lit
-           qu'en paysage. On le dit clairement plutot que d'afficher une bouillie. -->
-      <div
-        class="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-8 text-center"
-        data-testid="rotate-hint"
-      >
-        <span
-          class="border-border bg-card flex h-20 w-12 rotate-90 items-center justify-center rounded-xl border-2 shadow-sm transition-transform"
-        >
-          <hk-icon name="lucideGrid2x2" [size]="22" class="text-text-subtle -rotate-90" />
-        </span>
-        <h2 class="text-text-strong text-lg font-semibold">Tournez votre téléphone</h2>
-        <p class="text-text-subtle max-w-xs text-sm">
-          Le plan de salle s'affiche en mode paysage : basculez votre téléphone à l'horizontale pour
-          voir vos tables.
-        </p>
-      </div>
+      <!-- MOBILE PORTRAIT : vue TUILES (le plan spatial revient en paysage). -->
+      <hk-page-header [subtitle]="today" />
+      <hk-floor-plan
+        [portrait]="true"
+        [reservations]="service.reservations()"
+        [tables]="tables.tables()"
+        [geometry]="floorPlan.geometry()"
+        [walls]="floorPlan.walls()"
+        [merges]="floorPlan.merges()"
+        [(selectedTableId)]="selectedTableId"
+        [preselectId]="placerId()"
+        [restaurantName]="restaurantName"
+        [loading]="service.loading() || tables.loading()"
+        [error]="service.error() || tables.error()"
+        (assign)="onAssign($event)"
+        (mergeAssign)="onMergeAssign($event)"
+        (walkIn)="onWalkIn($event)"
+        (unassign)="onUnassign($event)"
+        (confirmReservation)="onConfirm($event)"
+        (cancelReservation)="onCancel($event)"
+        (callReservation)="onCall($event)"
+        (finishService)="onFinish($event)"
+        (retry)="reload()"
+      />
     } @else {
       @if (!editing()) {
         <!-- Paysage compact : chaque pixel vertical compte, l'en-tete saute. -->
