@@ -57,6 +57,7 @@ import { formatTime } from '@core/utils/format';
         [error]="service.error() || tables.error()"
         (exitService)="exitServiceMode()"
         (assign)="onAssign($event)"
+        (assignMany)="onAssignMany($event)"
         (mergeAssign)="onMergeAssign($event)"
         (walkIn)="onWalkIn($event)"
         (unassign)="onUnassign($event)"
@@ -82,6 +83,7 @@ import { formatTime } from '@core/utils/format';
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (assign)="onAssign($event)"
+        (assignMany)="onAssignMany($event)"
         (mergeAssign)="onMergeAssign($event)"
         (walkIn)="onWalkIn($event)"
         (unassign)="onUnassign($event)"
@@ -121,6 +123,7 @@ import { formatTime } from '@core/utils/format';
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
             (assign)="onAssign($event)"
+            (assignMany)="onAssignMany($event)"
             (mergeAssign)="onMergeAssign($event)"
             (walkIn)="onWalkIn($event)"
             (unassign)="onUnassign($event)"
@@ -349,6 +352,10 @@ export class FloorPlanPage {
 
   protected onAssign(event: AssignEvent): void {
     this.actions.assign(event, this.destroyRef);
+  }
+
+  protected onAssignMany(events: AssignEvent[]): void {
+    this.actions.assignMany(events, this.destroyRef);
   }
 
   // FUSION GUIDEE : fusion d'abord (autosave du plan), affectation sur l'ANCRE.

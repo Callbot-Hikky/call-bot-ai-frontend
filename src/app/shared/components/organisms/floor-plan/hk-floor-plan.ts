@@ -448,8 +448,11 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                       Aucune table libre n'est assez grande - fusionnez
                       <strong>{{ mergeSuggestionLabel() }}</strong>
                       en une tablée.
+                    } @else if (summary().libres > 0) {
+                      Aucune table libre n'est assez grande. Choisissez-en une plus petite
+                      (installer quand même) ou libérez une table.
                     } @else {
-                      Aucune table libre n'est assez grande pour le moment.
+                      Toutes les tables sont occupées. Libérez-en une pour placer cette réservation.
                     }
                   </span>
                   @if (mergeSuggestion()) {
@@ -918,6 +921,8 @@ export class HkFloorPlan {
   }
 
   readonly assign = output<AssignEvent>();
+  // Placement en LOT (« Tout placer ») : un seul evenement -> un seul toast.
+  readonly assignMany = output<AssignEvent[]>();
   // Actions de l'inspector (table occupee) : la page fait le reseau + le toast.
   readonly confirmReservation = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
@@ -1188,12 +1193,15 @@ export class HkFloorPlan {
       return;
     }
     const views = this.tableViews();
+    const events: AssignEvent[] = [];
     for (const p of placements) {
       const view = views.find((v) => v.table.id === p.tableId);
       if (view) {
-        this.assign.emit({ reservationId: p.reservationId, table: view.table });
+        events.push({ reservationId: p.reservationId, table: view.table });
       }
     }
+    // Un seul evenement de lot -> la page fait les N appels + un toast de synthese.
+    this.assignMany.emit(events);
     this.selectedUnplacedId.set(null);
   }
 

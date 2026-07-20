@@ -1,5 +1,6 @@
 import { DestroyRef, Injectable, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { forkJoin } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
 import { Reservation } from '@core/models/reservation.model';
@@ -35,6 +36,26 @@ export class ReservationActionsService {
       .subscribe({
         next: () => this.toast.show(`Réservation placée en ${event.table.name}`, 'success'),
         error: (err) => this.toast.show(conflictMessage(err, "Échec de l'affectation"), 'error'),
+      });
+  }
+
+  // Placement en LOT (« Tout placer ») : un seul toast de synthese au lieu d'une
+  // rafale de toasts « placee en Tn ».
+  assignMany(events: readonly AssignEvent[], destroyRef: DestroyRef): void {
+    if (events.length === 0) {
+      return;
+    }
+    forkJoin(events.map((e) => this.service.assign(e.reservationId, e.table)))
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => {
+          const n = events.length;
+          this.toast.show(
+            `${n} réservation${n > 1 ? 's' : ''} placée${n > 1 ? 's' : ''}`,
+            'success',
+          );
+        },
+        error: () => this.toast.show('Échec du placement automatique.', 'error'),
       });
   }
 

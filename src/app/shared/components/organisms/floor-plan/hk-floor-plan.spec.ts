@@ -70,6 +70,7 @@ const TABLES: FloorTable[] = [
       [serviceMode]="serviceMode"
       [(selectedTableId)]="selectedTableId"
       (assign)="recordAssign($event)"
+      (assignMany)="recordAssignMany($event)"
       (mergeAssign)="merged = $event.reservationId + ':' + $event.tableIds.join('+')"
       (walkIn)="walkIn = $event.table.id + ':' + $event.partySize"
       (enterService)="entered = entered + 1"
@@ -92,6 +93,10 @@ class HostComponent {
   recordAssign(event: { reservationId: string; table: FloorTable }): void {
     this.assigned = `${event.reservationId}:${event.table.id}`;
     this.assigns.push(this.assigned);
+  }
+
+  recordAssignMany(events: { reservationId: string; table: FloorTable }[]): void {
+    events.forEach((e) => this.assigns.push(`${e.reservationId}:${e.table.id}`));
   }
 }
 

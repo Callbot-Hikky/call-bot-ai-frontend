@@ -89,6 +89,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         [loading]="loading()"
         [error]="error()"
         (assign)="assign.emit($event)"
+        (assignMany)="assignMany.emit($event)"
         (mergeAssign)="mergeAssign.emit($event)"
         (walkIn)="walkIn.emit($event)"
         (unassign)="unassign.emit($event)"
@@ -134,6 +135,7 @@ export class HkServiceOverlay {
   readonly exitService = output<void>();
   // Passe-plats des interactions plan (la page garde ses handlers).
   readonly assign = output<AssignEvent>();
+  readonly assignMany = output<AssignEvent[]>();
   readonly mergeAssign = output<MergeAssignEvent>();
   readonly walkIn = output<WalkInEvent>();
   readonly confirmReservation = output<Reservation>();
