@@ -86,7 +86,11 @@ export class ReservationActionsService {
       return;
     }
     if (reservation.status !== 'pending') {
-      this.toast.show('Cette réservation est déjà confirmée.');
+      this.toast.show(
+        reservation.status === 'seated'
+          ? 'Les clients sont déjà installés.'
+          : 'Cette réservation est déjà confirmée.',
+      );
       return;
     }
     this.service

@@ -80,24 +80,31 @@ import { formatTime } from '@core/utils/format';
             (click)="place.emit(reservation())"
           />
         }
-        <hk-icon-button
-          icon="lucideCheck"
-          label="Confirmer la réservation"
-          hkTooltip="Confirmer"
-          (click)="confirm.emit(reservation())"
-        />
-        <hk-icon-button
-          icon="lucideX"
-          label="Annuler la réservation"
-          hkTooltip="Annuler"
-          (click)="cancelReservation.emit(reservation())"
-        />
-        <hk-icon-button
-          icon="lucidePhone"
-          label="Appeler le client"
-          hkTooltip="Appeler"
-          (click)="call.emit(reservation())"
-        />
+        <!-- Actions de cycle de vie affichees selon le statut : confirmer seulement
+             si en attente, annuler/appeler seulement sur une resa vivante. Une
+             resa cloturee n'affiche aucune action (plus de boutons sans effet). -->
+        @if (reservation().status === 'pending') {
+          <hk-icon-button
+            icon="lucideCheck"
+            label="Confirmer la réservation"
+            hkTooltip="Confirmer"
+            (click)="confirm.emit(reservation())"
+          />
+        }
+        @if (active()) {
+          <hk-icon-button
+            icon="lucideX"
+            label="Annuler la réservation"
+            hkTooltip="Annuler"
+            (click)="cancelReservation.emit(reservation())"
+          />
+          <hk-icon-button
+            icon="lucidePhone"
+            label="Appeler le client"
+            hkTooltip="Appeler"
+            (click)="call.emit(reservation())"
+          />
+        }
       </div>
     </div>
   `,
@@ -119,9 +126,13 @@ export class HkReservationRow {
     reservationLateMinutes(this.reservation(), new Date()),
   );
 
-  // Seules les resas vivantes se placent (annulee/terminee : non).
-  protected readonly placeable = computed(() => {
+  // Resa VIVANTE (ni annulee, ni terminee, ni no-show) : elle accepte encore des
+  // actions (annuler, appeler) et peut etre placee.
+  protected readonly active = computed(() => {
     const status = this.reservation().status;
     return status === 'pending' || status === 'confirmed' || status === 'seated';
   });
+
+  // Seules les resas vivantes se placent (annulee/terminee : non).
+  protected readonly placeable = this.active;
 }
