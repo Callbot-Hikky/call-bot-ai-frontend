@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   effect,
+  input,
   model,
   output,
   signal,
@@ -89,6 +90,11 @@ export interface NewReservationInput {
                   [value]="time()"
                   (input)="time.set(asValue($event))"
                 />
+                @if (timeInPast()) {
+                  <span class="text-st-cancelled-fg text-xs" data-testid="new-resa-past">
+                    Cette heure est déjà passée aujourd'hui.
+                  </span>
+                }
               </label>
               <label class="flex flex-col gap-1.5">
                 <span class="text-text-strong text-sm font-medium">Couverts</span>
@@ -119,8 +125,8 @@ export interface NewReservationInput {
           </div>
 
           <div class="border-border/70 mt-auto flex flex-col gap-2 border-t p-6">
-            <hk-button type="submit" data-testid="new-resa-submit" [disabled]="!valid()">
-              Créer la réservation
+            <hk-button type="submit" data-testid="new-resa-submit" [disabled]="!valid() || busy()">
+              {{ busy() ? 'Création…' : 'Créer la réservation' }}
             </hk-button>
             <hk-button type="button" variant="secondary" (click)="state.set('closed')">
               Annuler
@@ -134,6 +140,9 @@ export interface NewReservationInput {
 })
 export class HkNewReservationDialog {
   readonly state = model<BrnDialogState>('closed');
+  // Creation en cours (pilotee par la page) : desactive le submit -> pas de
+  // double envoi si on clique deux fois avant la reponse reseau.
+  readonly busy = input(false);
   readonly createReservation = output<NewReservationInput>();
 
   constructor() {
@@ -156,8 +165,23 @@ export class HkNewReservationDialog {
   protected readonly partySize = signal(2);
   protected readonly notes = signal('');
 
+  // Heure choisie ANTERIEURE a maintenant (le jour est fige a aujourd'hui) : une
+  // reservation dans le passe n'a pas de sens. Recalcule a chaque frappe (lit
+  // l'heure courante a la volee) — suffisant pour une saisie interactive.
+  protected readonly timeInPast = computed(() => {
+    const t = this.time();
+    if (!/^\d{2}:\d{2}$/.test(t)) {
+      return false;
+    }
+    const [h, m] = t.split(':').map(Number);
+    const chosen = new Date();
+    chosen.setHours(h, m, 0, 0);
+    return chosen.getTime() < Date.now();
+  });
+
   protected readonly valid = computed(
-    () => this.phone().trim().length >= 6 && /^\d{2}:\d{2}$/.test(this.time()),
+    () =>
+      this.phone().trim().length >= 6 && /^\d{2}:\d{2}$/.test(this.time()) && !this.timeInPast(),
   );
 
   protected asValue(event: Event): string {
@@ -173,7 +197,7 @@ export class HkNewReservationDialog {
 
   protected submit(event: Event): void {
     event.preventDefault();
-    if (!this.valid()) {
+    if (!this.valid() || this.busy()) {
       return;
     }
     const [hours, minutes] = this.time().split(':').map(Number);

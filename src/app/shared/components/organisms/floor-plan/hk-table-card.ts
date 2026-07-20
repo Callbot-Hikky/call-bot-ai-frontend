@@ -76,7 +76,12 @@ const WALK_IN_GUARD_MIN = 90;
           }
         </div>
 
-        @if (sel.status === 'libre') {
+        @if (readOnly()) {
+          <!-- SIMULATION : salle projetee, lecture seule -> aucune action reelle. -->
+          <p class="text-text-muted text-xs" data-testid="readonly-note">
+            Salle projetée à l'heure simulée. Quittez la simulation pour agir sur cette table.
+          </p>
+        } @else if (sel.status === 'libre') {
           <!-- Table LIBRE : installer des clients sans reservation. -->
           <div class="flex flex-col gap-3" data-testid="walkin-panel">
             @if (sel.nextTime) {
@@ -179,6 +184,9 @@ export class HkTableCard {
   readonly tableReservations = input<Reservation[]>([]);
   // Croix de fermeture (desktop) : l'hote (inspector) decide.
   readonly showClose = input(true);
+  // LECTURE SEULE (simulation) : masque toute action -> pas de mutation reelle
+  // depuis une salle projetee.
+  readonly readOnly = input(false);
 
   readonly closeCard = output<void>();
   readonly walkIn = output<WalkInEvent>();

@@ -112,7 +112,7 @@ export class ReservationService {
         // en aval (liste OnPush, canvas Konva, scene 3D) reste au repos. Cle de
         // comparaison = ce qui pilote reellement le rendu.
         const key = (r: Reservation): string =>
-          `${r.id}|${r.status}|${r.table?.id ?? ''}|${r.dateTime}|${r.partySize}|${r.customerName}`;
+          `${r.id}|${r.status}|${r.table?.id ?? ''}|${r.dateTime}|${r.partySize}|${r.customerName}|${r.phone ?? ''}|${r.notes ?? ''}`;
         const current = this._reservations();
         const same =
           current.length === list.length && current.every((r, i) => key(r) === key(list[i]));

@@ -84,6 +84,50 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             </span>
           }
         </div>
+
+        <!-- A PLACER (portrait) : les resas sans table. Toucher une resa la
+             selectionne, puis toucher une tuile LIBRE l'affecte (garde capacite).
+             Sans ca, « Placer » depuis la liste serait un cul-de-sac en portrait. -->
+        @if (unplaced().length > 0) {
+          <div
+            class="border-st-pending-fg/25 bg-st-pending-bg/60 flex flex-col gap-2 rounded-xl border p-3"
+            data-testid="portrait-unplaced"
+          >
+            @if (selectedUnplaced(); as r) {
+              <p class="text-st-pending-fg text-xs font-medium">
+                Touchez une table libre pour y placer
+                <strong>{{ r.customerName }}</strong>
+                ({{ r.partySize }} couv.).
+                <button
+                  type="button"
+                  class="text-st-pending-fg ml-1 cursor-pointer underline"
+                  (click)="selectedUnplacedId.set(null)"
+                >
+                  Annuler
+                </button>
+              </p>
+            } @else {
+              <p class="text-text-muted text-xs">À placer — touchez une réservation :</p>
+            }
+            <div class="flex flex-wrap gap-1.5">
+              @for (r of unplaced(); track r.id) {
+                <button
+                  type="button"
+                  class="border-border bg-surface cursor-pointer rounded-lg border px-2.5 py-1.5 text-left text-xs"
+                  [class.ring-2]="r.id === selectedUnplacedId()"
+                  [class.ring-primary]="r.id === selectedUnplacedId()"
+                  (click)="selectedUnplacedId.set(r.id === selectedUnplacedId() ? null : r.id)"
+                >
+                  <span class="text-text-strong font-semibold">{{ r.customerName }}</span>
+                  <span class="text-text-subtle"
+                    >· {{ r.partySize }}c · {{ formatTime(r.dateTime) }}</span
+                  >
+                </button>
+              }
+            </div>
+          </div>
+        }
+
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="portrait-tiles">
           @for (v of tilesOrder(); track v.table.id) {
             <button
@@ -132,6 +176,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
           <hk-table-card
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
+            [readOnly]="simulating()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
             (confirmReservation)="confirmReservation.emit($event)"
@@ -575,6 +620,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
               <hk-table-card
                 [view]="selectedTableView()"
                 [tableReservations]="selectedTableReservations()"
+                [readOnly]="simulating()"
                 (closeCard)="closeInspector()"
                 (walkIn)="confirmWalkInFromCard($event)"
                 (confirmReservation)="confirmReservation.emit($event)"
@@ -689,6 +735,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
           <hk-table-card
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
+            [readOnly]="simulating()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
             (confirmReservation)="confirmReservation.emit($event)"
@@ -965,15 +1012,22 @@ export class HkFloorPlan {
 
   // Reservations du jour ACTIVES sans table (a placer). On exclut annulees /
   // no_show / terminees : les "affecter" laisserait la table Libre (incoherent).
-  protected readonly unplaced = computed(() =>
-    this.reservations()
-      .filter(
-        (r) =>
-          !r.table && (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
-      )
-      // Triees par heure : l'hote traite la file chronologiquement.
-      .sort((a, b) => a.dateTime.localeCompare(b.dateTime)),
-  );
+  // Une resa dont la table n'existe PLUS (supprimee/desync polling) est traitee
+  // comme non placee -> elle reste visible dans « a placer » au lieu de devenir
+  // une orpheline invisible sur le plan.
+  protected readonly unplaced = computed(() => {
+    const tableIds = new Set(this.tables().map((t) => t.id));
+    return (
+      this.reservations()
+        .filter(
+          (r) =>
+            (!r.table || !tableIds.has(r.table.id)) &&
+            (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
+        )
+        // Triees par heure : l'hote traite la file chronologiquement.
+        .sort((a, b) => a.dateTime.localeCompare(b.dateTime))
+    );
+  });
 
   protected readonly selectedUnplaced = computed(() => {
     const id = this.selectedUnplacedId();
@@ -1038,9 +1092,15 @@ export class HkFloorPlan {
     if (!id) {
       return null;
     }
+    const views = this.tableViews();
     const group = this.merges().find((g) => g.includes(id));
-    const anchor = group && this.tableViews().find((v) => group.includes(v.table.id));
-    return anchor?.table.id ?? id;
+    const anchor = group && views.find((v) => group.includes(v.table.id));
+    if (anchor) {
+      return anchor.table.id;
+    }
+    // Anti focus-fantome : si la table selectionnee n'est plus rendue (polling,
+    // suppression, desactivation), aucun focus -> pas de grisage global.
+    return views.some((v) => v.table.id === id) ? id : null;
   });
 
   protected readonly hoveredUnplaced = computed(() => {
@@ -1133,16 +1193,21 @@ export class HkFloorPlan {
     return this.tableViews().find((v) => v.table.id === id) ?? null;
   });
 
-  // Resas VIVANTES de la table selectionnee (frise de l'inspector).
+  // Resas VIVANTES de la table selectionnee (frise de l'inspector). Si la table
+  // appartient a une tablee fusionnee, la frise couvre TOUS les membres du groupe
+  // (sinon la resa d'un membre non selectionne serait invisible).
   protected readonly selectedTableReservations = computed(() => {
     const tableId = this.selectedTableId();
     if (!tableId) {
       return [];
     }
+    const group = this.merges().find((g) => g.includes(tableId));
+    const ids = new Set(group ?? [tableId]);
     return this.reservations()
       .filter(
         (r) =>
-          r.table?.id === tableId &&
+          r.table != null &&
+          ids.has(r.table.id) &&
           (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
       )
       .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
@@ -1152,9 +1217,11 @@ export class HkFloorPlan {
     this.selectedTableId.set(null);
   }
 
-  // Selection d'une tuile (portrait) : ouvre la carte en bottom sheet.
+  // Selection d'une tuile (portrait) : meme logique que le clic canvas. Si une
+  // resa « a placer » est selectionnee et la tuile est libre -> AFFECTATION (avec
+  // garde capacite) ; sinon la carte de la table remonte en bottom sheet.
   protected selectTile(view: FloorTableView): void {
-    this.selectedTableId.set(view.table.id);
+    this.onTableClick(view);
   }
 
   // Fond de la tuile selon le statut (couleurs alignees sur les badges/canvas).

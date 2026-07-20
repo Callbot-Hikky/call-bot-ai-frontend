@@ -89,6 +89,13 @@ export class FloorPlanService {
     this.redoStack = [];
     this.refreshHistoryFlags();
 
+    // Un autosave programme par une session precedente (service singleton) ne
+    // doit pas persister par-dessus le plan qu'on vient de charger.
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
+
     const plan = this.read(restaurantId);
     this._plan.set(plan);
     this._loaded.set(true);

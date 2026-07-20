@@ -147,9 +147,14 @@ export class HkServiceOverlay {
     inject(DestroyRef).onDestroy(() => clearInterval(timer));
   }
 
-  // Echap : sortie du mode service (equivalent au bouton Quitter).
+  // Echap : ferme d'abord la carte de table ouverte (retour a la salle), et ne
+  // quitte le mode service que si aucune carte n'est ouverte.
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (this.selectedTableId()) {
+      this.selectedTableId.set(null);
+      return;
+    }
     this.exitService.emit();
   }
 }

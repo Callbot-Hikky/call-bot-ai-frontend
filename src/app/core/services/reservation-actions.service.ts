@@ -8,10 +8,24 @@ import { AssignEvent, WalkInEvent } from '@shared/components/organisms/floor-pla
 // ACTIONS RESERVATION partagees (page Liste + page Plan) : chaque action fait
 // l'appel reseau ET le toast — au meme endroit, avec le meme wording. Les pages
 // ne gardent que leurs specificites (fermeture de drawer, fusion...).
+// Statuts TERMINAUX : plus aucune action de cycle de vie (une resa annulee ou
+// terminee ne se re-confirme pas, ne se rappelle pas). Garde-fou contre la
+// « resurrection » d'une resa depuis la liste ou le drawer.
+const TERMINAL_STATUSES: readonly Reservation['status'][] = ['cancelled', 'completed', 'no_show'];
+
 @Injectable({ providedIn: 'root' })
 export class ReservationActionsService {
   private readonly service = inject(ReservationService);
   private readonly toast = inject(ToastService);
+
+  // Vrai si la resa est dans un etat terminal -> on bloque et on explique.
+  private isTerminal(reservation: Reservation): boolean {
+    if (TERMINAL_STATUSES.includes(reservation.status)) {
+      this.toast.show('Cette réservation est clôturée : aucune action possible.');
+      return true;
+    }
+    return false;
+  }
 
   assign(event: AssignEvent, destroyRef: DestroyRef): void {
     this.service
@@ -34,6 +48,10 @@ export class ReservationActionsService {
   }
 
   finish(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
+    if (reservation.status !== 'seated') {
+      this.toast.show('Aucun client installé à cette table.');
+      return;
+    }
     this.service
       .finish(reservation.id)
       .pipe(takeUntilDestroyed(destroyRef))
@@ -47,6 +65,9 @@ export class ReservationActionsService {
   }
 
   unassign(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
     this.service
       .unassign(reservation.id)
       .pipe(takeUntilDestroyed(destroyRef))
@@ -60,6 +81,13 @@ export class ReservationActionsService {
   }
 
   confirm(reservation: Reservation, destroyRef: DestroyRef): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
+    if (reservation.status !== 'pending') {
+      this.toast.show('Cette réservation est déjà confirmée.');
+      return;
+    }
     this.service
       .confirm(reservation.id)
       .pipe(takeUntilDestroyed(destroyRef))
@@ -67,6 +95,9 @@ export class ReservationActionsService {
   }
 
   cancel(reservation: Reservation, destroyRef: DestroyRef): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
     this.service
       .cancel(reservation.id)
       .pipe(takeUntilDestroyed(destroyRef))
@@ -74,6 +105,9 @@ export class ReservationActionsService {
   }
 
   call(reservation: Reservation): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
     this.toast.show(`Appel de ${reservation.customerName}...`);
   }
 }

@@ -451,6 +451,23 @@ describe('fusion de tables (mergeViews / canMerge)', () => {
     expect(merged[0].status).toBe('installee');
   });
 
+  it('identite de la tablee : le DOMINANT porte table.id (pas l ancre)', () => {
+    // t1 (ancre, members[0]) libre, t2 occupe -> le bloc doit cibler t2 pour que
+    // les actions agissent sur la table qui porte la resa affichee (fix #11).
+    const a = view('t1', 0.5, 0.5, 'libre');
+    const b = view('t2', 0.55, 0.5, 'installee');
+    const merged = mergeViews([a, b], [['t1', 't2']]);
+    expect(merged[0].table.id).toBe('t2');
+    expect(merged[0].table.name).toBe('T1+T2');
+  });
+
+  it('tablee toute libre : l identite reste members[0] (walk-in stable)', () => {
+    const a = view('t1', 0.5, 0.5, 'libre');
+    const b = view('t2', 0.55, 0.5, 'libre');
+    const merged = mergeViews([a, b], [['t1', 't2']]);
+    expect(merged[0].table.id).toBe('t1');
+  });
+
   it('ignore un groupe dont une table a disparu', () => {
     const a = view('t1', 0.5, 0.5);
     const merged = mergeViews([a], [['t1', 't-supprimee']]);

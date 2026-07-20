@@ -684,7 +684,15 @@ export class HkFloorPlanEditor implements OnInit {
   }
 
   protected clearWalls(): void {
+    const before = this.store.walls();
+    if (before.length === 0) {
+      return;
+    }
     this.store.setWalls([]);
+    this.toast.show(`${before.length} mur(s) effacé(s)`, 'default', {
+      label: 'Annuler',
+      run: () => this.store.setWalls(before),
+    });
   }
 
   // --- Import Pascal (scan 3D / editeur web) ------------------------------------
@@ -742,7 +750,12 @@ export class HkFloorPlanEditor implements OnInit {
               concatMap((table) => {
                 if (table) {
                   createdIds.push(table.id);
-                  this.store.commit({ ...this.store.geometry(), [table.id]: spec.geo });
+                  // Anti-empilement : chaque table posee au preset atterrit au meme
+                  // point -> on la repousse des tables deja presentes (y compris
+                  // celles creees plus tot dans ce meme lot).
+                  const current = this.store.geometry();
+                  const { x, y } = pushApart(spec.geo, Object.values(current));
+                  this.store.commit({ ...current, [table.id]: { ...spec.geo, x, y } });
                 }
                 return of(table);
               }),
@@ -974,6 +987,24 @@ export class HkFloorPlanEditor implements OnInit {
               run: () => this.mergeTables([moved.id, touched.id]),
             },
           );
+        }
+      }
+    } else if (changes.length > 1) {
+      // ANTI-CHEVAUCHEMENT (drag multiple) : le bloc deplace garde ses positions
+      // relatives, mais peut recouvrir des tables FIXES. On repousse chaque table
+      // deplacee des tables non deplacees (hors meme tablee), sans proposer de
+      // fusion (le geste n'en est pas un).
+      const movedIds = new Set(changes.map((c) => c.id));
+      const merges = this.store.merges();
+      for (const c of changes) {
+        const sameGroup = new Set(merges.find((group) => group.includes(c.id)) ?? []);
+        const fixed = this.editorTables()
+          .filter((t) => !movedIds.has(t.id) && !sameGroup.has(t.id))
+          .map((t) => ({ x: t.x, y: t.y, w: t.width, h: t.height }));
+        const box = { x: c.x, y: c.y, w: c.width, h: c.height };
+        const corrected = pushApart(box, fixed);
+        if (corrected.x !== c.x || corrected.y !== c.y) {
+          geometry[c.id] = { ...geometry[c.id], x: corrected.x, y: corrected.y };
         }
       }
     }

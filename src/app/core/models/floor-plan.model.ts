@@ -418,13 +418,16 @@ export function mergeViews(
       maxY = Math.max(maxY, m.y + m.h / 2);
     }
 
-    // Vue dominante : la plus occupee (retard prioritaire a rang egal).
+    // Vue dominante : la plus occupee (retard prioritaire a rang egal). Elle
+    // porte le statut, la reservation ET l'identite du bloc, pour que les actions
+    // (finish/unassign/cancel) et l'affichage visent la MEME table que la resa
+    // montree. Quand tout est libre, le dominant reste members[0] (tri stable),
+    // donc le walk-in vise bien la premiere table du groupe.
     const dominant = [...members].sort(
       (a, b) =>
         STATUS_RANK[b.status] - STATUS_RANK[a.status] ||
         (b.lateMinutes ?? -1) - (a.lateMinutes ?? -1),
     )[0];
-    const anchor = members[0];
 
     // Prochaine resa de la TABLEE = la plus proche parmi TOUS les membres (le
     // garde-fou walk-in doit voir la resa d'un membre non dominant).
@@ -436,10 +439,11 @@ export function mergeViews(
       ...dominant,
       nextTime: next?.nextTime ?? null,
       nextDateTime: next?.nextDateTime ?? null,
-      // L'ANCRE porte l'identite : les actions (walk-in, affectation) ciblent
-      // une vraie table back, la capacite affichee est la somme du groupe.
+      // Le DOMINANT porte l'identite : les actions ciblent la table qui porte la
+      // resa affichee ; la capacite affichee est la somme du groupe, le nom liste
+      // tous les membres.
       table: {
-        ...anchor.table,
+        ...dominant.table,
         name: members.map((m) => m.table.name).join('+'),
         capacity: members.reduce((sum, m) => sum + m.table.capacity, 0),
       },

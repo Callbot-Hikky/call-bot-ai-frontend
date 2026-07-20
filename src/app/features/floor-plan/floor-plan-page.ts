@@ -266,7 +266,10 @@ export class FloorPlanPage {
   // L'EDITION du plan demande la souris (drag precis, poignees) : sur petit
   // ecran on l'assume honnetement plutot que d'offrir une experience ratee.
   protected onEdit(): void {
-    if (window.innerWidth < 768) {
+    // On mesure la PLUS PETITE dimension : un telephone en paysage est large mais
+    // bas (~390px de haut) et resterait sous le seuil, la ou une tablette passe.
+    // Cela evite d'ouvrir l'editeur (drag precis) sur un telephone tourne.
+    if (Math.min(window.innerWidth, window.innerHeight) < 700) {
       this.toast.show('Modifiez votre salle sur ordinateur ou tablette (gestes de précision).');
       return;
     }

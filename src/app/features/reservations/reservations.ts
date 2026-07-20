@@ -96,6 +96,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 
     <hk-new-reservation-dialog
       [(state)]="newResaState"
+      [busy]="creatingManual()"
       (createReservation)="onCreateManual($event)"
     />
 
@@ -128,6 +129,8 @@ export class ReservationsPage {
   protected readonly drawerState = signal<BrnDialogState>('closed');
   // Dialog « Nouvelle réservation » (prise manuelle).
   protected readonly newResaState = signal<BrnDialogState>('closed');
+  // Creation manuelle en cours -> desactive le submit du dialog (anti double envoi).
+  protected readonly creatingManual = signal(false);
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -239,18 +242,26 @@ export class ReservationsPage {
   // NOUVELLE RESERVATION MANUELLE : POST client + resa, puis proposition de
   // placement immediat (toast avec action -> plan preselectionne).
   protected onCreateManual(input: NewReservationInput): void {
+    if (this.creatingManual()) {
+      return;
+    }
+    this.creatingManual.set(true);
     this.service
       .createManual(input)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (created) => {
+          this.creatingManual.set(false);
           this.newResaState.set('closed');
           this.toast.show(`Réservation créée — ${created.customerName}`, 'success', {
             label: 'Placer sur le plan',
             run: () => this.onPlace(created),
           });
         },
-        error: () => this.toast.show('Échec de la création. Vérifiez le téléphone.', 'error'),
+        error: () => {
+          this.creatingManual.set(false);
+          this.toast.show('Échec de la création. Vérifiez le téléphone.', 'error');
+        },
       });
   }
 
