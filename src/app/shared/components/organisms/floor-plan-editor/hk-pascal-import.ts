@@ -240,10 +240,14 @@ export interface PascalImportPayload {
               <hk-button
                 size="sm"
                 data-testid="pascal-apply"
-                [disabled]="selectedCount() === 0"
+                [disabled]="selectedCount() === 0 && wallCount() === 0"
                 (click)="apply()"
               >
-                Importer {{ selectedCount() }} table(s)
+                @if (selectedCount() > 0) {
+                  Importer {{ selectedCount() }} table(s)
+                } @else {
+                  Importer les murs
+                }
               </hk-button>
             </div>
           </div>
@@ -283,6 +287,9 @@ export class HkPascalImport {
   private readonly selectedKeys = signal<ReadonlySet<string>>(new Set());
 
   protected readonly selectedCount = computed(() => this.selectedKeys().size);
+  // Murs detectes : on peut importer un plan « murs seuls » (scan d'une piece
+  // vide), sinon le bouton resterait bloque et les murs seraient perdus.
+  protected readonly wallCount = computed(() => this.result()?.walls.length ?? 0);
 
   // Parse un texte JSON (appele par depot de fichier ET par les tests).
   loadText(text: string): void {
