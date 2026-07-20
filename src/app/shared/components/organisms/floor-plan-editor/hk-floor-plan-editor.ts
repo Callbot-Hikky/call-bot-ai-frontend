@@ -99,7 +99,7 @@ interface CreateSpec {
               (click)="useTemplate(preview.key)"
             >
               <!-- APERCU : la vraie geometrie du template, en miniature — on
-                   choisit une salle en la VOYANT, pas en lisant sa description. -->
+                   choisit une salle en la voyant, pas en lisant sa description. -->
               <svg
                 viewBox="0 0 160 100"
                 class="border-border w-full rounded-sm border"
@@ -194,7 +194,7 @@ interface CreateSpec {
             variant="ghost"
             size="sm"
             data-testid="toolbar-pascal-import"
-            title="Créer la salle depuis un scan 3D de votre restaurant (Pascal)"
+            title="Importer un scan 3D (Pascal)"
             [disabled]="creating()"
             (click)="importOpen.set(true)"
           >
@@ -206,7 +206,7 @@ interface CreateSpec {
             [variant]="wallMode() ? 'primary' : 'ghost'"
             size="sm"
             data-testid="toggle-walls"
-            title="Tracer les murs de votre salle : deux clics = un mur"
+            title="Tracer des murs (deux clics = un mur)"
             (click)="toggleWallMode()"
           >
             <hk-icon name="lucideGrid2x2" [size]="16" />
@@ -337,9 +337,15 @@ interface CreateSpec {
                 class="bg-st-pending-bg text-st-pending-fg rounded-md px-3 py-2 text-sm"
                 data-testid="wall-hint"
               >
-                <strong>Mode murs :</strong> cliquez un premier point, puis un second — le mur se
-                trace entre les deux. Enchaînez les murs, puis « Terminer les murs » (ou Échap).
+                <strong>Mode murs :</strong>
+                cliquez un premier point, puis un second, le mur se trace entre les deux. Enchaînez
+                les murs, puis « Terminer les murs » (ou Échap). Un mur existant se supprime en
+                cliquant dessus une fois le mode quitté.
               </div>
+            } @else if (store.walls().length > 0) {
+              <p class="text-text-subtle px-1 text-xs" data-testid="wall-delete-hint">
+                Cliquez un mur pour le supprimer.
+              </p>
             }
 
             <hk-floor-plan-editor-canvas
@@ -351,6 +357,7 @@ interface CreateSpec {
               (selectionChange)="onSelectionChange($event)"
               (geometryChange)="onGeometryChange($event)"
               (wallAdded)="onWallAdded($event)"
+              (wallRemoved)="onWallRemoved($event)"
             />
 
             <div class="text-text-subtle flex items-center gap-2 text-xs">
@@ -657,6 +664,19 @@ export class HkFloorPlanEditor implements OnInit {
   // Ajoute le mur trace au plan (persistance immediate via FloorPlanService).
   protected onWallAdded(wall: WallSegment): void {
     this.store.setWalls([...this.store.walls(), wall]);
+  }
+
+  // Clic sur un mur (hors mode murs) : on le supprime, avec annulation.
+  protected onWallRemoved(index: number): void {
+    const before = this.store.walls();
+    if (index < 0 || index >= before.length) {
+      return;
+    }
+    this.store.setWalls(before.filter((_, i) => i !== index));
+    this.toast.show('Mur supprimé', 'default', {
+      label: 'Annuler',
+      run: () => this.store.setWalls(before),
+    });
   }
 
   protected undoLastWall(): void {

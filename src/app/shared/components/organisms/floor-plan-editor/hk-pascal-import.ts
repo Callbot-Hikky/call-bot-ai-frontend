@@ -118,9 +118,7 @@ export interface PascalImportPayload {
               >
                 4
               </span>
-              <span class="text-text-subtle text-sm"
-                >Déposez le fichier ci-dessous — on s'occupe du reste.</span
-              >
+              <span class="text-text-subtle text-sm">Déposez le fichier ci-dessous.</span>
             </li>
           </ol>
 

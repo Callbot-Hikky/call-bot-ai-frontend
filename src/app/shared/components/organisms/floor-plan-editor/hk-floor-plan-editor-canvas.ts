@@ -51,6 +51,9 @@ const ACCENT_VAR = '--green-600';
 const ACCENT_FALLBACK = '#2f9e6f';
 const GRID_VAR = '--border';
 const GRID_FALLBACK = '#ededec';
+// Survol d'un mur supprimable : couleur danger (comme une action destructive).
+const DANGER_VAR = '--st-cancelled-fg';
+const DANGER_FALLBACK = '#a33d2e';
 
 // Bornes pixel d'une table (lisible / tactile) — sert au resize.
 const MIN_SIZE_PX = 32;
@@ -108,9 +111,14 @@ export class HkFloorPlanEditorCanvas {
   // Mur trace (coordonnees normalisees) : l'orchestrateur le persiste.
   readonly wallAdded = output<WallSegment>();
 
+  // Mur SUPPRIME au clic (hors mode murs) : l'orchestrateur retire ce segment.
+  readonly wallRemoved = output<number>();
+
   private konva: KonvaModule | null = null;
   private stage: Konva.Stage | null = null;
   private gridLayer: Konva.Layer | null = null;
+  // Couche des murs, INTERACTIVE (clic pour supprimer) — sous les tables.
+  private wallLayer: Konva.Layer | null = null;
   private layer: Konva.Layer | null = null;
   private transformer: Konva.Transformer | null = null;
   private selectionRect: Konva.Rect | null = null;
@@ -148,7 +156,8 @@ export class HkFloorPlanEditorCanvas {
     });
 
     // MODE MURS : gele les tables (pas de drag/selection pendant le trace),
-    // curseur croix, et nettoie un trace en cours a la sortie du mode.
+    // curseur croix, et nettoie un trace en cours a la sortie du mode. Les murs
+    // sont redessines pour (des)activer leur suppression au clic.
     effect(() => {
       const drawing = this.wallMode();
       for (const node of this.nodes.values()) {
@@ -158,6 +167,7 @@ export class HkFloorPlanEditorCanvas {
       if (!drawing) {
         this.resetWallDraft();
       }
+      this.drawWalls();
       this.layer?.batchDraw();
     });
 
@@ -181,8 +191,10 @@ export class HkFloorPlanEditorCanvas {
     });
 
     this.gridLayer = new k.Layer({ listening: false });
+    this.wallLayer = new k.Layer();
     this.layer = new k.Layer();
     this.stage.add(this.gridLayer);
+    this.stage.add(this.wallLayer);
     this.stage.add(this.layer);
 
     this.transformer = new k.Transformer({
@@ -414,22 +426,61 @@ export class HkFloorPlanEditorCanvas {
     for (let y = stepY; y < height; y += stepY) {
       grid.add(new k.Line({ points: [0, y, width, y], stroke: color, strokeWidth: 1 }));
     }
-    // Murs decoratifs (import Pascal) par-dessus la trame : la salle REELLE
-    // apparait en fond, les tables restent seules interactives.
-    const wallColor = this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
-    const minSide = Math.min(width, height);
-    for (const w of this.walls()) {
-      grid.add(
-        new k.Line({
-          points: [w.x1 * width, w.y1 * height, w.x2 * width, w.y2 * height],
-          stroke: wallColor,
-          strokeWidth: Math.max(3, w.thickness * minSide),
-          lineCap: 'round',
-          opacity: 0.9,
-        }),
-      );
-    }
     grid.batchDraw();
+    this.drawWalls();
+  }
+
+  // Murs traces / importes : dessines dans leur propre couche INTERACTIVE ->
+  // hors mode murs, survoler un mur le met en surbrillance (danger) et cliquer
+  // le SUPPRIME (avec annulation cote orchestrateur). En mode murs, ils sont
+  // inertes pour ne pas gener le trace.
+  private drawWalls(): void {
+    const k = this.konva;
+    const layer = this.wallLayer;
+    const stage = this.stage;
+    if (!k || !layer || !stage) {
+      return;
+    }
+    layer.destroyChildren();
+    const width = stage.width();
+    const height = stage.height();
+    const wallColor = this.readVar(NEUTRAL_STROKE_VAR, NEUTRAL_STROKE_FALLBACK);
+    const dangerColor = this.readVar(DANGER_VAR, DANGER_FALLBACK);
+    const minSide = Math.min(width, height);
+    const editable = !this.wallMode();
+    this.walls().forEach((w, index) => {
+      const strokeWidth = Math.max(3, w.thickness * minSide);
+      const line = new k.Line({
+        points: [w.x1 * width, w.y1 * height, w.x2 * width, w.y2 * height],
+        stroke: wallColor,
+        strokeWidth,
+        lineCap: 'round',
+        opacity: 0.9,
+        listening: editable,
+        // Zone de clic elargie : un mur fin reste facile a viser.
+        hitStrokeWidth: Math.max(strokeWidth, 16),
+      });
+      if (editable) {
+        line.on('mouseenter', () => {
+          line.stroke(dangerColor);
+          line.strokeWidth(strokeWidth + 2);
+          stage.container().style.cursor = 'pointer';
+          layer.batchDraw();
+        });
+        line.on('mouseleave', () => {
+          line.stroke(wallColor);
+          line.strokeWidth(strokeWidth);
+          stage.container().style.cursor = 'crosshair';
+          layer.batchDraw();
+        });
+        line.on('click tap', (e) => {
+          e.cancelBubble = true; // ne pas declencher la deselection du stage.
+          this.wallRemoved.emit(index);
+        });
+      }
+      layer.add(line);
+    });
+    layer.batchDraw();
   }
 
   private syncNodes(): void {

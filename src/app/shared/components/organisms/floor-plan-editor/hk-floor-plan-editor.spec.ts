@@ -26,6 +26,7 @@ class CanvasStub {
   readonly selectionChange = output<string[]>();
   readonly geometryChange = output<TableGeometry[]>();
   readonly wallAdded = output<WallSegment>();
+  readonly wallRemoved = output<number>();
 }
 
 // Restaurant UNIQUE par test : l'autosave (600 ms) d'un test precedent peut tirer
@@ -161,6 +162,32 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     el.querySelector<HTMLButtonElement>('[data-testid="clear-walls"]')!.click();
     await fixture.whenStable();
     expect(store.walls().length).toBe(0);
+  });
+
+  it('un clic sur un mur (via wallRemoved) le supprime, avec annulation', async () => {
+    const fixture = await open();
+    // Sortir de l'ecran templates : applique la grille auto.
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+    const store = TestBed.inject(FloorPlanService);
+
+    const canvas = findCanvas(fixture);
+    canvas.wallAdded.emit({ x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.1, thickness: 0.02 });
+    canvas.wallAdded.emit({ x1: 0.9, y1: 0.1, x2: 0.9, y2: 0.9, thickness: 0.02 });
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(2);
+
+    // Le canvas signale le clic sur le PREMIER mur -> il est retire.
+    canvas.wallRemoved.emit(0);
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(1);
+    expect(store.walls()[0].y2).toBe(0.9); // le second mur subsiste.
+
+    // Le toast propose l'annulation -> les deux murs reviennent.
+    const toast = TestBed.inject(ToastService);
+    toast.toasts()[0].action!.run();
+    await fixture.whenStable();
+    expect(store.walls().length).toBe(2);
   });
 
   it('un template APPLIQUE des positions aux tables EXISTANTES (aucune creation)', async () => {
