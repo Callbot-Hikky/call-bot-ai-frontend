@@ -37,7 +37,7 @@ const WALK_IN_GUARD_MIN = 90;
       >
         <div class="flex items-start justify-between gap-2">
           <div class="flex min-w-0 flex-col gap-0.5">
-            <span class="text-text-strong text-sm font-semibold">
+            <span class="text-text-strong font-semibold" [class]="large() ? 'text-lg' : 'text-sm'">
               Table {{ sel.table.name }}
               <span class="text-text-muted font-normal">· {{ sel.table.capacity }} couv.</span>
             </span>
@@ -94,30 +94,40 @@ const WALK_IN_GUARD_MIN = 90;
             <div class="flex items-center gap-2 text-sm">
               <button
                 type="button"
-                class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                class="border-border bg-surface text-text-strong inline-flex cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                [class]="large() ? 'size-11 text-2xl' : 'size-7'"
                 aria-label="Moins de couverts"
                 [disabled]="walkInSize() <= 1"
                 (click)="stepWalkIn(-1)"
               >
                 −
               </button>
-              <span class="min-w-7 text-center font-mono text-base font-semibold tabular-nums">
+              <span
+                class="text-center font-mono font-semibold tabular-nums"
+                [class]="large() ? 'min-w-11 text-2xl' : 'min-w-7 text-base'"
+              >
                 {{ walkInSize() }}
               </span>
               <button
                 type="button"
-                class="border-border bg-surface text-text-strong inline-flex size-7 cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                class="border-border bg-surface text-text-strong inline-flex cursor-pointer items-center justify-center rounded border leading-none disabled:cursor-default disabled:opacity-40"
+                [class]="large() ? 'size-11 text-2xl' : 'size-7'"
                 aria-label="Plus de couverts"
                 [disabled]="walkInSize() >= sel.table.capacity"
                 (click)="stepWalkIn(1)"
               >
                 +
               </button>
-              <span class="text-text-subtle">couverts</span>
+              <span class="text-text-subtle" [class.text-base]="large()">couverts</span>
             </div>
-            <div class="flex items-center gap-2">
-              <hk-button size="sm" class="flex-1" (click)="confirmWalkIn()">Installer</hk-button>
-            </div>
+            <hk-button
+              [size]="actionSize()"
+              class="w-full"
+              data-testid="walkin-confirm"
+              (click)="confirmWalkIn()"
+            >
+              Installer {{ walkInSize() }} couvert{{ walkInSize() > 1 ? 's' : '' }}
+            </hk-button>
           </div>
         } @else if (sel.reservation; as res) {
           <!-- Table OCCUPEE : la reservation, sa frise et ses actions. -->
@@ -138,20 +148,22 @@ const WALK_IN_GUARD_MIN = 90;
             }
             <div class="flex flex-col gap-1.5">
               @if (sel.status === 'installee') {
-                <hk-button size="sm" (click)="finishService.emit(res)">
+                <hk-button [size]="actionSize()" (click)="finishService.emit(res)">
                   Terminer le service
                 </hk-button>
               } @else {
                 @if (res.status === 'pending') {
-                  <hk-button size="sm" (click)="confirmReservation.emit(res)">Confirmer</hk-button>
+                  <hk-button [size]="actionSize()" (click)="confirmReservation.emit(res)">
+                    Confirmer
+                  </hk-button>
                 }
-                <hk-button size="sm" variant="secondary" (click)="unassign.emit(res)">
+                <hk-button [size]="actionSize()" variant="secondary" (click)="unassign.emit(res)">
                   Libérer la table
                 </hk-button>
               }
               <div class="flex items-center gap-1.5">
                 <hk-button
-                  size="sm"
+                  [size]="actionSize()"
                   variant="secondary"
                   class="flex-1"
                   (click)="callReservation.emit(res)"
@@ -159,7 +171,7 @@ const WALK_IN_GUARD_MIN = 90;
                   Appeler
                 </hk-button>
                 <hk-button
-                  size="sm"
+                  [size]="actionSize()"
                   variant="danger"
                   class="flex-1"
                   (click)="cancelReservation.emit(res)"
@@ -187,6 +199,12 @@ export class HkTableCard {
   // LECTURE SEULE (simulation) : masque toute action -> pas de mutation reelle
   // depuis une salle projetee.
   readonly readOnly = input(false);
+  // GRAND FORMAT (mode service / poste d'accueil) : boutons et stepper agrandis
+  // pour un tap rapide au comptoir et une bonne lisibilite sur ecran mural.
+  readonly large = input(false);
+
+  // Taille des boutons d'action : grande en mode service, compacte ailleurs.
+  protected readonly actionSize = computed(() => (this.large() ? 'lg' : 'sm'));
 
   readonly closeCard = output<void>();
   readonly walkIn = output<WalkInEvent>();
@@ -210,7 +228,9 @@ export class HkTableCard {
       }
       if (sel.status === 'libre' && this.walkInInitFor !== sel.table.id) {
         this.walkInInitFor = sel.table.id;
-        this.walkInSize.set(sel.table.capacity);
+        // Defaut a 2 couverts (le cas le plus frequent) plutot que la capacite
+        // pleine : moins de « - » a taper au comptoir pour un petit groupe.
+        this.walkInSize.set(Math.min(2, sel.table.capacity));
       }
     });
   }

@@ -9,6 +9,7 @@ import {
   model,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
@@ -145,6 +146,14 @@ export class HkServiceOverlay {
   protected readonly clock = computed(() =>
     this.nowMinute().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
   );
+
+  // Le plan vit DANS cet overlay : la page ne peut pas le pulser directement
+  // (son viewChild ne matche pas l'instance de l'overlay). On relaie donc le
+  // pulse d'arrivee d'une reservation jusqu'a notre plan.
+  private readonly plan = viewChild(HkFloorPlan);
+  pulseTable(tableId: string): void {
+    this.plan()?.pulseTable(tableId);
+  }
 
   constructor() {
     const timer = setInterval(() => this.nowMinute.set(new Date()), 60_000);

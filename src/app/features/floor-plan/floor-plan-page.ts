@@ -167,6 +167,8 @@ export class FloorPlanPage {
   protected readonly restaurantName = 'Le Bistrot du Coin';
   private enteredFullscreen = false;
   private readonly floorPlanCmp = viewChild(HkFloorPlan);
+  // En mode service, le plan est dans l'overlay (pas un enfant direct de la page).
+  private readonly serviceOverlayCmp = viewChild(HkServiceOverlay);
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -239,7 +241,13 @@ export class FloorPlanPage {
     document.addEventListener('fullscreenchange', onFsChange);
     this.destroyRef.onDestroy(() => {
       document.removeEventListener('fullscreenchange', onFsChange);
-      document.body.classList.remove('service-mode');
+      // Quitter la page en plein cadre service (navigation) ne doit pas laisser
+      // le plein ecran ni l'orientation verrouilles.
+      if (this.serviceMode()) {
+        this.exitServiceMode();
+      } else {
+        document.body.classList.remove('service-mode');
+      }
     });
 
     // LIVE LEGER : polling partage (ReservationService) — pause pendant
@@ -259,7 +267,12 @@ export class FloorPlanPage {
       this.toast.show(`Nouvelle réservation — ${detail}`);
     }
     if (r.table && !this.editing()) {
-      this.floorPlanCmp()?.pulseTable(r.table.id);
+      // Le plan est soit direct (mode normal), soit dans l'overlay (mode service).
+      if (this.serviceMode()) {
+        this.serviceOverlayCmp()?.pulseTable(r.table.id);
+      } else {
+        this.floorPlanCmp()?.pulseTable(r.table.id);
+      }
     }
   }
 
@@ -314,6 +327,9 @@ export class FloorPlanPage {
         // Sortie de plein ecran refusee : sans consequence, l'overlay est deja masque.
       }
     }
+    // Symetrique du lock d'entree : sinon l'ecran reste bloque en paysage pour
+    // toute l'app apres avoir quitte le service (Android/PWA plein ecran).
+    (screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
     this.enteredFullscreen = false;
   }
 

@@ -177,6 +177,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
             (confirmReservation)="confirmReservation.emit($event)"
@@ -188,23 +189,32 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
         </div>
       }
     } @else {
-      <div class="grid gap-4 lg:grid-cols-[1fr_320px]" [class.h-full]="serviceMode()">
+      <div
+        class="grid gap-4"
+        [class]="serviceMode() ? 'lg:grid-cols-[1fr_400px]' : 'lg:grid-cols-[1fr_320px]'"
+        [class.h-full]="serviceMode()"
+      >
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
           <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
                FLOTTE sur le plan (zero layout shift, pleine largeur). -->
           <div class="flex items-center justify-between gap-3">
             <!-- AIDE : bouton qui ouvre un panneau explicatif des gestes et des
-                 modes (2D/3D, simulation, service) — flottant, zero shift. -->
-            <button
-              type="button"
-              data-testid="toggle-help"
-              class="text-text-subtle hover:text-text-strong inline-flex flex-1 cursor-pointer items-center gap-1.5 text-sm"
-              [attr.aria-expanded]="helpOpen()"
-              (click)="helpOpen.set(!helpOpen())"
-            >
-              <hk-icon name="lucideInfo" [size]="15" />
-              <span class="hidden whitespace-nowrap lg:inline">Comment ça marche ?</span>
-            </button>
+                 modes (2D/3D, simulation, service) — flottant, zero shift.
+                 Masque en mode service (poste d'accueil) : pas de bruit d'aide. -->
+            @if (!serviceMode()) {
+              <button
+                type="button"
+                data-testid="toggle-help"
+                class="text-text-subtle hover:text-text-strong inline-flex flex-1 cursor-pointer items-center gap-1.5 text-sm"
+                [attr.aria-expanded]="helpOpen()"
+                (click)="helpOpen.set(!helpOpen())"
+              >
+                <hk-icon name="lucideInfo" [size]="15" />
+                <span class="hidden whitespace-nowrap lg:inline">Comment ça marche ?</span>
+              </button>
+            } @else {
+              <span class="flex-1"></span>
+            }
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
             <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
@@ -621,6 +631,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 [view]="selectedTableView()"
                 [tableReservations]="selectedTableReservations()"
                 [readOnly]="simulating()"
+                [large]="serviceMode()"
                 (closeCard)="closeInspector()"
                 (walkIn)="confirmWalkInFromCard($event)"
                 (confirmReservation)="confirmReservation.emit($event)"
@@ -736,6 +747,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
             (confirmReservation)="confirmReservation.emit($event)"

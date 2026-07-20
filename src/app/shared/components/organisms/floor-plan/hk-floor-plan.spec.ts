@@ -378,7 +378,7 @@ describe('HkFloorPlan', () => {
 
   // WALK-IN : clic sur une table libre SANS affectation en cours -> bandeau
   // « Installer des clients » (le clic mort devient le geste n°1).
-  it('clic table libre sans selection -> bandeau walk-in, stepper par defaut = capacite', async () => {
+  it('clic table libre sans selection -> bandeau walk-in, stepper par defaut = 2 couverts', async () => {
     const fixture = TestBed.createComponent(HostComponent);
     await fixture.whenStable();
 
@@ -393,10 +393,11 @@ describe('HkFloorPlan', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="walkin-panel"]')).toBeTruthy();
     expect(text).toContain('Table T2');
     expect(text).toContain('Installer');
-    // Defaut intelligent : le stepper s'ouvre a la capacite de la table.
+    // Defaut a 2 couverts (le petit groupe le plus frequent), meme sur une
+    // table de 4 : moins de « - » a taper au comptoir.
     const counter = fixture.nativeElement.querySelector('[aria-label="Moins de couverts"]')!
       .nextElementSibling as HTMLElement;
-    expect(counter.textContent!.trim()).toBe('4');
+    expect(counter.textContent!.trim()).toBe('2');
     // Aucune emission tant que « Installer » n'est pas clique.
     expect(fixture.componentInstance.walkIn).toBe('');
   });
@@ -411,11 +412,11 @@ describe('HkFloorPlan', () => {
     stub.tableClick.emit(stub.tables().find((v) => v.table.id === 't2')!);
     await fixture.whenStable();
 
-    // 4 (defaut) -> 3 via le stepper, borne min/max geree par le composant.
-    const minus: HTMLButtonElement = fixture.nativeElement.querySelector(
-      '[aria-label="Moins de couverts"]',
+    // 2 (defaut) -> 3 via le stepper (+), borne min/max geree par le composant.
+    const plus: HTMLButtonElement = fixture.nativeElement.querySelector(
+      '[aria-label="Plus de couverts"]',
     );
-    minus.click();
+    plus.click();
     await fixture.whenStable();
 
     const install = Array.from(
@@ -502,10 +503,11 @@ describe('HkFloorPlan', () => {
     expect(toast.toasts().length).toBe(1);
     expect(toast.toasts()[0].action?.label).toBe('Installer quand même');
 
-    // « Installer quand meme » -> l'emission part avec le bon nombre de couverts.
+    // « Installer quand meme » -> l'emission part avec le nombre de couverts par
+    // defaut (2, le petit groupe frequent).
     toast.toasts()[0].action!.run();
     await fixture.whenStable();
-    expect(fixture.componentInstance.walkIn).toBe('t2:4');
+    expect(fixture.componentInstance.walkIn).toBe('t2:2');
   });
 
   // SIMULATION (« Simuler ma soiree ») : la salle projetee a l'heure du slider.
