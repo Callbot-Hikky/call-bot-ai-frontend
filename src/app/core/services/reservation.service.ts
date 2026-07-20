@@ -143,6 +143,12 @@ export class ReservationService {
     return this.mutateStatus(id, 'confirmed');
   }
 
+  // CLIENT ARRIVE : le client d'une reservation existante se presente -> la resa
+  // passe `seated` (meme mecanisme que confirm/cancel/finish, style coherent).
+  markArrived(id: string): Observable<Reservation> {
+    return this.mutateStatus(id, 'seated');
+  }
+
   cancel(id: string): Observable<Reservation> {
     return this.mutateStatus(id, 'cancelled');
   }

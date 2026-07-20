@@ -109,6 +109,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       (cancelReservation)="onCancel($event)"
       (call)="onCall($event)"
       (endService)="onFinish($event)"
+      (markArrived)="onMarkArrived($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -283,6 +284,11 @@ export class ReservationsPage {
   // Fin du service (drawer, resa seated) : action partagee + fermeture du drawer.
   protected onFinish(reservation: Reservation): void {
     this.actions.finish(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // Client arrive (drawer) : installe la resa + ferme le drawer.
+  protected onMarkArrived(reservation: Reservation): void {
+    this.actions.markArrived(reservation, this.destroyRef, () => this.drawerState.set('closed'));
   }
 
   protected onConfirm(reservation: Reservation): void {

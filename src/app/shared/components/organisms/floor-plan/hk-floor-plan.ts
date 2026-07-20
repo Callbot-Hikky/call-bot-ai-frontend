@@ -184,6 +184,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             (cancelReservation)="cancelReservation.emit($event)"
             (callReservation)="callReservation.emit($event)"
             (finishService)="finishService.emit($event)"
+            (markArrived)="markArrived.emit($event)"
             (unassign)="unassign.emit($event)"
           />
         </div>
@@ -648,6 +649,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 (cancelReservation)="cancelReservation.emit($event)"
                 (callReservation)="callReservation.emit($event)"
                 (finishService)="finishService.emit($event)"
+                (markArrived)="markArrived.emit($event)"
                 (unassign)="unassign.emit($event)"
               />
             </div>
@@ -768,6 +770,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             (cancelReservation)="cancelReservation.emit($event)"
             (callReservation)="callReservation.emit($event)"
             (finishService)="finishService.emit($event)"
+            (markArrived)="markArrived.emit($event)"
             (unassign)="unassign.emit($event)"
           />
         </div>
@@ -928,6 +931,7 @@ export class HkFloorPlan {
   readonly cancelReservation = output<Reservation>();
   readonly callReservation = output<Reservation>();
   readonly finishService = output<Reservation>();
+  readonly markArrived = output<Reservation>();
   // Fusion guidee + affectation (« aucune table assez grande »).
   readonly mergeAssign = output<MergeAssignEvent>();
   readonly unassign = output<Reservation>();

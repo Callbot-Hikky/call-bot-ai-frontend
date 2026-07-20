@@ -114,7 +114,16 @@ import { telHref } from '@core/utils/format';
                   Terminer le service
                 </hk-button>
               } @else {
-                <hk-button (click)="confirm.emit(r)">Confirmer</hk-button>
+                @if (r.table) {
+                  <!-- Resa placee : le client attendu se presente -> installe. -->
+                  <hk-button (click)="markArrived.emit(r)">
+                    <hk-icon name="lucideCircleCheck" [size]="16" />
+                    Client arrivé
+                  </hk-button>
+                  <hk-button variant="secondary" (click)="confirm.emit(r)">Confirmer</hk-button>
+                } @else {
+                  <hk-button (click)="confirm.emit(r)">Confirmer</hk-button>
+                }
               }
               <hk-button variant="secondary" (click)="call.emit(r)">Appeler</hk-button>
               @if (showUnassign() && r.table && r.status !== 'seated') {
@@ -144,6 +153,7 @@ export class HkReservationDetailDrawer {
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
+  readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
   // Fin du service d'une resa `seated` (la table redevient libre par derivation).
   // Nomme `endService` (pas `finish`) : `finish` est un evenement DOM natif

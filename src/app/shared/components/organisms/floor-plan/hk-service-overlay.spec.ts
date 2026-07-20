@@ -21,6 +21,7 @@ class FloorPlanStub {
   readonly merges = input<string[][]>([]);
   readonly selectedTableId = model<string | null>(null);
   readonly assignMany = output<unknown>();
+  readonly markArrived = output<unknown>();
   readonly view3d = model(false);
   readonly vitrine = model(false);
   readonly portrait = input(false);

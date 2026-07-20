@@ -130,6 +130,27 @@ export class ReservationActionsService {
       .subscribe(() => this.toast.show('Réservation annulée'));
   }
 
+  // CLIENT ARRIVE : un client attendu se presente -> sa reservation passe installee.
+  markArrived(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
+    if (reservation.status === 'seated') {
+      this.toast.show('Les clients sont déjà installés.');
+      return;
+    }
+    this.service
+      .markArrived(reservation.id)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => {
+          this.toast.show('Clients installés', 'success');
+          onDone?.();
+        },
+        error: () => this.toast.show("Échec de l'installation", 'error'),
+      });
+  }
+
   call(reservation: Reservation): void {
     if (this.isTerminal(reservation)) {
       return;

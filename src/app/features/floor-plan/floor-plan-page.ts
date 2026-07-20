@@ -65,6 +65,7 @@ import { formatTime } from '@core/utils/format';
         (cancelReservation)="onCancel($event)"
         (callReservation)="onCall($event)"
         (finishService)="onFinish($event)"
+        (markArrived)="onMarkArrived($event)"
         (retry)="reload()"
       />
     } @else if (portraitMobile()) {
@@ -91,6 +92,7 @@ import { formatTime } from '@core/utils/format';
         (cancelReservation)="onCancel($event)"
         (callReservation)="onCall($event)"
         (finishService)="onFinish($event)"
+        (markArrived)="onMarkArrived($event)"
         (retry)="reload()"
       />
     } @else {
@@ -131,6 +133,7 @@ import { formatTime } from '@core/utils/format';
             (cancelReservation)="onCancel($event)"
             (callReservation)="onCall($event)"
             (finishService)="onFinish($event)"
+            (markArrived)="onMarkArrived($event)"
             (edit)="onEdit()"
             (enterService)="enterServiceMode()"
             (retry)="reload()"
@@ -379,6 +382,10 @@ export class FloorPlanPage {
 
   protected onFinish(reservation: Reservation): void {
     this.actions.finish(reservation, this.destroyRef);
+  }
+
+  protected onMarkArrived(reservation: Reservation): void {
+    this.actions.markArrived(reservation, this.destroyRef);
   }
 
   protected onUnassign(reservation: Reservation): void {

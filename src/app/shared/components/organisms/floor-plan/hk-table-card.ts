@@ -152,8 +152,16 @@ const WALK_IN_GUARD_MIN = 90;
                   Terminer le service
                 </hk-button>
               } @else {
+                <!-- Client attendu qui se presente : action PRINCIPALE -> installe. -->
+                <hk-button [size]="actionSize()" (click)="markArrived.emit(res)">
+                  Client arrivé
+                </hk-button>
                 @if (res.status === 'pending') {
-                  <hk-button [size]="actionSize()" (click)="confirmReservation.emit(res)">
+                  <hk-button
+                    [size]="actionSize()"
+                    variant="secondary"
+                    (click)="confirmReservation.emit(res)"
+                  >
                     Confirmer
                   </hk-button>
                 }
@@ -212,6 +220,7 @@ export class HkTableCard {
   readonly cancelReservation = output<Reservation>();
   readonly callReservation = output<Reservation>();
   readonly finishService = output<Reservation>();
+  readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
 
   protected readonly formatTime = formatTime;

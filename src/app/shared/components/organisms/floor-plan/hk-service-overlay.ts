@@ -97,6 +97,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         (cancelReservation)="cancelReservation.emit($event)"
         (callReservation)="callReservation.emit($event)"
         (finishService)="finishService.emit($event)"
+        (markArrived)="markArrived.emit($event)"
         (retry)="retry.emit()"
       />
     </div>
@@ -142,6 +143,7 @@ export class HkServiceOverlay {
   readonly cancelReservation = output<Reservation>();
   readonly callReservation = output<Reservation>();
   readonly finishService = output<Reservation>();
+  readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
   readonly retry = output<void>();
 
