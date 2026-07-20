@@ -59,6 +59,10 @@ const UPDATE_DEBOUNCE = 400;
 // etre supprimee (il faut d'abord la reaffecter / liberer).
 const BLOCKING_STATUSES: readonly Reservation['status'][] = ['pending', 'confirmed', 'seated'];
 
+// Nombre de tables creees par la grille auto quand la salle est vide (l'apercu
+// de la vignette « Grille automatique » en montre autant).
+const DEFAULT_GRID_TABLES = 12;
+
 // Specification d'une table a creer (POST /api/tables) + sa geometrie a poser.
 interface CreateSpec {
   capacity: number;
@@ -581,7 +585,16 @@ export class HkFloorPlanEditor implements OnInit {
     this.store.initFrom(tpl.apply(ids));
     this.selectedIds.set([]);
 
-    const missing = tpl.slots.slice(ids.length);
+    // Emplacements a creer : ceux du template non couverts par les tables
+    // existantes. La grille auto n'a pas d'emplacements fixes -> sur une salle
+    // vide on cree une grille par defaut (l'apercu en montre justement une),
+    // au lieu de laisser l'editeur vide.
+    let missing = tpl.slots.slice(ids.length);
+    if (tpl.key === 'blank' && ids.length === 0) {
+      missing = Array.from({ length: DEFAULT_GRID_TABLES }, (_, i) =>
+        defaultGeometryFor(4, gridPosition(i, DEFAULT_GRID_TABLES)),
+      );
+    }
     if (missing.length > 0) {
       this.createTables(missing.map((s) => ({ capacity: slotSeats(s.shape), geo: { ...s } })));
     }
