@@ -50,6 +50,7 @@ import { formatTime } from '@core/utils/format';
         [walls]="floorPlan.walls()"
         [merges]="floorPlan.merges()"
         [(selectedTableId)]="selectedTableId"
+        [(view3d)]="view3d"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (exitService)="exitServiceMode()"
@@ -111,6 +112,7 @@ import { formatTime } from '@core/utils/format';
             [walls]="floorPlan.walls()"
             [merges]="floorPlan.merges()"
             [(selectedTableId)]="selectedTableId"
+            [(view3d)]="view3d"
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
             [loading]="service.loading() || tables.loading()"
@@ -156,6 +158,9 @@ export class FloorPlanPage {
   // Table selectionnee (inspector) : detenue ICI pour survivre au passage
   // mode normal <-> mode service (deux instances du plan).
   protected readonly selectedTableId = signal<string | null>(null);
+  // Vue 2D/3D : detenue ICI aussi, pour survivre au passage mode normal <->
+  // service (sinon la 3D retombe en 2D en entrant en service).
+  protected readonly view3d = signal(false);
   // MODE SERVICE plein ecran (« poste d'accueil »).
   protected readonly serviceMode = signal(false);
   protected readonly restaurantId = environment.restaurantId;

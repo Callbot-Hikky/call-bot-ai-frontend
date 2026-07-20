@@ -20,6 +20,7 @@ class FloorPlanStub {
   readonly walls = input<WallSegment[]>([]);
   readonly merges = input<string[][]>([]);
   readonly selectedTableId = model<string | null>(null);
+  readonly view3d = model(false);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);

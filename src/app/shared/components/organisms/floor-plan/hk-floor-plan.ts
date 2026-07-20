@@ -814,7 +814,9 @@ export class HkFloorPlan {
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
-  protected readonly view3d = signal(false);
+  // model() : l'etat 2D/3D est PARTAGE avec la page, donc il survit au passage
+  // en mode service (deux instances du plan) — la 3D ne retombe plus en 2D.
+  readonly view3d = model(false);
   // Mode VITRINE de la 3D : orbite lente automatique (ecran d'accueil/mural).
   protected readonly vitrine = signal(false);
   // Panneau d'aide (« Comment ça marche ? ») : flottant sur le plan.

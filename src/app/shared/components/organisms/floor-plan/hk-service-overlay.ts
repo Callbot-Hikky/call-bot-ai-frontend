@@ -77,6 +77,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         class="block h-full min-h-0"
         [serviceMode]="true"
         [(selectedTableId)]="selectedTableId"
+        [(view3d)]="view3d"
         [reservations]="reservations()"
         [tables]="tables()"
         [geometry]="geometry()"
@@ -115,6 +116,9 @@ export class HkServiceOverlay {
   // Selection de table partagee avec la page : survit a l'entree/sortie du
   // mode service (les deux instances du plan lisent le meme etat).
   readonly selectedTableId = model<string | null>(null);
+  // Etat 2D/3D partage avec la page : la vue choisie avant d'entrer en service
+  // est conservee (3D -> service reste en 3D).
+  readonly view3d = model(false);
   readonly loading = input(false);
   readonly error = input(false);
 
