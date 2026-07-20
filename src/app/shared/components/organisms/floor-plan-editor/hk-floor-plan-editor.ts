@@ -92,14 +92,26 @@ interface DeletedTableSnapshot {
   selector: 'hk-floor-plan-editor',
   imports: [HkButton, HkIcon, HkFloorPlanEditorCanvas, HkPascalImport],
   template: `
-    @if (store.isEmpty()) {
-      <!-- Ecran de demarrage : aucun plan sauvegarde -> choix d'une mise en page. -->
+    @if (store.isEmpty() || choosingTemplate()) {
+      <!-- Ecran de mise en page : au demarrage (aucun plan) OU quand on demande
+           a re-choisir une disposition depuis l'editeur. -->
       <div class="bg-card border-border flex flex-col gap-5 rounded-md border p-6">
         <div class="flex flex-col gap-1">
-          <h2 class="text-text-strong text-lg font-semibold">Mettre en page la salle</h2>
+          <h2 class="text-text-strong text-lg font-semibold">
+            @if (choosingTemplate()) {
+              Changer de disposition
+            } @else {
+              Mettre en page la salle
+            }
+          </h2>
           <p class="text-text-subtle text-sm">
-            Choisissez une disposition de départ pour vos {{ tableCount() }} table(s). Tout reste
-            modifiable ensuite.
+            @if (choosingTemplate()) {
+              Choisissez une nouvelle disposition : vos {{ tableCount() }} table(s) seront
+              réarrangées (les emplacements manquants sont créés).
+            } @else {
+              Choisissez une disposition de départ pour vos {{ tableCount() }} table(s). Tout reste
+              modifiable ensuite.
+            }
           </p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -165,10 +177,17 @@ interface DeletedTableSnapshot {
           </span>
         </button>
         <div>
-          <hk-button variant="ghost" size="sm" (click)="closed.emit()">
-            <hk-icon name="lucideChevronLeft" [size]="16" />
-            Retour au plan
-          </hk-button>
+          @if (choosingTemplate()) {
+            <hk-button variant="ghost" size="sm" (click)="choosingTemplate.set(false)">
+              <hk-icon name="lucideChevronLeft" [size]="16" />
+              Garder la disposition actuelle
+            </hk-button>
+          } @else {
+            <hk-button variant="ghost" size="sm" (click)="closed.emit()">
+              <hk-icon name="lucideChevronLeft" [size]="16" />
+              Retour au plan
+            </hk-button>
+          }
         </div>
       </div>
     } @else {
@@ -197,6 +216,18 @@ interface DeletedTableSnapshot {
           </div>
 
           <span class="bg-border mx-1 h-6 w-px"></span>
+
+          <hk-button
+            variant="ghost"
+            size="sm"
+            data-testid="toolbar-change-template"
+            title="Repartir d'une autre disposition (Bistrot, Rangées, Brasserie...)"
+            [disabled]="creating()"
+            (click)="choosingTemplate.set(true)"
+          >
+            <hk-icon name="lucideGrid2x2" [size]="16" />
+            Changer de disposition
+          </hk-button>
 
           <hk-button variant="ghost" size="sm" [disabled]="creating()" (click)="addRow()">
             <hk-icon name="lucideRows3" [size]="16" />
@@ -511,6 +542,8 @@ export class HkFloorPlanEditor implements OnInit {
   protected readonly creating = signal(false);
   // Dialogue d'import Pascal (scan 3D / editeur web) ouvert.
   protected readonly importOpen = signal(false);
+  // Re-choix de disposition depuis l'editeur (reaffiche l'ecran des templates).
+  protected readonly choosingTemplate = signal(false);
   // MODE MURS : trace a la main (deux clics = un mur), tables gelees pendant.
   protected readonly wallMode = signal(false);
 
@@ -584,6 +617,7 @@ export class HkFloorPlanEditor implements OnInit {
     const ids = this.tableService.tables().map((t) => t.id);
     this.store.initFrom(tpl.apply(ids));
     this.selectedIds.set([]);
+    this.choosingTemplate.set(false);
 
     // Emplacements a creer : ceux du template non couverts par les tables
     // existantes. La grille auto n'a pas d'emplacements fixes -> sur une salle
