@@ -190,7 +190,7 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     expect(store.walls().length).toBe(2);
   });
 
-  it('un template APPLIQUE des positions aux tables EXISTANTES (aucune creation)', async () => {
+  it('un template dispose les tables EXISTANTES et CREE les emplacements manquants', async () => {
     const fixture = await open();
 
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector(
@@ -199,14 +199,28 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     btn.click();
     await fixture.whenStable();
 
-    // Aucune requete POST : le template ne cree pas de table.
-    httpMock.expectNone((r) => r.method === 'POST');
-    // La geometrie est keyee par les ids BACK des tables existantes.
-    expect(Object.keys(store.geometry()).sort()).toEqual(['t1', 't2', 't3']);
+    // Les 3 tables existantes recoivent la geometrie des premiers emplacements.
     expect(store.geometry()['t1'].shape).toBe('round');
-    // Le canvas rend les 3 tables reelles (labels back).
-    const canvas = findCanvas(fixture);
-    expect(canvas.tables().map((t) => t.label)).toEqual(['T1', 'T2', 'T3']);
+    expect(store.geometry()['t2']).toBeTruthy();
+    expect(store.geometry()['t3']).toBeTruthy();
+
+    // Bistrot a 12 emplacements : les 9 manquants sont crees (POST sequentiels).
+    let created = 0;
+    let pending = httpMock.match((r) => r.method === 'POST' && r.url.endsWith('/tables'));
+    while (pending.length > 0) {
+      pending[0].flush({
+        id: `t-tpl-${created}`,
+        restaurantId: RESTAURANT,
+        name: `T${created + 4}`,
+        capacity: 2,
+        isActive: true,
+      });
+      created++;
+      await fixture.whenStable();
+      pending = httpMock.match((r) => r.method === 'POST' && r.url.endsWith('/tables'));
+    }
+    expect(created).toBe(9);
+    expect(Object.keys(store.geometry()).length).toBe(12);
   });
 
   it('seme la geometrie manquante (auto-grille) pour toutes les tables reelles', async () => {

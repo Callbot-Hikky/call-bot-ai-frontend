@@ -36,6 +36,7 @@ import {
   offsetGeometry,
   rowGeometries,
   seedMissingGeometry,
+  slotSeats,
 } from '@core/models/floor-plan-editor.model';
 import { buildEditorTables, canMerge, pushApart, tablesTouch } from '@core/models/floor-plan.model';
 import { downloadDataUrl } from '@core/utils/download';
@@ -568,7 +569,9 @@ export class HkFloorPlanEditor implements OnInit {
 
   // --- Ecran de demarrage ------------------------------------------------------
 
-  // Applique un template aux tables EXISTANTES (les N premieres) : aucune creation.
+  // Applique un template : dispose les tables EXISTANTES sur ses emplacements, et
+  // CREE une table pour chaque emplacement non couvert. Ainsi un template produit
+  // toujours une salle, meme partant d'une salle vide (cas du demarrage).
   protected useTemplate(key: string): void {
     const tpl = this.templates.find((t) => t.key === key);
     if (!tpl) {
@@ -577,6 +580,11 @@ export class HkFloorPlanEditor implements OnInit {
     const ids = this.tableService.tables().map((t) => t.id);
     this.store.initFrom(tpl.apply(ids));
     this.selectedIds.set([]);
+
+    const missing = tpl.slots.slice(ids.length);
+    if (missing.length > 0) {
+      this.createTables(missing.map((s) => ({ capacity: slotSeats(s.shape), geo: { ...s } })));
+    }
   }
 
   // --- Creation de tables reelles (POST /api/tables) ----------------------------

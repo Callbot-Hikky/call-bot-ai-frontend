@@ -313,15 +313,34 @@ export interface FloorPlanTemplate {
   key: string;
   label: string;
   description: string;
+  // Emplacements du template (position + forme, sans table associee). Sert a
+  // CREER les tables manquantes quand la salle est vide.
+  slots: readonly TemplateSlot[];
   // Applique le template aux ids de tables donnes (dans l'ordre) -> geometrie.
   apply(tableIds: readonly string[]): GeometryMap;
 }
 
 // Emplacement d'un template (geometrie sans table associee).
-type TemplateSlot = TableGeometryEntry;
+export type TemplateSlot = TableGeometryEntry;
 
 function slot(x: number, y: number, w: number, h: number, shape: TableShape): TemplateSlot {
   return { x, y, w, h, rotation: 0, shape };
+}
+
+// Couverts par defaut d'un emplacement selon sa forme (pour creer la table).
+export function slotSeats(shape: TableShape): number {
+  switch (shape) {
+    case 'round':
+      return 2;
+    case 'square':
+      return 4;
+    case 'rect':
+      return 6;
+    case 'bar':
+      return 4;
+    default:
+      return 4;
+  }
 }
 
 // Zippe les emplacements avec les ids reels : min(N emplacements, M tables).
@@ -368,24 +387,28 @@ export const FLOOR_PLAN_TEMPLATES: readonly FloorPlanTemplate[] = [
     key: 'blank',
     label: 'Grille automatique',
     description: 'Vos tables en grille, à réarranger librement.',
+    slots: [],
     apply: () => ({}),
   },
   {
     key: 'bistrot',
     label: 'Bistrot',
     description: 'Dispose vos tables en configuration bistrot (3 rangées de rondes).',
+    slots: BISTROT_SLOTS,
     apply: (ids) => applySlots(BISTROT_SLOTS, ids),
   },
   {
     key: 'rows',
     label: 'Rangées',
     description: 'Dispose vos tables en 3 rangées régulières.',
+    slots: ROWS_SLOTS,
     apply: (ids) => applySlots(ROWS_SLOTS, ids),
   },
   {
     key: 'brasserie',
     label: 'Brasserie',
     description: 'Dispose vos tables autour d’un bar (configuration brasserie).',
+    slots: BRASSERIE_SLOTS,
     apply: (ids) => applySlots(BRASSERIE_SLOTS, ids),
   },
 ] as const;
