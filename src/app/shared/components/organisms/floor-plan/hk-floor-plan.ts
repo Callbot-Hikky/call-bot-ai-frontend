@@ -830,7 +830,9 @@ export class HkFloorPlan {
   // en mode service (deux instances du plan) — la 3D ne retombe plus en 2D.
   readonly view3d = model(false);
   // Mode VITRINE de la 3D : orbite lente automatique (ecran d'accueil/mural).
-  protected readonly vitrine = signal(false);
+  // model() partage : l'orbite choisie survit au passage en mode service (un
+  // ecran mural en 3D garde son orbite auto).
+  readonly vitrine = model(false);
   // Panneau d'aide (« Comment ça marche ? ») : flottant sur le plan.
   protected readonly helpOpen = signal(false);
   // MOBILE : tiroir droit (inspector + non placees) ouvert/ferme.

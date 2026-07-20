@@ -77,8 +77,10 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
       <hk-floor-plan
         class="block h-full min-h-0"
         [serviceMode]="true"
+        [portrait]="portrait()"
         [(selectedTableId)]="selectedTableId"
         [(view3d)]="view3d"
+        [(vitrine)]="vitrine"
         [reservations]="reservations()"
         [tables]="tables()"
         [geometry]="geometry()"
@@ -120,6 +122,11 @@ export class HkServiceOverlay {
   // Etat 2D/3D partage avec la page : la vue choisie avant d'entrer en service
   // est conservee (3D -> service reste en 3D).
   readonly view3d = model(false);
+  // Orbite auto de la 3D : partagee pour survivre a l'entree en service.
+  readonly vitrine = model(false);
+  // PORTRAIT MOBILE : bascule le plan en vue TUILES (operable) plutot que le plan
+  // spatial ecrase — le poste d'accueil reste utilisable sur un telephone tenu droit.
+  readonly portrait = input(false);
   readonly loading = input(false);
   readonly error = input(false);
 
