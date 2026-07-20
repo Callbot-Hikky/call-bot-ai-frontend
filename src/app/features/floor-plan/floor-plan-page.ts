@@ -222,18 +222,22 @@ export class FloorPlanPage {
     this.floorPlan.load(this.restaurantId);
 
     // ?placer= est un evenement ONE-SHOT : consomme puis retire de l'URL (un
-    // refresh/bookmark ne rejoue pas la preselection).
+    // refresh/bookmark ne rejoue pas la preselection). On NE retire l'URL que
+    // lorsque la resa est CHARGEE (donc applicable par le plan) : sinon un
+    // chargement lent la ferait disparaitre avant d'avoir ete preselectionnee.
     effect(() => {
-      if (this.placerId()) {
-        setTimeout(() => {
-          void this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: { placer: null },
-            queryParamsHandling: 'merge',
-            replaceUrl: true,
-          });
-        }, 3000);
+      const id = this.placerId();
+      if (!id || !this.service.reservations().some((r) => r.id === id)) {
+        return;
       }
+      setTimeout(() => {
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { placer: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }, 1500);
     });
 
     // Le vrai plein ecran peut etre quitte par le navigateur (Echap natif...) :
