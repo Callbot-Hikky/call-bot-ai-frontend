@@ -14,12 +14,17 @@ import {
   layoutTables,
   mergeViews,
   planAutoPlacements,
+  EDITOR_MIN_GAP,
+  WALL_MIN_GAP,
   pushApart,
+  rotatedBox,
+  wallObstacles,
   reservationLateMinutes,
   simulationRange,
   suggestMergeGroup,
   summarizeRoom,
   tableTimeLabel,
+  tablesTouch,
 } from './floor-plan.model';
 import { formatTime } from '@core/utils/format';
 
@@ -653,27 +658,218 @@ describe('blockedSides (cotes ou une table est collee)', () => {
     });
   });
 
-  it('table (ou voisine) TOURNEE : pas de blocage plutot qu un mauvais cote', () => {
-    const turned = { ...at(0.5, 0.5), rotation: 45 };
-    expect(blockedSides(turned, [at(0.5 + side, 0.5)]).e).toBe(false);
+  // Les tables pivotees sont desormais TRAITEES (et non plus ignorees) : le
+  // contact est calcule sur l'emprise reelle, puis le cote bloque est reprojete
+  // dans le repere local de la table, ou les chaises sont posees.
+  it('table TOURNEE a 90 deg : bloque son cote local, pas le cote ecran', () => {
+    const turned = { ...at(0.5, 0.5), rotation: 90 };
+    const blocked = blockedSides(turned, [at(0.5 + side, 0.5)]);
+    expect(blocked.n).toBe(true);
+    expect(blocked.e).toBe(false);
+  });
+
+  it('VOISINE tournee : son contact est pris en compte (chaise masquee)', () => {
     const neighborTurned = { ...at(0.5 + side, 0.5), rotation: 90 };
-    expect(blockedSides(at(0.5, 0.5), [neighborTurned]).e).toBe(false);
+    expect(blockedSides(at(0.5, 0.5), [neighborTurned]).e).toBe(true);
+  });
+
+  // Angle libre : on arrondit au quart de tour le plus proche. 45 deg est le pire
+  // cas (ambigu par construction) ; on verifie seulement qu'un seul cote sort,
+  // jamais plusieurs, pour ne pas effacer toutes les chaises d'un coup.
+  it('angle non multiple de 90 : au plus un cote bloque', () => {
+    const turned = { ...at(0.5, 0.5), rotation: 45 };
+    const blocked = blockedSides(turned, [at(0.5 + side, 0.5)]);
+    const count = [blocked.n, blocked.s, blocked.e, blocked.w].filter(Boolean).length;
+    expect(count).toBeLessThanOrEqual(1);
   });
 });
 
 describe('pushApart (anti-chevauchement editeur)', () => {
   const at = (x: number, y: number) => ({ x, y, w: 0.14, h: 0.14 });
 
+  const gapWith = (corrected: { x: number }) => Math.abs(corrected.x * 1.6 - 0.5 * 1.6) - 0.14;
+
   it('ecarte une table lachee sur une voisine (gap minimal respecte)', () => {
     const moved = at(0.52, 0.5); // chevauche la voisine a 0.5
     const corrected = pushApart(moved, [at(0.5, 0.5)]);
-    const dx = Math.abs(corrected.x * 1.6 - 0.5 * 1.6) - 0.14;
-    expect(dx).toBeGreaterThanOrEqual(0.02 - 1e-9);
+    expect(gapWith(corrected)).toBeGreaterThanOrEqual(EDITOR_MIN_GAP - 1e-9);
   });
 
   it('ne bouge pas une table deja assez eloignee', () => {
     const moved = at(0.8, 0.8);
     expect(pushApart(moved, [at(0.5, 0.5)])).toEqual({ x: 0.8, y: 0.8 });
+  });
+
+  // La table corrigee doit rester COLLEE : sous la tolerance de fusion, sinon on
+  // ne peut plus faire une grande tablee en un clic apres avoir rapproche.
+  it('laisse les tables assez proches pour rester fusionnables', () => {
+    const corrected = pushApart(at(0.52, 0.5), [at(0.5, 0.5)]);
+    expect(gapWith(corrected)).toBeLessThan(0.035);
+  });
+
+  // L'ecart est calibre sur les CHAISES : trop faible, elles se chevauchent tout
+  // en restant dessinees (le masquage ne s'applique que sous BLOCK_GAP = 0.015).
+  it('ecarte assez pour que les couronnes de chaises ne se recouvrent pas', () => {
+    // ~10,5 px de portee de chaise de chaque cote, sur un petit cote de ~688 px.
+    const porteeChaise = 10.5 / 688;
+    expect(EDITOR_MIN_GAP).toBeGreaterThanOrEqual(porteeChaise * 2);
+    // Mais toujours fusionnable en un clic.
+    expect(EDITOR_MIN_GAP).toBeLessThan(0.035);
+  });
+
+  // Regression : une table coincee entre une voisine a gauche et une au-dessus
+  // etait poussee en X *puis* en Y et partait en diagonale.
+  it('degage sur un seul axe (pas de decalage en diagonale)', () => {
+    const corrected = pushApart(at(0.5, 0.5), [at(0.44, 0.5), at(0.5, 0.44)]);
+    const movedX = Math.abs(corrected.x - 0.5) > 1e-9;
+    const movedY = Math.abs(corrected.y - 0.5) > 1e-9;
+    expect(movedX && movedY).toBe(false);
+  });
+
+  // Regression (cas T1 / T7 / T3) : en se degageant d'une voisine, la table
+  // venait en recouvrir une autre. Le degagement sur un seul axe est un confort
+  // visuel ; il ne doit jamais laisser un chevauchement derriere lui.
+  it('ne laisse aucun chevauchement, meme coincee entre plusieurs voisines', () => {
+    const others = [at(0.42, 0.5), at(0.58, 0.5), at(0.5, 0.4)];
+    const corrected = pushApart(at(0.5, 0.5), others);
+    for (const o of others) {
+      const dx = Math.abs(corrected.x * 1.6 - o.x * 1.6) - 0.14;
+      const dy = Math.abs(corrected.y - o.y) - 0.14;
+      expect(dx >= EDITOR_MIN_GAP - 1e-9 || dy >= EDITOR_MIN_GAP - 1e-9).toBe(true);
+    }
+  });
+});
+
+describe('rotatedBox (emprise reelle des tables pivotees)', () => {
+  it('echange largeur et hauteur a 90 degres', () => {
+    const box = rotatedBox({ x: 0.5, y: 0.5, w: 0.2, h: 0.1, rotation: 90 });
+    expect(box.w).toBeCloseTo(0.1, 6);
+    expect(box.h).toBeCloseTo(0.2, 6);
+  });
+
+  it('laisse une table non pivotee inchangee', () => {
+    const box = rotatedBox({ x: 0.5, y: 0.5, w: 0.2, h: 0.1, rotation: 0 });
+    expect(box.w).toBeCloseTo(0.2, 6);
+    expect(box.h).toBeCloseTo(0.1, 6);
+  });
+
+  // Regression (cas T1 a 90 deg / T3 a 0 deg d'un plan importe) : sans tenir
+  // compte de la rotation, l'emprise testee est fausse et les deux tables se
+  // recouvrent malgre l'anti-chevauchement.
+  it('empeche le recouvrement de deux tables d orientations differentes', () => {
+    const t1 = rotatedBox({ x: 0.5, y: 0.5, w: 0.26, h: 0.12, rotation: 90 });
+    const t3 = { x: 0.56, y: 0.42, w: 0.18, h: 0.12 };
+    const corrected = pushApart(t1, [t3]);
+    const dx = Math.abs(corrected.x * 1.6 - t3.x * 1.6) - (t1.w + t3.w) / 2;
+    const dy = Math.abs(corrected.y - t3.y) - (t1.h + t3.h) / 2;
+    expect(dx >= EDITOR_MIN_GAP - 1e-9 || dy >= EDITOR_MIN_GAP - 1e-9).toBe(true);
+  });
+});
+
+describe('pushApart : la table reste DANS le plan', () => {
+  // Regression (visible a l'import) : borner le centre a [0,1] laissait la
+  // moitie d'une table depasser du cadre.
+  it('ne laisse jamais une table depasser du bord', () => {
+    const collee = { x: 0.99, y: 0.99, w: 0.2, h: 0.2 };
+    const corrected = pushApart(collee, [{ x: 0.9, y: 0.9, w: 0.2, h: 0.2 }]);
+    const halfX = 0.2 / 2 / 1.6;
+    expect(corrected.x).toBeLessThanOrEqual(1 - halfX + 1e-9);
+    expect(corrected.x).toBeGreaterThanOrEqual(halfX - 1e-9);
+    expect(corrected.y).toBeLessThanOrEqual(1 - 0.1 + 1e-9);
+    expect(corrected.y).toBeGreaterThanOrEqual(0.1 - 1e-9);
+  });
+
+  it('centre une table plus large que le plan au lieu de l inverser', () => {
+    const enorme = { x: 0.9, y: 0.5, w: 4, h: 0.2 };
+    expect(pushApart(enorme, []).x).toBe(0.5);
+  });
+});
+
+describe('blockedSides avec tables pivotees', () => {
+  // Table centrale + voisine COLLEE a sa droite (est de l'ecran).
+  const centre = { x: 0.5, y: 0.5, w: 0.14, h: 0.14 };
+  const voisineEst = { x: 0.5 + 0.14 / 1.6, y: 0.5, w: 0.14, h: 0.14 };
+
+  it('table non pivotee : masque les chaises du cote du contact', () => {
+    const b = blockedSides(centre, [voisineEst]);
+    expect(b.e).toBe(true);
+    expect(b.n || b.s || b.w).toBe(false);
+  });
+
+  // Le groupe Konva est tourne AVANT que les chaises soient posees : pour une
+  // table a 90 deg, le voisin situe a l'est de l'ecran bloque son cote NORD
+  // local. Masquer « est » masquerait les chaises du mauvais bord.
+  it('table a 90 deg : le contact a l est de l ecran bloque le cote nord LOCAL', () => {
+    const b = blockedSides({ ...centre, rotation: 90 }, [voisineEst]);
+    expect(b.n).toBe(true);
+    expect(b.e).toBe(false);
+  });
+
+  it('table a 180 deg : le contact est bloque le cote ouest local', () => {
+    const b = blockedSides({ ...centre, rotation: 180 }, [voisineEst]);
+    expect(b.w).toBe(true);
+    expect(b.e).toBe(false);
+  });
+
+  // Regression : un voisin pivote etait purement ignore, donc une chaise etait
+  // dessinee au milieu du plateau d'a cote.
+  it('prend en compte un VOISIN pivote', () => {
+    const voisinePivotee = { x: 0.5 + 0.14 / 1.6, y: 0.5, w: 0.26, h: 0.14, rotation: 90 };
+    expect(blockedSides(centre, [voisinePivotee]).e).toBe(true);
+  });
+});
+
+describe('tablesTouch / canMerge avec rotation', () => {
+  // Deux rectangles longs pivotes a 90 deg, poses cote a cote horizontalement.
+  // A 90 deg leur emprise ecran est 0.11 de large : elles se touchent bien.
+  const a = { x: 0.5, y: 0.5, w: 0.24, h: 0.11, rotation: 90 };
+  const b = { x: 0.5 + 0.11 / 1.6, y: 0.5, w: 0.24, h: 0.11, rotation: 90 };
+
+  it('voit se toucher deux tables pivotees collees bord a bord', () => {
+    expect(tablesTouch(a, b)).toBe(true);
+  });
+
+  it('les declare fusionnables (bouton Fusionner actif)', () => {
+    expect(canMerge([a, b])).toBe(true);
+  });
+
+  it('reste correct sans rotation fournie (retrocompatible)', () => {
+    const c = { x: 0.5, y: 0.5, w: 0.14, h: 0.14 };
+    const d = { x: 0.5 + 0.14 / 1.6, y: 0.5, w: 0.14, h: 0.14 };
+    expect(tablesTouch(c, d)).toBe(true);
+  });
+});
+
+describe('wallObstacles (les murs bloquent les tables)', () => {
+  // Mur HORIZONTAL a mi-hauteur, comme ceux d'un plan importe (epaisseur 0.02).
+  const wall = { x1: 0.2, y1: 0.5, x2: 0.8, y2: 0.5, thickness: 0.02 };
+  const table = { w: 0.14, h: 0.14 };
+
+  it('convertit un mur horizontal en boite fine et centree sur le segment', () => {
+    const [box] = wallObstacles([wall]);
+    expect(box.x).toBeCloseTo(0.5, 6);
+    expect(box.y).toBeCloseTo(0.5, 6);
+    expect(box.h).toBeCloseTo(0.02, 6); // epaisseur seule : le mur n'a pas de hauteur
+  });
+
+  it('repousse hors du mur une table posee dessus', () => {
+    const onWall = { x: 0.5, y: 0.5, ...table };
+    const corrected = pushApart(onWall, wallObstacles([wall]), WALL_MIN_GAP);
+    const gap = Math.abs(corrected.y - 0.5) - (0.14 + 0.02) / 2;
+    expect(gap).toBeGreaterThanOrEqual(WALL_MIN_GAP - 1e-9);
+  });
+
+  // L'ecart au mur doit rester DISCRET : une table se pose contre le mur.
+  it('laisse la table quasi collee au mur', () => {
+    const onWall = { x: 0.5, y: 0.5, ...table };
+    const corrected = pushApart(onWall, wallObstacles([wall]), WALL_MIN_GAP);
+    const gap = Math.abs(corrected.y - 0.5) - (0.14 + 0.02) / 2;
+    expect(gap).toBeLessThan(EDITOR_MIN_GAP); // plus fin qu'entre deux tables
+  });
+
+  it('ne touche pas une table loin de tout mur', () => {
+    const far = { x: 0.5, y: 0.15, ...table };
+    expect(pushApart(far, wallObstacles([wall]), WALL_MIN_GAP)).toEqual({ x: 0.5, y: 0.15 });
   });
 });
 

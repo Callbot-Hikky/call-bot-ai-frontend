@@ -218,15 +218,20 @@ export function simulationRange(
 // Largeur du conteneur en unites « petit cote » (ratio 16:10 des canvas).
 const ASPECT_W = 1.6;
 
-// Deux geometries se touchent-elles ? Rects englobants en unites petit cote
-// (la rotation est ignoree : suffisant pour des tables collees bord a bord).
+// Deux geometries se touchent-elles ? Rects englobants en unites petit cote.
+// `rotation` est FACULTATIVE mais prise en compte quand elle est fournie : sans
+// elle, deux tables pivotees collees bord a bord etaient jugees separees (bouton
+// Fusionner grise a tort) ou l'inverse. Les appelants qui passent deja une
+// emprise pivotee peuvent l'omettre : rotatedBox est alors l'identite.
 export function tablesTouch(
-  a: { x: number; y: number; w: number; h: number },
-  b: { x: number; y: number; w: number; h: number },
+  a: { x: number; y: number; w: number; h: number; rotation?: number },
+  b: { x: number; y: number; w: number; h: number; rotation?: number },
   gap = 0.035,
 ): boolean {
-  const dx = Math.abs(a.x * ASPECT_W - b.x * ASPECT_W) - (a.w + b.w) / 2;
-  const dy = Math.abs(a.y - b.y) - (a.h + b.h) / 2;
+  const ra = rotatedBox(a);
+  const rb = rotatedBox(b);
+  const dx = Math.abs(ra.x * ASPECT_W - rb.x * ASPECT_W) - (ra.w + rb.w) / 2;
+  const dy = Math.abs(ra.y - rb.y) - (ra.h + rb.h) / 2;
   return dx <= gap && dy <= gap;
 }
 
@@ -249,23 +254,24 @@ export const NO_BLOCKED_SIDES: Readonly<BlockedSides> = { n: false, s: false, e:
 // doivent PAS perdre leurs chaises, seules les tables reellement bord a bord.
 const BLOCK_GAP = 0.015;
 
+// Cotes dans l'ordre des angles ECRAN croissants : 0 deg = est, 90 = sud (y
+// vers le bas), 180 = ouest, 270 = nord. Sert a convertir un cote ecran en cote
+// local quand la table est pivotee.
+const SIDE_BY_SCREEN_ANGLE: (keyof BlockedSides)[] = ['e', 's', 'w', 'n'];
+
 export function blockedSides(
   table: { x: number; y: number; w: number; h: number; rotation?: number },
   others: readonly { x: number; y: number; w: number; h: number; rotation?: number }[],
   gap = BLOCK_GAP,
 ): BlockedSides {
-  // Table TOURNEE : ses cotes locaux ne correspondent plus aux axes ecran du
-  // calcul - on ne masque rien plutot que de masquer le mauvais cote.
-  if ((table.rotation ?? 0) % 360 !== 0) {
-    return { ...NO_BLOCKED_SIDES };
-  }
-  const blocked: BlockedSides = { n: false, s: false, e: false, w: false };
+  // Contacts calcules en repere ECRAN, sur les emprises PIVOTEES : une table a
+  // 90 deg a largeur et hauteur echangees, sans quoi les contacts sont faux.
+  const ta = rotatedBox(table);
+  const screen: BlockedSides = { n: false, s: false, e: false, w: false };
   for (const b of others) {
-    if ((b.rotation ?? 0) % 360 !== 0) {
-      continue; // voisin tourne : bbox non fiable, on l'ignore.
-    }
-    const dx = Math.abs(table.x * ASPECT_W - b.x * ASPECT_W) - (table.w + b.w) / 2;
-    const dy = Math.abs(table.y - b.y) - (table.h + b.h) / 2;
+    const bb = rotatedBox(b);
+    const dx = Math.abs(ta.x * ASPECT_W - bb.x * ASPECT_W) - (ta.w + bb.w) / 2;
+    const dy = Math.abs(ta.y - bb.y) - (ta.h + bb.h) / 2;
     if (dx > gap || dy > gap) {
       continue; // pas collees.
     }
@@ -276,23 +282,36 @@ export function blockedSides(
       if (dy >= 0) {
         continue;
       }
-      if (b.x > table.x) {
-        blocked.e = true;
+      if (bb.x > ta.x) {
+        screen.e = true;
       } else {
-        blocked.w = true;
+        screen.w = true;
       }
     } else {
       if (dx >= 0) {
         continue;
       }
-      if (b.y > table.y) {
-        blocked.s = true;
+      if (bb.y > ta.y) {
+        screen.s = true;
       } else {
-        blocked.n = true;
+        screen.n = true;
       }
     }
   }
-  return blocked;
+
+  // REPROJECTION ecran -> LOCAL. layoutSeats pose les chaises dans le repere du
+  // groupe Konva, qui a DEJA subi la rotation de la table : un contact a l'est
+  // de l'ecran correspond, pour une table a 90 deg, a son cote nord local.
+  // Sans cette conversion on masquerait les chaises du mauvais cote.
+  const steps = Math.round(((((table.rotation ?? 0) % 360) + 360) % 360) / 90) % 4;
+  if (steps === 0) {
+    return screen;
+  }
+  const local: BlockedSides = { n: false, s: false, e: false, w: false };
+  SIDE_BY_SCREEN_ANGLE.forEach((side, i) => {
+    local[side] = screen[SIDE_BY_SCREEN_ANGLE[(i + steps) % 4]];
+  });
+  return local;
 }
 
 // ANTI-CHEVAUCHEMENT (editeur) : repousse une table deplacee pour garantir un
@@ -300,15 +319,104 @@ export function blockedSides(
 // L'ecart choisi (0.02) est > BLOCK_GAP (les chaises restent dessinees) et
 // < la tolerance de fusion (0.035) : les tables restent fusionnables en un
 // clic, mais ne se chevauchent jamais par accident.
-export const EDITOR_MIN_GAP = 0.02;
+// Ecart mini APRES correction. Calibre sur les CHAISES, pas sur les plateaux :
+// une chaise porte a SEAT_GAP + son rayon (~10,5 px) au-dela du bord, donc il
+// faut ~21 px entre deux plateaux pour que les deux couronnes ne se recouvrent
+// pas. A 0.016 (~11 px) les chaises restaient dessinees ET se chevauchaient :
+// c'etait la pire valeur possible, juste au-dessus de BLOCK_GAP (0.015) qui
+// aurait masque les chaises du cote colle.
+// Reste sous la tolerance de fusion (0.035) : deux tables ainsi ecartees sont
+// toujours fusionnables en un clic pour faire une grande tablee.
+// Fenetre de reglage tres etroite : >= 0.0305 (chaises) et < 0.035 (fusion), en
+// restant SOUS l'espacement des rangees generees (0.021 * 1.6 = 0.0336), sinon
+// une rangee tout juste creee se repousse elle-meme et perd son alignement.
+export const EDITOR_MIN_GAP = 0.031;
 
-export function pushApart(
-  moved: { x: number; y: number; w: number; h: number },
-  others: readonly { x: number; y: number; w: number; h: number }[],
-  minGap = EDITOR_MIN_GAP,
+// Ecart mini table <-> MUR : volontairement bien plus fin qu'entre deux tables.
+// En salle une table se pose CONTRE le mur ; on veut juste qu'elle ne le
+// chevauche pas, pas qu'elle s'en ecarte visiblement.
+export const WALL_MIN_GAP = 0.006;
+
+// Murs vus comme OBSTACLES rectangulaires, dans le meme repere que les tables
+// (x en unites petit cote, d'ou le * ASPECT_W). Les murs d'un plan de salle sont
+// horizontaux ou verticaux : cette boite est alors EXACTE, pas une approximation.
+// Un mur oblique serait sur-couvert par sa boite englobante (on bloque un peu
+// trop), jamais sous-couvert : on ne laisse pas passer une table au travers.
+export function wallObstacles(
+  walls: readonly { x1: number; y1: number; x2: number; y2: number; thickness: number }[],
+): { x: number; y: number; w: number; h: number }[] {
+  return walls.map((w) => {
+    const minX = Math.min(w.x1, w.x2);
+    const maxX = Math.max(w.x1, w.x2);
+    const minY = Math.min(w.y1, w.y2);
+    const maxY = Math.max(w.y1, w.y2);
+    return {
+      x: (minX + maxX) / 2,
+      y: (minY + maxY) / 2,
+      w: (maxX - minX) * ASPECT_W + w.thickness,
+      h: maxY - minY + w.thickness,
+    };
+  });
+}
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Emprise REELLE d'une table pivotee. Une table a 90 deg occupe a l'ecran une
+// zone dont largeur et hauteur sont echangees ; l'anti-chevauchement raisonnait
+// sur les dimensions NON tournees, donc sur une fausse emprise, et laissait deux
+// tables pivotees se recouvrir (cas des plans importes, ou presque toutes les
+// tables ont une rotation). Formule generale : exacte a 0/90/180/270 deg, et
+// conservatrice (boite englobante) pour un angle quelconque.
+export function rotatedBox(t: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  rotation?: number;
+}): Box {
+  const rad = ((t.rotation ?? 0) * Math.PI) / 180;
+  const c = Math.abs(Math.cos(rad));
+  const s = Math.abs(Math.sin(rad));
+  return { x: t.x, y: t.y, w: t.w * c + t.h * s, h: t.w * s + t.h * c };
+}
+
+// Vrai si la table posee en (x,y) empiete encore sur l'une des boites.
+// Tolerance d'arrondi. La poussee divise par ASPECT_W et ce controle remultiplie
+// par ASPECT_W : l'aller-retour n'est pas exact en flottant et `dx` retombe a
+// `minGap - 1 ulp`. Sans epsilon, un degagement PARFAIT etait declare en echec
+// environ une fois sur deux, ce qui annulait le degagement sur un seul axe.
+const GAP_EPS = 1e-9;
+
+function overlapsAny(
+  x: number,
+  y: number,
+  moved: Box,
+  others: readonly Box[],
+  minGap: number,
+): boolean {
+  return others.some((o) => {
+    const dx = Math.abs(x * ASPECT_W - o.x * ASPECT_W) - (moved.w + o.w) / 2;
+    const dy = Math.abs(y - o.y) - (moved.h + o.h) / 2;
+    return dx < minGap - GAP_EPS && dy < minGap - GAP_EPS;
+  });
+}
+
+// Une resolution. `lockAxis` : degager sur un seul axe (plus previsible a
+// l'oeil) au lieu de laisser chaque voisine choisir le sien (diagonale).
+function resolveOverlaps(
+  moved: Box,
+  others: readonly Box[],
+  minGap: number,
+  lockAxis: boolean,
 ): { x: number; y: number } {
   let x = moved.x;
   let y = moved.y;
+  let axis: 'x' | 'y' | null = null;
   for (let pass = 0; pass < 4; pass++) {
     let collided = false;
     for (const o of others) {
@@ -318,10 +426,12 @@ export function pushApart(
         continue; // assez separees sur au moins un axe.
       }
       collided = true;
-      // Poussee le long de l'axe demandant la PLUS PETITE correction.
+      // Axe demandant la PLUS PETITE correction pour cette voisine.
       const pushX = minGap - dx;
       const pushY = minGap - dy;
-      if (pushX <= pushY) {
+      const preferred: 'x' | 'y' = pushX <= pushY ? 'x' : 'y';
+      axis ??= preferred;
+      if ((lockAxis ? axis : preferred) === 'x') {
         x += ((x >= o.x ? 1 : -1) * pushX) / ASPECT_W;
       } else {
         y += (y >= o.y ? 1 : -1) * pushY;
@@ -331,7 +441,42 @@ export function pushApart(
       break;
     }
   }
-  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  return { x, y };
+}
+
+// ANTI-CHEVAUCHEMENT : on tente d'abord un degagement sur UN SEUL axe, plus
+// previsible a l'oeil (sinon une table coincee entre deux voisines part en
+// diagonale). Mais un axe unique ne resout pas toutes les configurations : dans
+// un angle, la table degagee d'une voisine peut venir en recouvrir une autre.
+// On verifie donc le resultat et, s'il reste un empietement, on rejoue en
+// laissant chaque voisine choisir son axe. Ne JAMAIS laisser deux tables se
+// chevaucher prime sur le confort visuel du deplacement.
+export function pushApart(
+  moved: Box,
+  others: readonly Box[],
+  minGap = EDITOR_MIN_GAP,
+): { x: number; y: number } {
+  // On borne l'EMPRISE, pas le centre : borner le centre a [0,1] laissait la
+  // moitie d'une table depasser hors du plan (visible a l'import, ou des tables
+  // sortaient du cadre a droite). Les demi-largeurs sont en unites petit cote,
+  // d'ou la division par ASPECT_W pour revenir en fraction de largeur.
+  const halfW = moved.w / 2 / ASPECT_W;
+  const halfH = moved.h / 2;
+  const clamp = (p: { x: number; y: number }) => ({
+    // Table plus large que le plan : on la centre plutot que de l'inverser.
+    x: halfW * 2 >= 1 ? 0.5 : Math.max(halfW, Math.min(1 - halfW, p.x)),
+    y: halfH * 2 >= 1 ? 0.5 : Math.max(halfH, Math.min(1 - halfH, p.y)),
+  });
+
+  // On teste la position CLAMPEE, pas la brute : contre un bord, une table
+  // poussee au-dela de 1 est ramenee a 1, donc parfois remise dans la voisine
+  // dont on venait de la degager. Valider la position brute laissait passer ce
+  // chevauchement-la.
+  const single = clamp(resolveOverlaps(moved, others, minGap, true));
+  if (!overlapsAny(single.x, single.y, moved, others, minGap)) {
+    return single;
+  }
+  return clamp(resolveOverlaps(moved, others, minGap, false));
 }
 
 // ANGLES LIBRES d'une table RONDE : repartit `count` chaises uniformement sur
@@ -374,7 +519,7 @@ export function freeRingAngles(count: number, blocked: BlockedSides): number[] {
 // Un groupe est fusionnable si chaque table touche au moins une autre du groupe
 // (chaine de tables collees, pas forcement toutes mutuellement en contact).
 export function canMerge(
-  entries: readonly { x: number; y: number; w: number; h: number }[],
+  entries: readonly { x: number; y: number; w: number; h: number; rotation?: number }[],
 ): boolean {
   if (entries.length < 2) {
     return false;
@@ -591,7 +736,10 @@ export function suggestMergeGroup(
   const free = views.filter((v) => v.status === 'libre' && !mergedIds.has(v.table.id));
 
   const touching = (a: FloorTableView, b: FloorTableView): boolean =>
-    tablesTouch({ x: a.x, y: a.y, w: a.w, h: a.h }, { x: b.x, y: b.y, w: b.w, h: b.h });
+    tablesTouch(
+      { x: a.x, y: a.y, w: a.w, h: a.h, rotation: a.rotation },
+      { x: b.x, y: b.y, w: b.w, h: b.h, rotation: b.rotation },
+    );
   const capacity = (group: readonly FloorTableView[]): number =>
     group.reduce((sum, v) => sum + v.table.capacity, 0);
 
