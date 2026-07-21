@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HlmCommandImports } from '@spartan-ng/helm/command';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { NAV_ITEMS } from '@core/layout/nav-items';
+import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
 
 // Palette de commandes : pastille de recherche + raccourci global Ctrl/Cmd+K.
 @Component({
@@ -50,7 +50,7 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
 })
 export class HkCommandPalette {
   private readonly router = inject(Router);
-  protected readonly navItems = NAV_ITEMS;
+  protected readonly navItems = FLAT_NAV_ITEMS;
   protected readonly state = signal<BrnDialogState>('closed');
 
   constructor() {

@@ -33,7 +33,9 @@ export class HkButton {
 
   protected readonly classes = computed(() =>
     [
-      'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm font-medium',
+      // whitespace-nowrap : un libelle de bouton ne se casse JAMAIS sur deux
+      // lignes (rangees denses du plan de salle comprises).
+      'inline-flex cursor-pointer items-center justify-center gap-2 rounded-sm font-medium whitespace-nowrap',
       'transition-colors duration-150',
       'focus-visible:ring-primary focus-visible:ring-offset-background focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
       'active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',

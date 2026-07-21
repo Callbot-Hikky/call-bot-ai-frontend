@@ -65,17 +65,29 @@ export function mapReservation(dto: ReservationDto): Reservation {
   };
 }
 
-// Reconstruit le corps d'une mutation (PUT) à partir du DTO courant + un nouveau statut.
-export function toRequest(dto: ReservationDto, status: string): ReservationRequestDto {
+// Champs surchargeables lors d'une mutation PUT (le reste vient du DTO courant).
+// `tableId` permet d'affecter (UUID) ou de desaffecter (null) une table sans
+// changer le statut.
+export interface ReservationRequestOverrides {
+  status?: string;
+  tableId?: string | null;
+}
+
+// Reconstruit le corps d'une mutation (PUT) a partir du DTO courant + surcharges.
+// Sans surcharge, le corps est identique au DTO (idempotent).
+export function toRequest(
+  dto: ReservationDto,
+  overrides: ReservationRequestOverrides = {},
+): ReservationRequestDto {
   return {
     restaurantId: dto.restaurantId,
     customerId: dto.customerId,
-    tableId: dto.tableId,
+    tableId: overrides.tableId !== undefined ? overrides.tableId : dto.tableId,
     callId: dto.callId,
     startsAt: dto.startsAt,
     endsAt: dto.endsAt,
     partySize: dto.partySize,
-    status,
+    status: overrides.status ?? dto.status,
     source: dto.source,
     notes: dto.notes,
   };

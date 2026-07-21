@@ -4,7 +4,7 @@ import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
-import { NAV_ITEMS } from '@core/layout/nav-items';
+import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
 
 // Sidebar en drawer sur mobile, via la primitive Spartan sheet (overlay + Echap natifs).
 @Component({
@@ -46,5 +46,5 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkMobileNav {
-  protected readonly navItems = NAV_ITEMS;
+  protected readonly navItems = FLAT_NAV_ITEMS;
 }

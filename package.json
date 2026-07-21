@@ -38,8 +38,10 @@
     "@spartan-ng/brain": "0.0.1-alpha.718",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "konva": "^10.3.0",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.5.0",
+    "three": "^0.185.1",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
@@ -50,6 +52,7 @@
     "@eslint/js": "^10.0.1",
     "@spartan-ng/cli": "0.0.1-alpha.718",
     "@tailwindcss/postcss": "^4.3.1",
+    "@types/three": "^0.185.1",
     "angular-eslint": "21.4.0",
     "eslint": "^10.3.0",
     "husky": "^9.1.7",

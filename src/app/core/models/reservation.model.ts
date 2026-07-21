@@ -27,3 +27,13 @@ export interface Reservation {
   // Origine de la réservation (utile pour valoriser le bot)
   source?: 'callbot' | 'manual' | 'web';
 }
+
+// LIVE (LOT B3) : diff par id apres un refresh silencieux. Retourne les
+// reservations presentes dans `after` mais absentes de `beforeIds` (les nouvelles
+// arrivees, a annoncer par toast + pulse).
+export function newReservations(
+  beforeIds: ReadonlySet<string>,
+  after: readonly Reservation[],
+): Reservation[] {
+  return after.filter((r) => !beforeIds.has(r.id));
+}

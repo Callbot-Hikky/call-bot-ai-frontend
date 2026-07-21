@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
+import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { LayoutService } from '@core/services/layout.service';
 import { ToastService } from '@core/services/toast.service';
 import { NAV_ITEMS } from '@core/layout/nav-items';
@@ -9,7 +10,7 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
 // Sidebar du shell : logo, navigation, profil en bas, bouton replier/déplier.
 @Component({
   selector: 'hk-sidebar',
-  imports: [HkNavItem, HkProfileMenu, HkIconButton],
+  imports: [HkNavItem, HkProfileMenu, HkIconButton, HkIcon],
   template: `
     <aside
       class="bg-sidebar border-border flex h-full flex-col border-r transition-[width] duration-200"
@@ -28,12 +29,39 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
 
       <nav class="flex flex-1 flex-col gap-1 p-2" aria-label="Navigation principale">
         @for (item of navItems; track item.route) {
-          <hk-nav-item
-            [icon]="item.icon"
-            [label]="item.label"
-            [route]="item.route"
-            [collapsed]="collapsed()"
-          />
+          @if (item.children; as children) {
+            <!-- GROUPE « en escalier » : le parent est un intitule (pas un lien),
+                 les enfants naviguent, indentes sous un trait vertical. Replie :
+                 le parent disparait, les enfants restent (icone + tooltip). -->
+            @if (!collapsed()) {
+              <span
+                class="text-text-muted flex h-8 items-center gap-3 px-3 text-xs font-semibold tracking-wide uppercase"
+              >
+                <hk-icon [name]="item.icon" [size]="16" />
+                {{ item.label }}
+              </span>
+            }
+            <div
+              class="flex flex-col gap-1"
+              [class]="collapsed() ? '' : 'border-border ml-5 border-l pl-2'"
+            >
+              @for (child of children; track child.route) {
+                <hk-nav-item
+                  [icon]="child.icon"
+                  [label]="child.label"
+                  [route]="child.route"
+                  [collapsed]="collapsed()"
+                />
+              }
+            </div>
+          } @else {
+            <hk-nav-item
+              [icon]="item.icon"
+              [label]="item.label"
+              [route]="item.route"
+              [collapsed]="collapsed()"
+            />
+          }
         }
       </nav>
 

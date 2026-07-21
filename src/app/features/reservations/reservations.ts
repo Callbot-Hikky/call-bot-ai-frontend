@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router } from '@angular/router';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
@@ -9,12 +18,20 @@ import {
 import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
+import {
+  HkNewReservationDialog,
+  NewReservationInput,
+} from '@shared/components/organisms/new-reservation-dialog/hk-new-reservation-dialog';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
+import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { ReservationService } from '@core/services/reservation.service';
+import { ReservationActionsService } from '@core/services/reservation-actions.service';
 import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
+import { formatTime } from '@core/utils/format';
+import { conflictMessage } from '@core/utils/http-error';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -26,8 +43,10 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   no_show: 5,
 };
 
-// Écran « Réservations du jour » (US 6.2). Assemble les organismes et branche le
-// ReservationService. Filtrage et KPI dérivés en computed signals.
+// Écran « Réservations du jour » (US 6.2) : KPI, demandes de rappel et LISTE.
+// Le plan de salle vit desormais sur SA page (« Plan de salle », sidebar) ;
+// les deux ecrans partagent les memes services (signals) - une affectation
+// faite sur le plan est visible ici immediatement.
 @Component({
   selector: 'app-reservations',
   imports: [
@@ -37,12 +56,16 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
     HkFilterBar,
     HkReservationList,
     HkReservationDetailDrawer,
+    HkNewReservationDialog,
     HkButton,
+    HkIcon,
   ],
   template: `
     <hk-page-header [subtitle]="today">
-      <hk-button variant="secondary" size="sm">Aujourd'hui</hk-button>
-      <hk-button size="sm">Nouvelle réservation</hk-button>
+      <hk-button size="sm" data-testid="open-new-resa" (click)="newResaState.set('open')">
+        <hk-icon name="lucidePlus" [size]="16" />
+        Nouvelle réservation
+      </hk-button>
     </hk-page-header>
 
     <div class="flex flex-col gap-6">
@@ -55,6 +78,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (handled)="onHandled($event)"
         (retry)="callbacks.loadPending()"
       />
+
       <hk-filter-bar [(status)]="statusFilter" [(search)]="search" />
       <hk-reservation-list
         [reservations]="displayed()"
@@ -63,6 +87,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         [sort]="sort()"
         (sortChange)="sort.set($event)"
         (open)="openDetail($event)"
+        (place)="onPlace($event)"
         (confirm)="onConfirm($event)"
         (cancelReservation)="onCancel($event)"
         (call)="onCall($event)"
@@ -70,12 +95,21 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       />
     </div>
 
+    <hk-new-reservation-dialog
+      [(state)]="newResaState"
+      [busy]="creatingManual()"
+      (createReservation)="onCreateManual($event)"
+    />
+
     <hk-reservation-detail-drawer
       [reservation]="selected()"
+      [tableReservations]="selectedTableReservations()"
       [(state)]="drawerState"
       (confirm)="onConfirm($event)"
       (cancelReservation)="onCancel($event)"
       (call)="onCall($event)"
+      (endService)="onFinish($event)"
+      (markArrived)="onMarkArrived($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -84,12 +118,21 @@ export class ReservationsPage {
   protected readonly service = inject(ReservationService);
   protected readonly callbacks = inject(CallbackService);
   private readonly toast = inject(ToastService);
+  private readonly actions = inject(ReservationActionsService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
 
   protected readonly statusFilter = signal<StatusFilter>('all');
   protected readonly search = signal('');
-  protected readonly sort = signal<ReservationSort | null>(null);
+  // Tri PAR HEURE par defaut : en service on lit la soiree chronologiquement
+  // (l'ordre d'insertion API n'a aucun sens metier).
+  protected readonly sort = signal<ReservationSort | null>({ key: 'time', dir: 'asc' });
   protected readonly selectedId = signal<string | null>(null);
   protected readonly drawerState = signal<BrnDialogState>('closed');
+  // Dialog « Nouvelle réservation » (prise manuelle).
+  protected readonly newResaState = signal<BrnDialogState>('closed');
+  // Creation manuelle en cours -> desactive le submit du dialog (anti double envoi).
+  protected readonly creatingManual = signal(false);
 
   protected readonly today = new Date().toLocaleDateString('fr-FR', {
     weekday: 'long',
@@ -101,6 +144,22 @@ export class ReservationsPage {
   protected readonly selected = computed(
     () => this.service.reservations().find((r) => r.id === this.selectedId()) ?? null,
   );
+
+  // Resas VIVANTES de la table de la resa affichée (frise « Soirée de la table »).
+  protected readonly selectedTableReservations = computed(() => {
+    const tableId = this.selected()?.table?.id;
+    if (!tableId) {
+      return [];
+    }
+    return this.service
+      .reservations()
+      .filter(
+        (r) =>
+          r.table?.id === tableId &&
+          (r.status === 'pending' || r.status === 'confirmed' || r.status === 'seated'),
+      )
+      .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+  });
 
   protected readonly filtered = computed(() => {
     const status = this.statusFilter();
@@ -151,8 +210,70 @@ export class ReservationsPage {
   });
 
   constructor() {
-    this.service.loadToday();
+    // Retour depuis la page Plan : donnees deja en memoire -> refresh silencieux
+    // (pas de skeletons), sinon chargement initial complet.
+    if (this.service.reservations().length > 0) {
+      this.service
+        .refresh()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          error: () => undefined,
+        });
+    } else {
+      this.service.loadToday();
+    }
     this.callbacks.loadPending();
+
+    // LIVE LEGER (LOT B3) : polling partage (ReservationService), la page ne
+    // fournit que son delta - le toast d'annonce.
+    this.service.startLivePolling(this.destroyRef, {
+      onNew: (created) => this.announceNewReservation(created),
+    });
+  }
+
+  // Toast « Nouvelle réservation » (valorise le bot).
+  private announceNewReservation(r: Reservation): void {
+    const detail = `${r.customerName}, ${r.partySize} couv., ${formatTime(r.dateTime)}`;
+    if (r.source === 'callbot') {
+      this.toast.show(`Nouvelle réservation prise par le bot : ${detail}`, 'success');
+    } else {
+      this.toast.show(`Nouvelle réservation : ${detail}`);
+    }
+  }
+
+  // NOUVELLE RESERVATION MANUELLE : POST client + resa, puis proposition de
+  // placement immediat (toast avec action -> plan preselectionne).
+  protected onCreateManual(input: NewReservationInput): void {
+    if (this.creatingManual()) {
+      return;
+    }
+    this.creatingManual.set(true);
+    this.service
+      .createManual(input)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (created) => {
+          this.creatingManual.set(false);
+          this.newResaState.set('closed');
+          this.toast.show(`Réservation créée pour ${created.customerName}`, 'success', {
+            label: 'Placer sur le plan',
+            run: () => this.onPlace(created),
+          });
+        },
+        error: (err) => {
+          this.creatingManual.set(false);
+          this.toast.show(
+            conflictMessage(err, 'Échec de la création. Vérifiez le téléphone.'),
+            'error',
+          );
+        },
+      });
+  }
+
+  // « Placer » depuis la liste : bascule sur la page Plan avec la resa
+  // PRESELECTIONNEE (bandeau d'affectation ouvert, meilleure table surlignee).
+  protected onPlace(reservation: Reservation): void {
+    void this.router.navigate(['/plan'], { queryParams: { placer: reservation.id } });
   }
 
   protected openDetail(reservation: Reservation): void {
@@ -160,18 +281,26 @@ export class ReservationsPage {
     this.drawerState.set('open');
   }
 
+  // Fin du service (drawer, resa seated) : action partagee + fermeture du drawer.
+  protected onFinish(reservation: Reservation): void {
+    this.actions.finish(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // Client arrive (drawer) : installe la resa + ferme le drawer.
+  protected onMarkArrived(reservation: Reservation): void {
+    this.actions.markArrived(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
   protected onConfirm(reservation: Reservation): void {
-    this.service
-      .confirm(reservation.id)
-      .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
+    this.actions.confirm(reservation, this.destroyRef);
   }
 
   protected onCancel(reservation: Reservation): void {
-    this.service.cancel(reservation.id).subscribe(() => this.toast.show('Réservation annulée'));
+    this.actions.cancel(reservation, this.destroyRef);
   }
 
   protected onCall(reservation: Reservation): void {
-    this.toast.show(`Appel de ${reservation.customerName}...`);
+    this.actions.call(reservation);
   }
 
   protected onCallBack(request: CallbackRequest): void {

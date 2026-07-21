@@ -1,15 +1,25 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { EMPTY, Observable, of } from 'rxjs';
-import { delay, map, tap } from 'rxjs/operators';
+import { delay, map, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
-import { Reservation, ReservationStatus } from '@core/models/reservation.model';
-import { ReservationDto, mapReservation, toRequest } from '@core/models/reservation-dto.model';
-import { localDateKey } from '@core/utils/format';
+import {
+  Reservation,
+  ReservationStatus,
+  RestaurantTable,
+  newReservations,
+} from '@core/models/reservation.model';
+import {
+  ReservationDto,
+  ReservationRequestDto,
+  mapReservation,
+  toRequest,
+} from '@core/models/reservation-dto.model';
+import { localDateKey, localIso } from '@core/utils/format';
 
 // Service des réservations. Deux modes selon environment.useMock :
-//  - mock : données de test (of(...).pipe(delay), aucun réseau) — pour la démo et les tests ;
+//  - mock : données de test (of(...).pipe(delay), aucun réseau) - pour la démo et les tests ;
 //  - réel : appels HTTP au backend (GET ?expand=table,customer, PUT pour le statut).
 // On ne change que l'intérieur du service : les écrans consomment toujours `reservations`.
 @Injectable({ providedIn: 'root' })
@@ -43,6 +53,76 @@ export class ReservationService {
     });
   }
 
+  // Rafraichissement SILENCIEUX (polling live, LOT B3) : recharge les reservations
+  // et met a jour le signal SANS toucher `loading` ni `error` - pas de spinner ni
+  // de clignotement toutes les 20 s. L'appelant recoit la liste fraiche pour diff.
+  // LIVE LEGER partage (liste ET plan) : polling silencieux toutes les 20 s,
+  // actif page visible (et isActive() vraie - ex. hors mode edition). Le diff
+  // par id declenche onNew pour chaque reservation ARRIVEE (toast, pulse...).
+  // La logique vit ICI une seule fois ; chaque page ne fournit que son delta.
+  startLivePolling(
+    destroyRef: DestroyRef,
+    options: { isActive?: () => boolean; onNew?: (created: Reservation) => void } = {},
+  ): void {
+    const POLL_INTERVAL_MS = 20_000;
+    const tick = (): void => {
+      if (document.visibilityState !== 'visible' || options.isActive?.() === false) {
+        return;
+      }
+      this.refreshSilently(options.onNew);
+    };
+    const timer = setInterval(tick, POLL_INTERVAL_MS);
+    const onVisibility = (): void => tick();
+    document.addEventListener('visibilitychange', onVisibility);
+    destroyRef.onDestroy(() => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    });
+  }
+
+  // Re-fetch SILENCIEUX (pas de spinner : refresh() ne touche pas `loading`),
+  // puis diff par id -> callback pour chaque nouvelle reservation.
+  private refreshSilently(onNew?: (created: Reservation) => void): void {
+    if (this._loading()) {
+      return; // chargement initial (ou reessai) en cours : inutile de doubler.
+    }
+    const beforeIds = new Set(this._reservations().map((r) => r.id));
+    this.refresh().subscribe({
+      next: (list) => {
+        if (onNew) {
+          for (const created of newReservations(beforeIds, list)) {
+            onNew(created);
+          }
+        }
+      },
+      // Echec silencieux : le prochain tick retentera (pas de bandeau d'erreur).
+      error: () => undefined,
+    });
+  }
+
+  refresh(date?: string): Observable<Reservation[]> {
+    // MOCK : l'etat courant fait foi (les creations locales - walk-in, resa
+    // manuelle - ne doivent pas etre ecrasees par la liste de depart).
+    if (environment.useMock) {
+      return of(this._reservations()).pipe(delay(200));
+    }
+    return this.getToday(date).pipe(
+      tap((list) => {
+        // PAYLOAD IDENTIQUE -> on ne republie PAS le signal : toute la cascade
+        // en aval (liste OnPush, canvas Konva, scene 3D) reste au repos. Cle de
+        // comparaison = ce qui pilote reellement le rendu.
+        const key = (r: Reservation): string =>
+          `${r.id}|${r.status}|${r.table?.id ?? ''}|${r.dateTime}|${r.partySize}|${r.customerName}|${r.phone ?? ''}|${r.notes ?? ''}`;
+        const current = this._reservations();
+        const same =
+          current.length === list.length && current.every((r, i) => key(r) === key(list[i]));
+        if (!same) {
+          this._reservations.set(list);
+        }
+      }),
+    );
+  }
+
   getToday(date?: string): Observable<Reservation[]> {
     if (environment.useMock) {
       void date;
@@ -63,8 +143,142 @@ export class ReservationService {
     return this.mutateStatus(id, 'confirmed');
   }
 
+  // CLIENT ARRIVE : le client d'une reservation existante se presente -> la resa
+  // passe `seated` (meme mecanisme que confirm/cancel/finish, style coherent).
+  markArrived(id: string): Observable<Reservation> {
+    return this.mutateStatus(id, 'seated');
+  }
+
   cancel(id: string): Observable<Reservation> {
     return this.mutateStatus(id, 'cancelled');
+  }
+
+  // TERMINER LE SERVICE (poste de commandement) : les clients sont partis, la resa
+  // passe `completed` -> la derivation rend la table Libre immediatement.
+  finish(id: string): Observable<Reservation> {
+    return this.mutateStatus(id, 'completed');
+  }
+
+  // WALK-IN : installe des clients SANS reservation sur une table libre.
+  // Cree une reservation immediate `seated` / `manual` sans client (le back accepte
+  // customerId null - fait verifie), fenetre de 2 h, en heure LOCALE avec fuseau.
+  createWalkIn(table: RestaurantTable, partySize: number): Observable<Reservation> {
+    const now = new Date();
+    if (environment.useMock) {
+      const created: Reservation = {
+        id: `walkin-${Date.now()}`,
+        customerName: 'Sans réservation',
+        phone: '',
+        dateTime: localIso(now),
+        partySize,
+        table,
+        status: 'seated',
+        source: 'manual',
+      };
+      return of(created).pipe(
+        delay(200),
+        tap((res) => this._reservations.update((list) => [...list, res])),
+      );
+    }
+    const body: ReservationRequestDto = {
+      restaurantId: environment.restaurantId,
+      customerId: null,
+      tableId: table.id,
+      callId: null,
+      startsAt: localIso(now),
+      endsAt: localIso(new Date(now.getTime() + 2 * 60 * 60 * 1000)),
+      partySize,
+      status: 'seated',
+      source: 'manual',
+      notes: null,
+    };
+    return this.http.post<ReservationDto>(this.baseUrl, body).pipe(
+      map((dto) => {
+        // La reponse (sans ?expand) peut ne pas embarquer la table : on la greffe
+        // pour que la derivation colore la table tout de suite (comme mutateTable).
+        const patched: ReservationDto = {
+          ...dto,
+          table: dto.table ?? { id: table.id, name: table.name, capacity: table.capacity },
+        };
+        this._raw.update((list) => [...list, patched]);
+        // Mapping standard (customer absent -> « Client ») : coherent partout.
+        const created = mapReservation(patched);
+        this._reservations.update((list) => [...list, created]);
+        return created;
+      }),
+    );
+  }
+
+  // NOUVELLE RESERVATION MANUELLE (dialog « Nouvelle réservation ») : cree le
+  // CLIENT d'abord (POST /customers - le back n'accepte pas de nom en ligne sur
+  // la resa), puis la reservation non placee. Elle arrive dans « Réservations
+  // non placées » : le plan (placement auto / fusion guidee) prend le relais.
+  createManual(input: {
+    firstName: string;
+    phone: string;
+    dateTime: Date;
+    partySize: number;
+    notes: string | null;
+  }): Observable<Reservation> {
+    if (environment.useMock) {
+      const created: Reservation = {
+        id: `manual-${Date.now()}`,
+        customerName: input.firstName || 'Client',
+        phone: input.phone,
+        dateTime: localIso(input.dateTime),
+        partySize: input.partySize,
+        status: 'confirmed',
+        source: 'manual',
+        notes: input.notes ?? undefined,
+      };
+      return of(created).pipe(
+        delay(200),
+        tap((res) => this._reservations.update((list) => [...list, res])),
+      );
+    }
+    return this.http
+      .post<{ id: string }>(`${environment.apiUrl}/customers`, {
+        restaurantId: environment.restaurantId,
+        phone: input.phone,
+        firstName: input.firstName || null,
+        lastName: null,
+        email: null,
+        notes: null,
+      })
+      .pipe(
+        switchMap((customer) => {
+          const body: ReservationRequestDto = {
+            restaurantId: environment.restaurantId,
+            customerId: customer.id,
+            tableId: null,
+            callId: null,
+            startsAt: localIso(input.dateTime),
+            endsAt: localIso(new Date(input.dateTime.getTime() + 2 * 60 * 60 * 1000)),
+            partySize: input.partySize,
+            status: 'confirmed',
+            source: 'manual',
+            notes: input.notes,
+          };
+          return this.http.post<ReservationDto>(this.baseUrl, body);
+        }),
+        map((dto) => {
+          // La reponse (sans ?expand) n'embarque pas le customer : on greffe le
+          // nom/telephone saisis pour un affichage immediat correct.
+          const patched: ReservationDto = {
+            ...dto,
+            customer: dto.customer ?? {
+              id: dto.customerId ?? '',
+              firstName: input.firstName || null,
+              lastName: null,
+              phone: input.phone,
+            },
+          };
+          this._raw.update((list) => [...list, patched]);
+          const created = mapReservation(patched);
+          this._reservations.update((list) => [...list, created]);
+          return created;
+        }),
+      );
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {
@@ -81,9 +295,53 @@ export class ReservationService {
     if (!dto) {
       return EMPTY;
     }
-    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, status)).pipe(
+    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { status })).pipe(
       map(() => {
         const patched: ReservationDto = { ...dto, status };
+        this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
+        const updated = mapReservation(patched);
+        this.applyUpdate(updated);
+        return updated;
+      }),
+    );
+  }
+
+  // Affecte une table a une reservation (plan de salle). PUT avec tableId rempli
+  // (corps complet reconstruit par toRequest). La table passe alors Reservee/Installee.
+  // On passe l'objet table pour mettre a jour la reference embarquee sans dependre
+  // d'un autre service (la reservation porte alors la bonne table pour la derivation).
+  assign(reservationId: string, table: RestaurantTable): Observable<Reservation> {
+    return this.mutateTable(reservationId, table);
+  }
+
+  // Desaffecte la table d'une reservation (tableId: null) : la table redevient Libre.
+  unassign(reservationId: string): Observable<Reservation> {
+    return this.mutateTable(reservationId, null);
+  }
+
+  private mutateTable(id: string, table: RestaurantTable | null): Observable<Reservation> {
+    const tableId = table?.id ?? null;
+    if (environment.useMock) {
+      const current = this._reservations().find((r) => r.id === id);
+      if (!current) {
+        return EMPTY;
+      }
+      const updated: Reservation = { ...current, table: table ?? undefined };
+      return of(updated).pipe(
+        delay(200),
+        tap((res) => this.applyUpdate(res)),
+      );
+    }
+    const dto = this._raw().find((d) => d.id === id);
+    if (!dto) {
+      return EMPTY;
+    }
+    return this.http.put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { tableId })).pipe(
+      map(() => {
+        const backTable = table
+          ? { id: table.id, name: table.name, capacity: table.capacity }
+          : null;
+        const patched: ReservationDto = { ...dto, tableId, table: backTable };
         this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
         const updated = mapReservation(patched);
         this.applyUpdate(updated);

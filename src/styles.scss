@@ -192,3 +192,10 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Mode service (plan de salle plein écran) : on masque le header sticky de l'app
+   (z 1010) pour que l'overlay kiosque (z-50) couvre tout l'écran. Le drawer de
+   réservation (portail CDK) reste au-dessus de l'overlay. */
+body.service-mode hk-header {
+  display: none;
+}

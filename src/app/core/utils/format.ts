@@ -20,3 +20,17 @@ export function localDateKey(d: Date = new Date()): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${month}-${day}`;
 }
+
+/**
+ * ISO 8601 local AVEC décalage de fuseau, ex. « 2026-07-06T19:30:00+02:00 ».
+ * À privilégier pour envoyer une heure « maintenant » au back (un toISOString()
+ * UTC décalerait l'heure affichée par rapport à la salle).
+ */
+export function localIso(d: Date = new Date()): string {
+  const pad = (n: number): string => String(Math.trunc(Math.abs(n))).padStart(2, '0');
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const offsetMin = -d.getTimezoneOffset();
+  const sign = offsetMin >= 0 ? '+' : '-';
+  const offset = `${sign}${pad(offsetMin / 60)}:${pad(offsetMin % 60)}`;
+  return `${localDateKey(d)}T${time}${offset}`;
+}
