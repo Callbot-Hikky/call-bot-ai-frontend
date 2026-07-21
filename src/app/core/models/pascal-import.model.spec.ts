@@ -64,11 +64,76 @@ describe('parsePascalScene', () => {
     expect(r.candidates.some((c) => c.key === 'item_shelf')).toBe(false);
   });
 
+  // Pascal donne une emprise DEJA orientee : pour une table pivotee d'un quart
+  // de tour, il faut lui rendre ses dimensions locales, sinon la rotation est
+  // appliquee deux fois et la table se retrouve en travers (elle rentrait dans
+  // les murs sur un plan reel).
+  it('une table pivotee garde son emprise au sol apres projection', () => {
+    const r = parsePascalScene(makeScene());
+    const droite = r.candidates.find((c) => c.key === 'item_t1')!;
+    const pivotee = r.candidates.find((c) => c.key === 'item_rot')!;
+    // Meme meuble (1.6 x 0.9 m), l'un pivote : l'encombrement AU SOL annonce est
+    // le meme, c'est ce qu'on mesurerait au metre dans la salle.
+    expect(pivotee.widthM).toBeCloseTo(droite.widthM, 6);
+    expect(pivotee.depthM).toBeCloseTo(droite.depthM, 6);
+    // Mais la geometrie de rendu, elle, est bien pivotee (cotes echanges).
+    expect(pivotee.w).toBeCloseTo(droite.h, 6);
+    expect(pivotee.h).toBeCloseTo(droite.w, 6);
+    // Et donc la meme capacite estimee : le perimetre n'a pas change.
+    expect(pivotee.capacity).toBe(droite.capacity);
+  });
+
   it('ne pre-coche pas les chaises ni les plantes', () => {
     const r = parsePascalScene(makeScene());
     const others = r.candidates.filter((c) => !c.isTable).map((c) => c.label);
     expect(others).toContain('Chair');
     expect(others).toContain('Plant');
+  });
+
+  // Un plan exporte compte 3 a 4 assises par table : si une seule variante de nom
+  // passe au travers, l'import se remplit de fausses tables.
+  it('ne pre-coche aucune variante d assise', () => {
+    for (const name of ['Dining Chair', 'Chaise', 'Bar Stool', 'Tabouret haut', 'Outdoor Seat']) {
+      const scene = JSON.stringify({
+        nodes: {
+          level_1: { id: 'level_1', type: 'level', level: 0 },
+          item_x: {
+            id: 'item_x',
+            type: 'item',
+            position: [2, 0, 2],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+            asset: { name, dimensions: [0.45, 0.9, 0.45], category: 'furniture' },
+          },
+        },
+        rootNodeIds: ['level_1'],
+      });
+      const r = parsePascalScene(scene);
+      expect(r.candidates.find((c) => c.key === 'item_x')?.isTable, name).toBe(false);
+    }
+  });
+
+  // A l'inverse : « banquette » et « bench » nomment de VRAIES tables en salle,
+  // les exclure ferait rater des tables a l'import.
+  it('pre-coche les tables banquette et bench', () => {
+    for (const name of ['Table banquette', 'Bench Table', 'Banquette dining table']) {
+      const scene = JSON.stringify({
+        nodes: {
+          level_1: { id: 'level_1', type: 'level', level: 0 },
+          item_x: {
+            id: 'item_x',
+            type: 'item',
+            position: [2, 0, 2],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1],
+            asset: { name, dimensions: [1.6, 0.75, 0.9], category: 'furniture' },
+          },
+        },
+        rootNodeIds: ['level_1'],
+      });
+      const r = parsePascalScene(scene);
+      expect(r.candidates.find((c) => c.key === 'item_x')?.isTable, name).toBe(true);
+    }
   });
 
   it('projette toutes les positions dans le repere normalise 0..1', () => {
