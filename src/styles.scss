@@ -153,6 +153,17 @@
   --color-st-noshow-fg: var(--st-noshow-fg);
   --color-st-noshow-bg: var(--st-noshow-bg);
 
+  /* Hierarchie de texte. Les variables --text-* existent dans :root, mais sans
+     ces alias --color-* Tailwind ne generait AUCUNE regle pour text-text-strong
+     et text-text-subtle : les classes etaient posees partout dans l'app et
+     n'avaient aucun effet, tous les textes tombant sur la couleur heritee.
+     Prefixe --color- obligatoire : dans @theme, --text-* designe les TAILLES
+     de police, pas les couleurs. */
+  --color-text: var(--text);
+  --color-text-strong: var(--text-strong);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+
   /* Rayons : rounded-sm/md/lg */
   --radius-sm: 8px;
   --radius-md: 12px;
