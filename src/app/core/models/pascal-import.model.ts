@@ -87,6 +87,10 @@ export interface PascalImportResult {
 // Ratio des conteneurs canvas (les deux vues utilisent aspect-ratio: 16/10) :
 // largeur = 1.6 x le petit cote (la hauteur).
 const CONTAINER_ASPECT_W = 1.6;
+
+// Tolerance pour reconnaitre un quart de tour : un export 3D donne des angles
+// approches (1.5707964 rad plutot que pi/2 pile).
+const QUARTER_TURN_TOLERANCE_DEG = 5;
 // Marge de securite autour du plan projete (fraction utile = 0.9).
 const FIT = 0.9;
 // ~0,6 m de bord de table par couvert (norme restauration).
@@ -99,7 +103,15 @@ const MAX_SCENE_M = 200;
 // faux amis (table basse, chevet, console...). Volontairement simple : l'apercu
 // permet de cocher/decocher, l'humain tranche.
 const TABLE_RE = /\btables?\b|dining|desk/i;
-const NOT_TABLE_RE = /coffee|side|night|bedside|console|end table|dressing|basse|chevet/i;
+// Les ASSISES sont exclues explicitement : « Dining Chair » matche `dining` et
+// serait sinon importee comme une table (une salle exportee compte souvent 3 a 4
+// chaises par table, d'ou un import massivement faux).
+// `banquette` et `bench` sont volontairement ABSENTS : en salle, « table
+// banquette » ou « bench table » designent de vraies tables, les exclure ferait
+// rater des tables a l'import. Les faux amis de mobilier (coffee/side/end
+// table...) restent exclus : eux ne sont jamais des tables de restaurant.
+const NOT_TABLE_RE =
+  /coffee|side|night|bedside|console|end table|dressing|basse|chevet|chair|chaise|stool|tabouret|\bseat\b/i;
 const BAR_RE = /\bbars?\b|counter|comptoir|island/i;
 const ROUND_RE = /round|ronde?|circular/i;
 
@@ -162,15 +174,38 @@ function itemFootprint(node: PascalNode): RawItem | null {
   // horaire), normalise dans [0, 360) (le double modulo evite -0 et les negatifs).
   const yawRad = isVec3(node.rotation) ? node.rotation[1] : 0;
   const yawDeg = ((((-yawRad * 180) / Math.PI) % 360) + 360) % 360;
+
+  // `asset.dimensions` est une emprise deja ORIENTEE (repere monde) : pour une
+  // table pivotee d'un quart de tour, dims[0] mesure donc son cote le long de X
+  // APRES rotation. Comme on repivote la table au rendu, on lui redonne des
+  // dimensions LOCALES en echangeant les deux cotes ; sans cela la rotation est
+  // appliquee deux fois et l'emprise se retrouve tournee de 90 deg.
+  // Verifie sur un plan reel : sans cet echange, 5 tables sur 8 s'enfoncaient
+  // jusqu'a 40 cm DANS un mur ; avec, aucune ne traverse de mur.
+  const quarterTurn = Math.abs((yawDeg % 180) - 90) < QUARTER_TURN_TOLERANCE_DEG;
   return {
     node,
     label: node.asset?.name ?? node.name ?? 'Objet',
     cx: node.position[0],
     cz: node.position[2],
-    wM,
-    dM,
+    wM: quarterTurn ? dM : wM,
+    dM: quarterTurn ? wM : dM,
     yawDeg,
   };
+}
+
+// Encombrement au sol dans le repere MONDE (ce qu'on mesure au metre dans la
+// salle), a partir des dimensions locales et de l'angle. Un quart de tour
+// echange les deux cotes.
+function worldFootprint(
+  wM: number,
+  dM: number,
+  yawDeg: number,
+): { widthM: number; depthM: number } {
+  const quarterTurn = Math.abs((yawDeg % 180) - 90) < QUARTER_TURN_TOLERANCE_DEG;
+  const w = quarterTurn ? dM : wM;
+  const d = quarterTurn ? wM : dM;
+  return { widthM: Math.round(w * 100) / 100, depthM: Math.round(d * 100) / 100 };
 }
 
 // Texte agrege servant a la detection (nom + categorie + tags).
@@ -296,8 +331,12 @@ export function parsePascalScene(json: string): PascalImportResult {
       rotation: Math.round(i.yawDeg),
       shape,
       capacity: estimateCapacity(i.wM, i.dM, shape),
-      widthM: Math.round(i.wM * 100) / 100,
-      depthM: Math.round(i.dM * 100) / 100,
+      // Encombrement AU SOL, tel qu'on le mesurerait dans la salle : `wM`/`dM`
+      // sont des dimensions locales (echangees pour une table pivotee, voir
+      // itemFootprint), on les remet dans le sens du monde pour l'affichage.
+      // Sans cela l'apercu annoncait « 0,91 x 2 m » pour une table de 2 m de
+      // long, ce qui ne correspond a rien pour un restaurateur.
+      ...worldFootprint(i.wM, i.dM, i.yawDeg),
     };
   });
 
