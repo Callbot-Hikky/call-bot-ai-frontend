@@ -4,6 +4,7 @@ import {
   DestroyRef,
   HostListener,
   computed,
+  input,
   inject,
   output,
   signal,
@@ -20,10 +21,15 @@ import { WallSegment } from '@core/models/floor-plan-editor.model';
 // Taille max acceptee pour l'export JSON (les scenes Pascal font < 5 Mo).
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
+// 'add' : les tables existantes sont conservees. 'replace' : elles sont
+// supprimees avant l'import (sauf celles qui portent une reservation).
+export type ImportMode = 'add' | 'replace';
+
 // Resultat d'un import applique : tables retenues + murs (fond de plan).
 export interface PascalImportPayload {
   tables: PascalCandidate[];
   walls: WallSegment[];
+  mode: ImportMode;
 }
 
 // Dialogue d'import d'un plan depuis Pascal Editor (scan 3D / editeur web).
@@ -202,38 +208,119 @@ export interface PascalImportPayload {
               }
             </svg>
 
-            <!-- Liste des meubles : tables pre-cochees, le reste decochable a la main. -->
+            <!-- SEULES LES TABLES sont listees. Les chaises, plantes et autres
+                 meubles du plan 3D ne deviennent jamais des tables : les faire
+                 apparaitre n'aurait servi qu'a les decocher une par une (une
+                 salle exportee compte 3 a 4 chaises par table). -->
             <ul class="flex max-h-52 flex-col gap-1 overflow-y-auto" data-testid="pascal-list">
-              @for (c of r.candidates; track c.key) {
+              @for (c of tableCandidates(); track c.key) {
                 <li>
-                  <label
-                    class="hover:bg-muted flex cursor-pointer items-center gap-2.5 rounded-sm px-2 py-1.5"
+                  <div
+                    class="hover:bg-muted flex items-center gap-2.5 rounded-sm px-2 py-1.5"
+                    [attr.data-testid]="'pascal-row-' + c.key"
                   >
-                    <input
-                      type="checkbox"
-                      class="accent-primary size-3.5"
-                      [attr.data-testid]="'pascal-check-' + c.key"
-                      [checked]="isSelected(c)"
-                      (change)="toggle(c)"
-                    />
-                    <span class="text-text-strong min-w-0 flex-1 truncate text-sm">
-                      {{ c.label }}
+                    <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        class="accent-primary size-3.5"
+                        [attr.data-testid]="'pascal-check-' + c.key"
+                        [checked]="isSelected(c)"
+                        (change)="toggle(c)"
+                      />
+                      <span class="text-text-strong min-w-0 flex-1 truncate text-sm">
+                        {{ c.label }}
+                      </span>
+                      <span class="text-text-subtle font-mono text-xs tabular-nums">
+                        {{ c.widthM }} × {{ c.depthM }} m
+                      </span>
+                    </label>
+                    <!-- COUVERTS PAR TABLE : la valeur estimee d'apres la taille du
+                         plateau est souvent approximative, surtout si les chaises
+                         du plan 3D sont mal scannees. On la corrige ici, avant la
+                         creation, plutot que table par table apres coup. -->
+                    <span class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        class="border-border hover:bg-muted size-6 rounded-sm border text-sm leading-none disabled:opacity-40"
+                        [attr.data-testid]="'pascal-seats-minus-' + c.key"
+                        [disabled]="!isSelected(c) || seatsOf(c) <= 1"
+                        aria-label="Un couvert de moins"
+                        (click)="changeSeats(c, -1)"
+                      >
+                        &minus;
+                      </button>
+                      <span
+                        class="text-text-strong w-5 text-center font-mono text-xs tabular-nums"
+                        [attr.data-testid]="'pascal-seats-' + c.key"
+                      >
+                        {{ seatsOf(c) }}
+                      </span>
+                      <button
+                        type="button"
+                        class="border-border hover:bg-muted size-6 rounded-sm border text-sm leading-none disabled:opacity-40"
+                        [attr.data-testid]="'pascal-seats-plus-' + c.key"
+                        [disabled]="!isSelected(c) || seatsOf(c) >= 20"
+                        aria-label="Un couvert de plus"
+                        (click)="changeSeats(c, 1)"
+                      >
+                        +
+                      </button>
+                      <span class="text-text-subtle text-xs">couv.</span>
                     </span>
-                    <span class="text-text-subtle font-mono text-xs tabular-nums">
-                      {{ c.widthM }} × {{ c.depthM }} m
-                    </span>
-                    @if (c.isTable) {
-                      <span class="text-text-subtle text-xs">~{{ c.capacity }} couverts</span>
-                    }
-                  </label>
+                  </div>
                 </li>
               }
             </ul>
 
             <p class="text-text-subtle text-xs">
-              Chaque élément coché devient une vraie table (capacité estimée, corrigez ensuite dans
-              les propriétés). Vos tables existantes sont conservées.
+              Seules les tables sont importées : les chaises et le mobilier du plan 3D sont ignorés.
+              Ajustez les couverts ici, tout reste modifiable ensuite.
             </p>
+
+            <!-- CHOIX ajouter/remplacer : pose seulement si la salle contient deja
+                 des tables. Sur une salle vide la question n'a pas de sens (rien a
+                 remplacer) et on importe directement. Defaut = ajouter : un defaut
+                 ne doit jamais detruire. -->
+            @if (existingTableCount() > 0) {
+              <fieldset class="border-border flex flex-col gap-2 rounded-md border p-3">
+                <legend class="text-text-strong px-1 text-xs font-medium">
+                  Votre salle contient déjà {{ existingTableCount() }} table(s)
+                </legend>
+                <label class="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    class="mt-0.5"
+                    data-testid="import-mode-add"
+                    [checked]="mode() === 'add'"
+                    (change)="mode.set('add')"
+                  />
+                  <span>
+                    Ajouter à ma salle
+                    <span class="text-text-subtle block text-xs">
+                      Les tables actuelles sont conservées.
+                    </span>
+                  </span>
+                </label>
+                <label class="flex items-start gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    class="mt-0.5"
+                    data-testid="import-mode-replace"
+                    [checked]="mode() === 'replace'"
+                    (change)="mode.set('replace')"
+                  />
+                  <span>
+                    Remplacer mon plan
+                    <span class="text-st-cancelled-fg block text-xs">
+                      Les {{ existingTableCount() }} table(s) actuelles sont supprimées. Celles qui
+                      ont une réservation sont conservées.
+                    </span>
+                  </span>
+                </label>
+              </fieldset>
+            }
 
             <div class="flex items-center justify-end gap-2">
               <hk-button variant="ghost" size="sm" (click)="reset()">Autre fichier</hk-button>
@@ -258,6 +345,11 @@ export interface PascalImportPayload {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkPascalImport {
+  // Nombre de tables deja presentes : conditionne le choix ajouter/remplacer.
+  readonly existingTableCount = input(0);
+  // Mode retenu. 'add' par defaut (non destructif).
+  protected readonly mode = signal<ImportMode>('add');
+
   // Ferme le dialogue sans importer.
   readonly closed = output<void>();
   // Import applique : l'editeur cree les tables + geometrie et pose les murs.
@@ -285,6 +377,16 @@ export class HkPascalImport {
   protected readonly dragging = signal(false);
   // Cles des candidats coches (pre-remplies avec les tables detectees).
   private readonly selectedKeys = signal<ReadonlySet<string>>(new Set());
+
+  // Couverts CORRIGES a la main, par cle de candidat. Absent = on garde
+  // l'estimation issue de la taille du plateau.
+  private readonly seatOverrides = signal<Readonly<Record<string, number>>>({});
+
+  // Seules les TABLES sont proposees : les chaises et le mobilier ne peuvent pas
+  // devenir des tables, les lister n'aurait servi qu'a les decocher une par une.
+  protected readonly tableCandidates = computed(
+    () => this.result()?.candidates.filter((c) => c.isTable) ?? [],
+  );
 
   protected readonly selectedCount = computed(() => this.selectedKeys().size);
   // Murs detectes : on peut importer un plan « murs seuls » (scan d'une piece
@@ -320,6 +422,17 @@ export class HkPascalImport {
     });
   }
 
+  // Couverts affiches pour ce candidat : la valeur corrigee a la main si elle
+  // existe, sinon l'estimation deduite de la taille du plateau.
+  protected seatsOf(c: PascalCandidate): number {
+    return this.seatOverrides()[c.key] ?? c.capacity;
+  }
+
+  protected changeSeats(c: PascalCandidate, delta: number): void {
+    const next = Math.max(1, Math.min(20, this.seatsOf(c) + delta));
+    this.seatOverrides.update((o) => ({ ...o, [c.key]: next }));
+  }
+
   protected apply(): void {
     const r = this.result();
     if (!r) {
@@ -327,8 +440,13 @@ export class HkPascalImport {
     }
     const keys = this.selectedKeys();
     this.imported.emit({
-      tables: r.candidates.filter((c) => keys.has(c.key)),
+      // Seules les tables partent a l'import, avec les couverts retenus ici.
+      tables: this.tableCandidates()
+        .filter((c) => keys.has(c.key))
+        .map((c) => ({ ...c, capacity: this.seatsOf(c) })),
       walls: r.walls,
+      // Salle vide : rien a remplacer, le choix n'est pas affiche.
+      mode: this.existingTableCount() > 0 ? this.mode() : 'add',
     });
   }
 
@@ -336,6 +454,7 @@ export class HkPascalImport {
     this.result.set(null);
     this.error.set(null);
     this.selectedKeys.set(new Set());
+    this.seatOverrides.set({});
   }
 
   // --- Lecture de fichier -------------------------------------------------------

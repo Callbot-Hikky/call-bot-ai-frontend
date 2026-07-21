@@ -109,6 +109,65 @@ describe('HkPascalImport', () => {
     expect(emitted!.walls.length).toBe(1);
   });
 
+  // Une salle exportee compte 3 a 4 chaises par table : les lister obligerait a
+  // les decocher une par une.
+  it('ne liste QUE les tables (pas les chaises ni le mobilier)', async () => {
+    const fixture = setup();
+    fixture.componentInstance.loadText(sceneJson());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('[data-testid="pascal-check-t1"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="pascal-check-t2"]')).toBeTruthy();
+    // La chaise du plan n'apparait pas dans la liste.
+    expect(el.querySelector('[data-testid="pascal-check-c1"]')).toBeNull();
+    expect(el.querySelector('[data-testid="pascal-list"]')!.textContent).not.toContain('Chair');
+  });
+
+  it('regle les couverts table par table et les emet a l import', async () => {
+    const fixture = setup();
+    let emitted: PascalImportPayload | null = null;
+    fixture.componentInstance.imported.subscribe((p) => (emitted = p));
+    fixture.componentInstance.loadText(sceneJson());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const lu = () => el.querySelector('[data-testid="pascal-seats-t1"]')!.textContent!.trim();
+    const estime = Number(lu());
+
+    el.querySelector<HTMLButtonElement>('[data-testid="pascal-seats-plus-t1"]')!.click();
+    el.querySelector<HTMLButtonElement>('[data-testid="pascal-seats-plus-t1"]')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(Number(lu())).toBe(estime + 2);
+
+    el.querySelector<HTMLButtonElement>('[data-testid="pascal-apply"]')!.click();
+    const t1 = emitted!.tables.find((c) => c.key === 't1')!;
+    expect(t1.capacity).toBe(estime + 2);
+    // Les autres tables gardent leur estimation.
+    expect(emitted!.tables.find((c) => c.key === 't2')!.capacity).toBeGreaterThan(0);
+  });
+
+  it('ne descend jamais sous 1 couvert', async () => {
+    const fixture = setup();
+    fixture.componentInstance.loadText(sceneJson());
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const el: HTMLElement = fixture.nativeElement;
+    const moins = el.querySelector<HTMLButtonElement>('[data-testid="pascal-seats-minus-t1"]')!;
+    for (let i = 0; i < 30; i++) {
+      moins.click();
+      fixture.detectChanges();
+    }
+    await fixture.whenStable();
+    expect(Number(el.querySelector('[data-testid="pascal-seats-t1"]')!.textContent!.trim())).toBe(
+      1,
+    );
+  });
+
   it('emet closed au clic sur le fond sombre', () => {
     const fixture = setup();
     let closedEmitted = false;
