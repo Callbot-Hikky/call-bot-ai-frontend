@@ -21,6 +21,7 @@ import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
   BAR_FILL,
   BAR_STROKE,
+  applyTableHitArea,
   applyTableShadow,
   hoverTableShadow,
   layoutPlates,
@@ -175,6 +176,9 @@ export class HkFloorPlanCanvas {
   readonly focusTableId = input<string | null>(null);
 
   readonly tableClick = output<FloorTableView>();
+  // Clic dans le vide (hors table) : le parent referme le detail ouvert. Meme
+  // geste que dans l'editeur, ou cliquer le fond deselectionne.
+  readonly backgroundClick = output<void>();
 
   private konva: KonvaModule | null = null;
   private stage: Konva.Stage | null = null;
@@ -212,6 +216,15 @@ export class HkFloorPlanCanvas {
         this.stage.add(this.dotsLayer);
         this.stage.add(this.layer);
         this.drawDots();
+
+        // Clic sur le fond (e.target === stage) : rien n'est vise, on referme le
+        // detail. Les clics sur une table sont absorbes par son groupe et
+        // n'arrivent donc jamais ici.
+        this.stage.on('click tap', (e) => {
+          if (e.target === this.stage) {
+            this.backgroundClick.emit();
+          }
+        });
 
         // Debounce via rAF : le ResizeObserver peut tirer en rafale pendant un
         // redimensionnement de fenetre ; on ne resynchronise qu'une fois par frame.
@@ -397,7 +410,11 @@ export class HkFloorPlanCanvas {
     const group = new k.Group({ listening: true });
 
     // Sieges DERRIERE la forme (les chaises depassent du plateau).
-    const seats = new k.Group({ listening: false });
+    // Chaises CLIQUABLES : elles appartiennent au groupe de leur table, donc le
+    // clic remonte a la bonne table. C'est plus juste qu'un halo elargi autour du
+    // plateau, qui deborderait chez la voisine (les chaises portent a 10,5 px
+    // alors que deux tables peuvent n'etre separees que de 9,6 px).
+    const seats = new k.Group({ listening: true });
     // Assiettes AU-DESSUS du plateau (visibles seulement si la table est installee).
     const plates = new k.Group({ listening: false, visible: false });
 
@@ -405,6 +422,7 @@ export class HkFloorPlanCanvas {
       ? new k.Circle({ radius: 1 })
       : new k.Rect({ cornerRadius: 12 });
     applyTableShadow(shape);
+    applyTableHitArea(shape, isRound);
 
     const name = new k.Text({
       text: view.table.name,
@@ -592,6 +610,16 @@ export class HkFloorPlanCanvas {
       const { w: wPx, h: hPx } = tableSizePx(view.w, view.h, width, height);
       node.group.position({ x: view.x * width, y: view.y * height });
       node.group.rotation(view.rotation);
+      // TEXTES CONTRE-PIVOTES : ils appartiennent au groupe de la table et
+      // subissaient donc sa rotation. Sur un plan importe (tables a 90 deg), les
+      // noms de table, de client et l'heure s'affichaient couches, voire a
+      // l'envers a 180 deg. Un plan de salle se lit toujours a l'horizontale.
+      const contre = -view.rotation;
+      node.name.rotation(contre);
+      node.capacity.rotation(contre);
+      node.customer.rotation(contre);
+      node.nextTime.rotation(contre);
+      node.timeTag.rotation(contre);
 
       if (node.isRound) {
         (node.shape as Konva.Circle).radius(wPx / 2);

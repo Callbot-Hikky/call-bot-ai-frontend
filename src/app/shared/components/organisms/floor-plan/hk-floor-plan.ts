@@ -488,6 +488,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   [fill]="serviceMode() || compactLandscape()"
                   [class.h-full]="serviceMode() || compactLandscape()"
                   (tableClick)="onTableClick($event)"
+                  (backgroundClick)="closeInspector()"
                 />
                 <!-- Vitrine : controle contextuel POSE sur la 3D (coin haut droit). -->
                 <div class="absolute top-3 right-3 z-10">
@@ -513,6 +514,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   [showNames]="serviceMode()"
                   [class.h-full]="serviceMode() || compactLandscape()"
                   (tableClick)="onTableClick($event)"
+                  (backgroundClick)="closeInspector()"
                 />
               }
 

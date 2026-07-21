@@ -26,6 +26,37 @@ export function seatRadius(count: number): number {
   return count <= 12 ? 3 : 2.5;
 }
 
+// ZONE CLIQUABLE : a l'oeil, une table c'est son plateau ET sa couronne de
+// chaises, mais seul le plateau repondait au clic : la table paraissait avoir
+// une hitbox trop petite. Les chaises sont donc devenues cliquables (voir
+// syncSeatCount), et ce halo couvre l'interstice qui les separe du plateau.
+// Complement aux chaises, qui sont elles-memes cliquables : ce petit halo ne
+// couvre que l'interstice entre le plateau et ses chaises. Il reste STRICTEMENT
+// sous la moitie de l'ecart mini entre deux tables (EDITOR_MIN_GAP vaut ~9,6 px
+// a l'ecran), sinon les zones de deux voisines se recouvrent, Konva attribue le
+// clic a la derniere dessinee plutot qu'a la plus proche, et le rectangle de
+// selection ne peut plus demarrer pres d'une table.
+const HIT_PADDING = SEAT_GAP - 3;
+
+export function applyTableHitArea(shape: Konva.Shape, isRound: boolean): void {
+  shape.hitFunc((ctx, s) => {
+    ctx.beginPath();
+    if (isRound) {
+      ctx.arc(0, 0, (s as Konva.Circle).radius() + HIT_PADDING, 0, Math.PI * 2, false);
+    } else {
+      const rect = s as Konva.Rect;
+      ctx.rect(
+        -HIT_PADDING,
+        -HIT_PADDING,
+        rect.width() + HIT_PADDING * 2,
+        rect.height() + HIT_PADDING * 2,
+      );
+    }
+    ctx.closePath();
+    ctx.fillStrokeShape(s);
+  });
+}
+
 // Ombre douce et moderne sous la table.
 export function applyTableShadow(shape: Konva.Shape): void {
   shape.shadowColor('#000000');
@@ -52,7 +83,10 @@ function seatShapes(seats: Konva.Group): Konva.Rect[] {
 export function syncSeatCount(k: KonvaModule, seats: Konva.Group, capacity: number): void {
   const wanted = Math.max(0, Math.min(capacity, MAX_SEATS));
   for (let i = seatShapes(seats).length; i < wanted; i++) {
-    seats.add(new k.Rect({ name: 'seat', listening: false }));
+    // listening:true -> cliquer une chaise agit sur SA table. La chaise fait
+    // partie du groupe de la table, donc l'evenement remonte a la bonne table,
+    // sans halo qui deborderait sur la voisine.
+    seats.add(new k.Rect({ name: 'seat', listening: true }));
   }
   let extra = seatShapes(seats).length - wanted;
   while (extra > 0) {

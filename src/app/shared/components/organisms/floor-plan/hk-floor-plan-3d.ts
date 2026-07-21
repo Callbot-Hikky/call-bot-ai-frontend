@@ -253,6 +253,10 @@ export class HkFloorPlan3d {
 
   // Clic sur une table : memes actions que la 2D (drawer / walk-in / affectation).
   readonly tableClick = output<FloorTableView>();
+  // Clic dans le vide (aucune table sous le pointeur) : le parent referme le
+  // detail, comme en 2D. Une rotation de camera n'en declenche pas (voir le
+  // garde-fou CLICK_MOVE_PX au pointerup).
+  readonly backgroundClick = output<void>();
 
   private three: ThreeModule | null = null;
   private renderer: THREE.WebGLRenderer | null = null;
@@ -416,6 +420,8 @@ export class HkFloorPlan3d {
       const view = this.pick(e);
       if (view) {
         this.tableClick.emit(view);
+      } else {
+        this.backgroundClick.emit();
       }
     });
     dom.addEventListener('pointermove', (e) => this.syncHover(e));
