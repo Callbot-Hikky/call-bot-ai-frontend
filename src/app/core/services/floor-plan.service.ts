@@ -195,8 +195,13 @@ export class FloorPlanService {
   // Utilise par l'ecran de demarrage. Les murs d'un eventuel plan precedent ne
   // sont PAS herites (un template repart d'une salle nue ; l'import Pascal pose
   // ses murs ensuite via setWalls).
-  initFrom(geometry: GeometryMap): void {
-    this._plan.set({ ...this.makePlan(this.clone(geometry)), walls: undefined, merges: undefined });
+  // `keepWalls` : les MURS decrivent la piece, pas la disposition des tables.
+  // Changer de disposition ne doit donc pas les effacer, sinon un plan importe
+  // (scan 3D) perd sa structure des qu'on choisit un autre agencement, sans
+  // aucun avertissement ni annulation possible.
+  initFrom(geometry: GeometryMap, keepWalls = false): void {
+    const walls = keepWalls ? this._plan()?.walls : undefined;
+    this._plan.set({ ...this.makePlan(this.clone(geometry)), walls, merges: undefined });
     this.undoStack = [];
     this.redoStack = [];
     this.refreshHistoryFlags();

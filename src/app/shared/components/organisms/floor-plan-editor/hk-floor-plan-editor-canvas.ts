@@ -18,10 +18,11 @@ import {
   snapToGrid,
   tableSizePx,
 } from '@core/models/floor-plan-editor.model';
-import { blockedSides } from '@core/models/floor-plan.model';
+import { blockedSides, rotatedBox } from '@core/models/floor-plan.model';
 import {
   BAR_FILL,
   BAR_STROKE,
+  applyTableHitArea,
   applyTableShadow,
   layoutSeats,
   styleSeats,
@@ -517,11 +518,15 @@ export class HkFloorPlanEditorCanvas {
   private createNode(table: EditorTable, isRound: boolean, font: string): EditorNode {
     const k = this.konva!;
     const group = new k.Group({ draggable: true, listening: true });
-    const seats = new k.Group({ listening: false });
+    // Chaises CLIQUABLES : elles font partie du groupe de la table, donc cliquer
+    // (ou glisser) une chaise agit sur SA table, sans halo debordant sur la
+    // voisine. Voir hk-floor-plan-canvas.ts pour le detail du compromis.
+    const seats = new k.Group({ listening: true });
     const shape: Konva.Shape = isRound
       ? new k.Circle({ radius: 1 })
       : new k.Rect({ cornerRadius: 12 });
     applyTableShadow(shape);
+    applyTableHitArea(shape, isRound);
     const label = new k.Text({
       text: table.label,
       fontSize: 13,
@@ -703,12 +708,21 @@ export class HkFloorPlanEditorCanvas {
         nh = Math.max(MIN_SIZE_PX / scale, snapToGrid(nh));
       }
 
+      // On borne l'EMPRISE (demi-taille comprise), pas seulement le centre :
+      // sinon une table lachee au bord se retrouve a moitie hors du plan. La
+      // rotation est prise en compte, une table a 90 deg debordant sur l'autre
+      // axe. Demi-tailles converties en fractions de largeur / hauteur.
+      const finalW = clamp(nw, 0, 1);
+      const finalH = node.isRound ? finalW : clamp(nh, 0, 1);
+      const emprise = rotatedBox({ x: nx, y: ny, w: finalW, h: finalH, rotation });
+      const halfX = emprise.w / 2 / (width / height);
+      const halfY = emprise.h / 2;
       out.push({
         id: t.id,
-        x: clamp(nx, 0, 1),
-        y: clamp(ny, 0, 1),
-        width: clamp(nw, 0, 1),
-        height: node.isRound ? clamp(nw, 0, 1) : clamp(nh, 0, 1),
+        x: halfX * 2 >= 1 ? 0.5 : clamp(nx, halfX, 1 - halfX),
+        y: halfY * 2 >= 1 ? 0.5 : clamp(ny, halfY, 1 - halfY),
+        width: finalW,
+        height: finalH,
         rotation,
       });
 

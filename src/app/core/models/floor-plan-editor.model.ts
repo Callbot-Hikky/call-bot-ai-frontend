@@ -285,7 +285,12 @@ export function nextTableName(existingNames: readonly string[]): string {
 // cote) en fraction de largeur via le ratio 16:10 des conteneurs.
 export function rowGeometries(preset: TablePreset, count: number, y = 0.5): TableGeometryEntry[] {
   const n = Math.max(1, Math.floor(count));
-  const gap = 0.02;
+  // Fraction de LARGEUR ; * CONTAINER_ASPECT (1.6) = 0.0336 en unites petit cote.
+  // Doit rester AU-DESSUS de EDITOR_MIN_GAP (0.031), sinon l'anti-empilement
+  // repousse les tables de la rangee qu'on vient de generer et casse son
+  // alignement, et SOUS la tolerance de fusion (0.035) pour qu'une rangee reste
+  // fusionnable en une grande tablee.
+  const gap = 0.021;
   const widthFrac = preset.width * CONTAINER_ASPECT;
   const step = widthFrac + gap;
   const totalWidth = step * (n - 1);
