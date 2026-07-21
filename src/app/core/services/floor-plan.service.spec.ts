@@ -56,6 +56,23 @@ describe('FloorPlanService (geometrie keyee par id back)', () => {
     expect(Object.keys(service.geometry()).length).toBe(2);
   });
 
+  // Les MURS decrivent la piece, pas l'agencement : changer de disposition ne
+  // doit pas faire perdre la structure d'un plan importe (aucune annulation).
+  it('initFrom(keepWalls) conserve les murs, sinon les efface', () => {
+    service.load(RESTAURANT);
+    service.initFrom({ 'uuid-a': entry() });
+    service.setWalls([{ x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.1, thickness: 0.02 }]);
+    expect(service.walls().length).toBe(1);
+
+    // Changement de disposition : les murs restent.
+    service.initFrom({ 'uuid-a': entry(0.3, 0.3) }, true);
+    expect(service.walls().length).toBe(1);
+
+    // Reinitialisation complete : les murs partent.
+    service.initFrom({ 'uuid-a': entry() });
+    expect(service.walls().length).toBe(0);
+  });
+
   it('round-trip save -> load : la geometrie keyee par id back est restituee', () => {
     service.load(RESTAURANT);
     service.initFrom({ 'uuid-a': entry(0.2, 0.3) });

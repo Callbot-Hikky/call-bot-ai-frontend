@@ -38,7 +38,16 @@ import {
   seedMissingGeometry,
   slotSeats,
 } from '@core/models/floor-plan-editor.model';
-import { buildEditorTables, canMerge, pushApart, tablesTouch } from '@core/models/floor-plan.model';
+import {
+  EDITOR_MIN_GAP,
+  WALL_MIN_GAP,
+  buildEditorTables,
+  canMerge,
+  pushApart,
+  rotatedBox,
+  tablesTouch,
+  wallObstacles,
+} from '@core/models/floor-plan.model';
 import { downloadDataUrl } from '@core/utils/download';
 import { HkFloorPlanEditorCanvas, TableGeometry } from './hk-floor-plan-editor-canvas';
 import { HkPascalImport, PascalImportPayload } from './hk-pascal-import';
@@ -92,20 +101,25 @@ interface DeletedTableSnapshot {
   selector: 'hk-floor-plan-editor',
   imports: [HkButton, HkIcon, HkFloorPlanEditorCanvas, HkPascalImport],
   template: `
-    @if (store.isEmpty() || choosingTemplate()) {
+    @if (needsLayout() || choosingTemplate()) {
       <!-- Ecran de mise en page : au demarrage (aucun plan) OU quand on demande
            a re-choisir une disposition depuis l'editeur. -->
       <div class="bg-card border-border flex flex-col gap-5 rounded-md border p-6">
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">
-            @if (choosingTemplate()) {
+            @if (tableCount() === 0) {
+              Choisissez une disposition
+            } @else if (choosingTemplate()) {
               Changer de disposition
             } @else {
               Mettre en page la salle
             }
           </h2>
           <p class="text-text-subtle text-sm">
-            @if (choosingTemplate()) {
+            @if (tableCount() === 0) {
+              Votre salle est vide : choisissez un modèle et les tables sont créées pour vous. Tout
+              reste modifiable ensuite.
+            } @else if (choosingTemplate()) {
               Choisissez une nouvelle disposition : vos {{ tableCount() }} table(s) seront
               réarrangées (les emplacements manquants sont créés).
             } @else {
@@ -177,7 +191,7 @@ interface DeletedTableSnapshot {
           </span>
         </button>
         <div>
-          @if (choosingTemplate()) {
+          @if (choosingTemplate() && tableCount() > 0) {
             <hk-button variant="ghost" size="sm" (click)="choosingTemplate.set(false)">
               <hk-icon name="lucideChevronLeft" [size]="16" />
               Garder la disposition actuelle
@@ -320,8 +334,10 @@ interface DeletedTableSnapshot {
             </hk-button>
           }
 
+          <!-- Action destructive : en rouge, pour qu'elle ne se confonde pas avec
+               les outils de mise en page voisins. -->
           <hk-button
-            variant="ghost"
+            variant="danger"
             size="sm"
             [disabled]="selectedIds().length === 0"
             (click)="deleteSelection()"
@@ -335,8 +351,12 @@ interface DeletedTableSnapshot {
               <hk-icon name="lucideDownload" [size]="16" />
               Exporter
             </hk-button>
+            <!-- Largeur RESERVEE (min-w) : les trois libellés n'ont pas la même
+                 longueur et le statut change à chaque geste (dirty -> saving ->
+                 saved). Sans largeur fixe, la barre d'outils se réorganise sur
+                 deux lignes le temps de l'enregistrement, puis revient. -->
             <span
-              class="text-text-subtle inline-flex items-center gap-1.5 text-xs"
+              class="text-text-subtle inline-flex min-w-[6.25rem] items-center justify-end gap-1.5 text-xs whitespace-nowrap"
               aria-live="polite"
             >
               @if (store.saveState() === 'saved') {
@@ -345,7 +365,7 @@ interface DeletedTableSnapshot {
               } @else if (store.saveState() === 'saving') {
                 Enregistrement…
               } @else {
-                Modifications non enregistrées
+                Non enregistré
               }
             </span>
             <hk-button size="sm" (click)="onFinish()">Terminer</hk-button>
@@ -485,7 +505,46 @@ interface DeletedTableSnapshot {
     }
 
     @if (importOpen()) {
-      <hk-pascal-import (closed)="importOpen.set(false)" (imported)="onImported($event)" />
+      <hk-pascal-import
+        [existingTableCount]="tableCount()"
+        (closed)="importOpen.set(false)"
+        (imported)="onImported($event)"
+      />
+    }
+
+    @if (importHint()) {
+      <!-- APRES IMPORT : un scan ou un plan 3D place rarement les tables au
+           centimetre. On le dit en FENETRE (et non en bandeau, qui passait
+           inapercu) pour que le restaurateur sache qu'il peut retoucher, sans se
+           demander s'il a rate son import. -->
+      <div
+        class="fixed inset-0 z-[1030] flex items-center justify-center bg-black/40 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-done-title"
+        tabindex="-1"
+        (click)="closeImportHint($event)"
+        (keydown.escape)="importHint.set(false)"
+      >
+        <div
+          class="bg-card border-border flex w-full max-w-md flex-col gap-4 rounded-md border p-6 shadow-xl"
+          data-testid="import-done-dialog"
+        >
+          <h2 id="import-done-title" class="text-text-strong text-lg font-semibold">
+            Import terminé
+          </h2>
+          <p class="text-text-subtle text-sm">
+            Vos tables sont posées d'après votre plan 3D. Leur placement peut demander quelques
+            retouches : glissez une table pour la déplacer, et servez-vous des poignées pour la
+            redimensionner ou la faire pivoter. Comptez quelques minutes pour ajuster la salle.
+          </p>
+          <div class="flex justify-end">
+            <hk-button size="sm" data-testid="import-done-ok" (click)="importHint.set(false)">
+              J'ai compris
+            </hk-button>
+          </div>
+        </div>
+      </div>
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -542,6 +601,18 @@ export class HkFloorPlanEditor implements OnInit {
   protected readonly creating = signal(false);
   // Dialogue d'import Pascal (scan 3D / editeur web) ouvert.
   protected readonly importOpen = signal(false);
+  // Fenetre affichee APRES un import : previent que le placement issu du plan 3D
+  // demande souvent quelques retouches. Se ferme a la main.
+  protected readonly importHint = signal(false);
+
+  // Ferme seulement si le clic vise le FOND, pas la carte : on compare la cible
+  // au conteneur, plutot que d'absorber le clic sur la carte (un handler sur la
+  // carte la rendrait interactive sans etre focusable).
+  protected closeImportHint(event: Event): void {
+    if (event.target === event.currentTarget) {
+      this.importHint.set(false);
+    }
+  }
   // Re-choix de disposition depuis l'editeur (reaffiche l'ecran des templates).
   protected readonly choosingTemplate = signal(false);
   // MODE MURS : trace a la main (deux clics = un mur), tables gelees pendant.
@@ -554,6 +625,10 @@ export class HkFloorPlanEditor implements OnInit {
   );
 
   protected readonly tableCount = computed(() => this.tableService.tables().length);
+  // Rien a editer : soit aucun plan enregistre, soit un plan qui existe mais dont
+  // toutes les tables ont ete supprimees. Dans les deux cas on propose les
+  // dispositions plutot qu'une grille vide sans point de depart.
+  protected readonly needsLayout = computed(() => this.store.isEmpty() || this.tableCount() === 0);
   // Capacite totale de la salle, mise a jour en direct pendant l'edition.
   protected readonly totalSeats = computed(() =>
     this.tableService.tables().reduce((sum, t) => sum + t.capacity, 0),
@@ -615,9 +690,21 @@ export class HkFloorPlanEditor implements OnInit {
       return;
     }
     const ids = this.tableService.tables().map((t) => t.id);
-    this.store.initFrom(tpl.apply(ids));
+    // Les TABLEES sont defaites : elles supposent des tables collees bord a
+    // bord, ce que la nouvelle disposition ne garantit pas. On le DIT, plutot
+    // que de les perdre en silence (l'ancien comportement) ou de conserver des
+    // groupes devenus incoherents.
+    const tableesDefaites = this.store.merges().length;
+    // Les murs survivent au changement de disposition : ils decrivent la piece.
+    this.store.initFrom(tpl.apply(ids), true);
     this.selectedIds.set([]);
     this.choosingTemplate.set(false);
+    if (tableesDefaites > 0) {
+      this.toast.show(
+        `${tableesDefaites} tablée(s) défaite(s) : les tables ont été réarrangées.`,
+        'default',
+      );
+    }
 
     // Emplacements a creer : ceux du template non couverts par les tables
     // existantes. La grille auto n'a pas d'emplacements fixes -> sur une salle
@@ -660,8 +747,14 @@ export class HkFloorPlanEditor implements OnInit {
     if (geos.length === 0) {
       return 0.5;
     }
-    const lowest = Math.max(...geos.map((g) => g.y + g.h / 2));
-    return Math.max(h / 2, Math.min(1 - h / 2, lowest + 0.03 + h / 2));
+    // Emprise PIVOTEE : une table a 90 deg descend plus bas que sa hauteur de
+    // modele, sinon la rangee suivante se pose par-dessus elle.
+    const lowest = Math.max(...geos.map((g) => g.y + rotatedBox(g).h / 2));
+    // Marge DERIVEE de l'ecart minimal : en dur (0.03), elle passait sous le
+    // seuil quand celui-ci a ete releve, et la rangee tout juste posee se
+    // faisait aussitot repousser, perdant son alignement.
+    const marge = EDITOR_MIN_GAP * 1.5;
+    return Math.max(h / 2, Math.min(1 - h / 2, lowest + marge + h / 2));
   }
 
   // Dupliquer = creer une VRAIE table de meme capacite par element selectionne,
@@ -701,7 +794,7 @@ export class HkFloorPlanEditor implements OnInit {
     const entries = ids
       .map((id) => byId.get(id))
       .filter((t): t is EditorTable => t != null)
-      .map((t) => ({ x: t.x, y: t.y, w: t.width, h: t.height }));
+      .map((t) => ({ x: t.x, y: t.y, w: t.width, h: t.height, rotation: t.rotation }));
     return entries.length === ids.length && canMerge(entries);
   });
 
@@ -797,15 +890,86 @@ export class HkFloorPlanEditor implements OnInit {
       capacity: c.capacity,
       geo: { x: c.x, y: c.y, w: c.w, h: c.h, rotation: c.rotation, shape: c.shape },
     }));
-    this.createTables(specs);
+    // GARDE-FOU : « remplacer » sans aucune table a poser vide la salle sans
+    // rien recreer, et cette suppression-la n'a pas d'annulation. Un import de
+    // murs seuls (ou dont on a decoche toutes les tables) se comporte donc comme
+    // un ajout : les murs sont poses, les tables existantes conservees.
+    if (payload.mode === 'replace' && specs.length > 0) {
+      this.replaceThenCreate(specs);
+      return;
+    }
+    // Geometrie du plan RESPECTEE telle quelle (pas d'anti-empilement).
+    this.createTables(specs, true);
+    this.importHint.set(true);
     this.toast.show(`${specs.length} table(s) importée(s) depuis Pascal.`);
+  }
+
+  // REMPLACER : vide la salle avant d'importer. MEME garde-fou que la suppression
+  // manuelle : une table qui porte une reservation active n'est jamais supprimee,
+  // sinon l'import serait une porte derobee pour casser le lien avec un client.
+  private replaceThenCreate(specs: CreateSpec[]): void {
+    const reservations = this.reservations();
+    const kept: string[] = [];
+    const deletable: string[] = [];
+    for (const t of this.editorTables()) {
+      const hasActiveReservation = reservations.some(
+        (r) => r.table?.id === t.id && BLOCKING_STATUSES.includes(r.status),
+      );
+      (hasActiveReservation ? kept : deletable).push(t.id);
+    }
+
+    if (deletable.length === 0) {
+      this.finishImport(specs, kept.length);
+      return;
+    }
+
+    // Les echecs reseau sont COMPTES : sans cela on annoncait un remplacement
+    // reussi alors que d'anciennes tables etaient toujours la, et l'utilisateur
+    // se retrouvait avec deux plans superposes sans explication.
+    let failed = 0;
+    from(deletable)
+      .pipe(
+        concatMap((id) =>
+          this.tableService.remove(id).pipe(
+            concatMap(() => {
+              this.store.removeEntry(id);
+              this.dropFromMerges(id);
+              return of(id);
+            }),
+            catchError(() => {
+              failed += 1;
+              return of(null);
+            }),
+          ),
+        ),
+      )
+      .subscribe({ complete: () => this.finishImport(specs, kept.length, failed) });
+  }
+
+  private finishImport(specs: CreateSpec[], keptCount: number, failedCount = 0): void {
+    // Geometrie du plan RESPECTEE telle quelle (pas d'anti-empilement).
+    this.createTables(specs, true);
+    this.importHint.set(true);
+    const kept = keptCount > 0 ? ` ${keptCount} table(s) conservée(s) : réservation en cours.` : '';
+    this.toast.show(`${specs.length} table(s) importée(s) depuis Pascal.${kept}`);
+    if (failedCount > 0) {
+      this.toast.show(
+        `${failedCount} table(s) n'ont pas pu être supprimées : elles sont toujours sur le plan.`,
+        'error',
+      );
+    }
   }
 
   // Cree N tables SEQUENTIELLEMENT (les noms « Tn » se suivent car le signal tables
   // est mis a jour apres chaque POST), pose leur geometrie, puis les selectionne.
   // En cas d'echec reseau : toast, pas de table fantome (la geometrie n'est posee
   // qu'apres la reponse du back).
-  private createTables(specs: CreateSpec[]): void {
+  // `keepGeometry` : poser les tables EXACTEMENT ou le plan le demande, sans
+  // anti-empilement. Indispensable a l'import, ou la disposition vient du vrai
+  // restaurant : des tables qui se touchent de quelques centimetres (rangee le
+  // long d'une banquette) sont normales, et les repousser detruisait le plan
+  // (des tables finissaient superposees ou plaquees contre un bord).
+  private createTables(specs: CreateSpec[], keepGeometry = false): void {
     if (specs.length === 0 || this.creating()) {
       return;
     }
@@ -832,9 +996,15 @@ export class HkFloorPlanEditor implements OnInit {
                   createdIds.push(table.id);
                   // Anti-empilement : chaque table posee au preset atterrit au meme
                   // point -> on la repousse des tables deja presentes (y compris
-                  // celles creees plus tot dans ce meme lot).
+                  // celles creees plus tot dans ce meme lot). A l'import on s'en
+                  // passe : le plan vient du vrai restaurant, on le respecte.
+                  // Emprises PIVOTEES : les tables d'un plan importe arrivent
+                  // presque toutes avec une rotation.
                   const current = this.store.geometry();
-                  const { x, y } = pushApart(spec.geo, Object.values(current));
+                  const box = rotatedBox(spec.geo);
+                  const { x, y } = keepGeometry
+                    ? { x: spec.geo.x, y: spec.geo.y }
+                    : this.settlePosition(box, Object.values(current).map(rotatedBox));
                   // Sans historique : la creation s'annule via son toast dedie
                   // (elle touche le back), pas via l'undo de deplacement.
                   this.store.commit({ ...current, [table.id]: { ...spec.geo, x, y } }, false);
@@ -1126,12 +1296,24 @@ export class HkFloorPlanEditor implements OnInit {
       const moved = changes[0];
       const merges = this.store.merges();
       const sameGroup = new Set(merges.find((group) => group.includes(moved.id)) ?? []);
+      // Emprises PIVOTEES : sans cela une table a 90 deg est testee avec sa
+      // largeur et sa hauteur inversees, et peut en recouvrir une autre.
       const neighbors = this.editorTables()
         .filter((t) => t.id !== moved.id && !sameGroup.has(t.id))
-        .map((t) => ({ id: t.id, label: t.label, x: t.x, y: t.y, w: t.width, h: t.height }));
-      const movedBox = { x: moved.x, y: moved.y, w: moved.width, h: moved.height };
+        .map((t) => ({
+          id: t.id,
+          label: t.label,
+          ...rotatedBox({ x: t.x, y: t.y, w: t.width, h: t.height, rotation: t.rotation }),
+        }));
+      const movedBox = rotatedBox({
+        x: moved.x,
+        y: moved.y,
+        w: moved.width,
+        h: moved.height,
+        rotation: moved.rotation,
+      });
       const touched = neighbors.find((o) => tablesTouch(movedBox, o, 0.01));
-      const corrected = pushApart(movedBox, neighbors);
+      const corrected = this.settlePosition(movedBox, neighbors);
       if (corrected.x !== moved.x || corrected.y !== moved.y) {
         geometry[moved.id] = { ...geometry[moved.id], x: corrected.x, y: corrected.y };
         if (touched) {
@@ -1157,15 +1339,42 @@ export class HkFloorPlanEditor implements OnInit {
         const sameGroup = new Set(merges.find((group) => group.includes(c.id)) ?? []);
         const fixed = this.editorTables()
           .filter((t) => !movedIds.has(t.id) && !sameGroup.has(t.id))
-          .map((t) => ({ x: t.x, y: t.y, w: t.width, h: t.height }));
-        const box = { x: c.x, y: c.y, w: c.width, h: c.height };
-        const corrected = pushApart(box, fixed);
+          .map((t) =>
+            rotatedBox({ x: t.x, y: t.y, w: t.width, h: t.height, rotation: t.rotation }),
+          );
+        const box = rotatedBox({ x: c.x, y: c.y, w: c.width, h: c.height, rotation: c.rotation });
+        const corrected = this.settlePosition(box, fixed);
         if (corrected.x !== c.x || corrected.y !== c.y) {
           geometry[c.id] = { ...geometry[c.id], x: corrected.x, y: corrected.y };
         }
       }
     }
     this.store.commit(geometry);
+  }
+
+  // Degage la table des TABLES puis des MURS, en alternance jusqu'a ce que la
+  // position ne bouge plus. Une seule passe ne suffit pas : le degagement d'un
+  // mur peut pousser la table sur une voisine, et inversement. Sans cette
+  // boucle, la correction murale creait le chevauchement qu'on venait d'eviter.
+  private settlePosition(
+    box: { x: number; y: number; w: number; h: number },
+    neighbors: readonly { x: number; y: number; w: number; h: number }[],
+  ): { x: number; y: number } {
+    const walls = wallObstacles(this.store.walls());
+    let pos = { x: box.x, y: box.y };
+    for (let pass = 0; pass < 3; pass++) {
+      const afterTables = pushApart({ ...pos, w: box.w, h: box.h }, neighbors);
+      const afterWalls =
+        walls.length === 0
+          ? afterTables
+          : pushApart({ ...afterTables, w: box.w, h: box.h }, walls, WALL_MIN_GAP);
+      const settled = afterWalls.x === pos.x && afterWalls.y === pos.y;
+      pos = afterWalls;
+      if (settled) {
+        break;
+      }
+    }
+    return pos;
   }
 
   // Fusionne un couple d'ids (action du toast anti-chevauchement) : quitte les

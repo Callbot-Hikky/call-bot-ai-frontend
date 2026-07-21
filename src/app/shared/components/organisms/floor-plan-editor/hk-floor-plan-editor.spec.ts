@@ -10,6 +10,8 @@ import { ToastService } from '@core/services/toast.service';
 import { EditorTable, WallSegment } from '@core/models/floor-plan-editor.model';
 import { Reservation } from '@core/models/reservation.model';
 import { TableDto } from '@core/models/table.model';
+import { PascalCandidate } from '@core/models/pascal-import.model';
+import { PascalImportPayload } from './hk-pascal-import';
 
 // Stub du canvas Konva (idem hk-floor-plan.spec) : Konva exige un vrai <canvas>
 // indisponible en jsdom. On expose les memes inputs/outputs pour piloter l'orchestration.
@@ -77,6 +79,39 @@ type Fixture = ReturnType<typeof TestBed.createComponent<HostComponent>>;
 function findCanvas(fixture: Fixture): CanvasStub {
   return fixture.debugElement.query((el) => el.componentInstance instanceof CanvasStub)
     .componentInstance as CanvasStub;
+}
+
+// Declenche un import applique, comme le ferait le dialogue Pascal une fois
+// l'apercu valide. `mode` distingue « ajouter » de « remplacer ».
+function importInto(
+  fixture: Fixture,
+  mode: 'add' | 'replace',
+  walls: WallSegment[] = [],
+  tables: PascalCandidate[] = [
+    {
+      key: 'k1',
+      label: 'Dining Table',
+      isTable: true,
+      x: 0.5,
+      y: 0.5,
+      w: 0.12,
+      h: 0.1,
+      rotation: 0,
+      shape: 'rect',
+      capacity: 4,
+      widthM: 1.6,
+      depthM: 0.9,
+    },
+  ],
+): void {
+  const editor = fixture.debugElement.query(
+    (el) => el.componentInstance instanceof HkFloorPlanEditor,
+  ).componentInstance as HkFloorPlanEditor;
+  (editor as unknown as { onImported(p: PascalImportPayload): void }).onImported({
+    tables,
+    walls,
+    mode,
+  });
 }
 
 function findButton(fixture: Fixture, text: string): HTMLButtonElement {
@@ -317,6 +352,128 @@ describe('HkFloorPlanEditor (bridge tables reelles)', () => {
     httpMock.expectNone((r) => r.method === 'DELETE');
     expect(tables.tables().some((t) => t.id === 't1')).toBe(true);
     expect(toast.toasts().some((t) => t.message.includes('réaffectez'))).toBe(true);
+  });
+
+  // IMPORT « REMPLACER » : chemin le plus destructif de l'editeur. Il doit
+  // respecter le MEME garde-fou que la suppression manuelle, sinon l'import
+  // devient une porte derobee pour supprimer une table attendue par un client.
+  it('import « remplacer » : vide la salle mais epargne une table reservee', async () => {
+    const fixture = await open((h) => {
+      h.reservations = [reservation('r1', 'seated', 't2')];
+    });
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    importInto(fixture, 'replace', []);
+    await fixture.whenStable();
+
+    // t1 et t3 partent, t2 reste : elle porte une reservation en cours.
+    for (const id of ['t1', 't3']) {
+      httpMock
+        .expectOne((r) => r.method === 'DELETE' && r.url.endsWith(`/tables/${id}`))
+        .flush(null);
+    }
+    httpMock.expectNone((r) => r.method === 'DELETE' && r.url.endsWith('/tables/t2'));
+    await fixture.whenStable();
+
+    expect(tables.tables().some((t) => t.id === 't2')).toBe(true);
+    expect(toast.toasts().some((t) => t.message.includes('conservée'))).toBe(true);
+  });
+
+  // Un plan importe vient du VRAI restaurant : des tables qui se touchent de
+  // quelques centimetres (rangee le long d'une banquette) sont normales.
+  // L'anti-empilement les repoussait, ce qui deplacait les tables loin de leur
+  // place et en superposait certaines.
+  it('import : les tables sont posees EXACTEMENT ou le plan les place', async () => {
+    const fixture = await open();
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    // Deux tables volontairement TRES proches (elles se toucheraient).
+    const proche = (key: string, x: number): PascalCandidate => ({
+      key,
+      label: 'Dining Table',
+      isTable: true,
+      x,
+      y: 0.5,
+      w: 0.12,
+      h: 0.1,
+      rotation: 0,
+      shape: 'rect',
+      capacity: 4,
+      widthM: 2,
+      depthM: 0.9,
+    });
+    importInto(fixture, 'add', [], [proche('k1', 0.4), proche('k2', 0.44)]);
+    await fixture.whenStable();
+
+    // Creations SEQUENTIELLES : le POST suivant n'part qu'apres la reponse du
+    // precedent (les noms « Tn » doivent se suivre).
+    for (let i = 0; i < 2; i++) {
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.includes('/tables'))
+        .flush({
+          id: `imp${i}`,
+          restaurantId: RESTAURANT,
+          name: `T${10 + i}`,
+          capacity: 4,
+          zone: null,
+          isActive: true,
+        });
+      await fixture.whenStable();
+    }
+
+    const geo = store.geometry();
+    expect(geo['imp0'].x).toBeCloseTo(0.4, 6);
+    expect(geo['imp1'].x).toBeCloseTo(0.44, 6);
+    expect(geo['imp0'].y).toBeCloseTo(0.5, 6);
+  });
+
+  // Le placement issu d'un plan 3D demande souvent des retouches : on le dit en
+  // fenetre, un bandeau passait inapercu.
+  it('import : une fenetre previent que les tables sont deplacables', async () => {
+    const fixture = await open();
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="import-done-dialog"]')).toBeNull();
+
+    importInto(fixture, 'add', []);
+    await fixture.whenStable();
+
+    const dialog = fixture.nativeElement.querySelector('[data-testid="import-done-dialog"]');
+    expect(dialog).toBeTruthy();
+    expect(dialog.textContent).toContain('glissez');
+
+    fixture.nativeElement.querySelector('[data-testid="import-done-ok"]').click();
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="import-done-dialog"]')).toBeNull();
+  });
+
+  it('import « ajouter » : ne supprime aucune table existante', async () => {
+    const fixture = await open();
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+
+    importInto(fixture, 'add', []);
+    await fixture.whenStable();
+
+    httpMock.expectNone((r) => r.method === 'DELETE');
+  });
+
+  // Un import de MURS SEULS en mode remplacer ne doit pas vider la salle : cette
+  // suppression-la n'a aucune annulation. Les murs, eux, sont bien poses.
+  it('import « remplacer » de murs seuls ne supprime aucune table', async () => {
+    const fixture = await open();
+    fixture.nativeElement.querySelector('[data-testid="template-blank"]').click();
+    await fixture.whenStable();
+    const avant = tables.tables().length;
+
+    importInto(fixture, 'replace', [{ x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.1, thickness: 0.02 }], []);
+    await fixture.whenStable();
+
+    httpMock.expectNone((r) => r.method === 'DELETE');
+    expect(tables.tables().length).toBe(avant);
+    expect(store.walls().length).toBe(1);
   });
 
   it('supprimer une table sans reservation : DELETE + retrait de la geometrie', async () => {
