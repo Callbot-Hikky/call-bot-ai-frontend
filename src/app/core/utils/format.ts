@@ -39,9 +39,9 @@ export function localIso(d: Date = new Date()): string {
  * Fonction qui permet de retourné un pays en emoji
  */
 export function isoToEmoji(code: string): string {
-    return code
-        .split('')
-        .map(letter => letter.charCodeAt(0) % 32 + 0x1F1E5)
-        .map(n => String.fromCodePoint(n))
-        .join('')
+  return code
+    .split('')
+    .map((letter) => (letter.charCodeAt(0) % 32) + 0x1f1e5)
+    .map((n) => String.fromCodePoint(n))
+    .join('');
 }
