@@ -33,6 +33,7 @@ import {
   lucideEllipsis,
   lucideLogOut,
   lucideGrid2x2,
+  lucideStore,
   lucideChartColumn,
   lucideMenu,
   lucideInfo,
@@ -50,6 +51,10 @@ import {
   lucideMaximize,
   lucideUpload,
   lucideBox,
+  lucideSave,
+  lucideLeaf,
+  lucideWrench,
+  lucideCreditCard
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -77,6 +82,7 @@ const ICONS = {
   lucideEllipsis,
   lucideLogOut,
   lucideGrid2x2,
+  lucideStore,
   lucideChartColumn,
   lucideMenu,
   lucideInfo,
@@ -94,6 +100,10 @@ const ICONS = {
   lucideMaximize,
   lucideUpload,
   lucideBox,
+  lucideSave,
+  lucideLeaf,
+  lucideWrench,
+  lucideCreditCard
 };
 
 export const appConfig: ApplicationConfig = {
