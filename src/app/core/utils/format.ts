@@ -34,3 +34,14 @@ export function localIso(d: Date = new Date()): string {
   const offset = `${sign}${pad(offsetMin / 60)}:${pad(offsetMin % 60)}`;
   return `${localDateKey(d)}T${time}${offset}`;
 }
+
+/**
+ * Fonction qui permet de retourné un pays en emoji
+ */
+export function isoToEmoji(code: string): string {
+    return code
+        .split('')
+        .map(letter => letter.charCodeAt(0) % 32 + 0x1F1E5)
+        .map(n => String.fromCodePoint(n))
+        .join('')
+}
