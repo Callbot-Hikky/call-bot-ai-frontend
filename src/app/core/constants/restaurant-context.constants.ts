@@ -1,90 +1,90 @@
 export const DIETARY_OPTIONS = [
-  {
-    id: 'halal',
-    label: 'Halal',
-  },
-  {
-    id: 'casher',
-    label: 'Casher',
-  },
-  {
-    id: 'vegetarien',
-    label: 'Végétarien',
-  },
-  {
-    id: 'options-without-gluten',
-    label: 'Options sans gluten',
-  },
-  {
-    id: 'vegan',
-    label: 'Vegan',
-  },
-  {
-    id: 'bio',
-    label: '100% Bio',
-  },
+    {
+        id: 'halal',
+        label: 'Halal'
+    },
+    {
+        id: 'casher',
+        label: 'Casher'
+    },
+    {
+        id: 'vegetarian',
+        label: 'Végétarien'
+    },
+    {
+        id: 'gluten_free',
+        label: 'Options sans gluten'
+    },
+    {
+        id: 'vegan',
+        label: 'Vegan'
+    },
+    {
+        id: 'bio',
+        label: '100% Bio'
+    }
 ] as const;
 
 export const EQUIPMENTS = [
-  {
-    id: 'terrasse',
-    label: 'Terrasse',
-  },
-  {
-    id: 'climatisation',
-    label: 'Climatisation',
-  },
-  {
-    id: 'parking-prive',
-    label: 'Parking privé',
-  },
-  {
-    id: 'accessiblepmr-fauteuil',
-    label: 'Accessible PMR (Fauteuil)',
-  },
-  {
-    id: 'animaux-acceptes',
-    label: 'Animaux acceptés',
-  },
-  {
-    id: 'wi-fi-clients',
-    label: 'Wi-Fi clients',
-  },
-  {
-    id: 'chaises-hautes-enfants',
-    label: 'Chaises hautes enfants',
-  },
-  {
-    id: 'rooftop',
-    label: 'Rooftop',
-  },
+    {
+        id: 'terrace',
+        label: 'Terrasse'
+    },
+    {
+        id: 'air_conditioning',
+        label: 'Climatisation'
+    },
+    {
+        id: 'private_parking',
+        label: 'Parking privé'
+    },
+    {
+        id: 'wheelchair_accessible',
+        label: 'Accessible PMR (Fauteuil)'
+    },
+    {
+        id: 'pets_allowed',
+        label: 'Animaux acceptés'
+    },
+    {
+        id: 'wifi',
+        label: 'Wi-Fi clients'
+    },
+    {
+        id: 'high_chairs',
+        label: 'Chaises hautes enfants'
+    },
+    {
+        id: 'rooftop',
+        label: 'Rooftop'
+    }
 ] as const;
 
 export const PAYMENTS_AND_OFFERS = [
-  {
-    id: 'titres-restaurants',
-    label: 'Titres-restaurants',
-  },
-  {
-    id: 'vente-a-emporter',
-    label: 'Vente à emporter',
-  },
-  {
-    id: 'carte-bancaire',
-    label: 'Carte bancaire',
-  },
-  {
-    id: 'livraison',
-    label: 'Livraison',
-  },
-  {
-    id: 'especes-uniquement',
-    label: 'Espèces uniquement',
-  },
-  {
-    id: 'reservation-conseillee',
-    label: 'Réservation conseillée',
-  },
+    {
+        id: 'meal_vouchers',
+        label: 'Titres-restaurants'
+    },
+    {
+        id: 'takeaway',
+        label: 'Vente à emporter'
+    },
+    {
+        id: 'card_payment',
+        label: 'Carte bancaire'
+    },
+    {
+        id: 'delivery',
+        label: 'Livraison'
+    },
+    {
+        id: 'cash_only',
+        label: 'Espèces uniquement'
+    },
+    {
+        id: 'reservation_recommended',
+        label: 'Réservation conseillée'
+    }
 ] as const;
 
 export const KITCHEN_TYPES = [
