@@ -5,6 +5,7 @@ import { DashboardPage } from './features/dashboard/dashboard';
 import { ReservationsPage } from './features/reservations/reservations';
 import { FloorPlanPage } from './features/floor-plan/floor-plan-page';
 import { ComingSoonPage } from './features/coming-soon/coming-soon';
+import { MyRestaurantPage } from './features/my-restaurant/my-restaurant';
 
 export const routes: Routes = [
   // Page de validation du design system (hors shell), temporaire.
@@ -22,6 +23,7 @@ export const routes: Routes = [
         component: ComingSoonPage,
         data: { title: 'Paramètres', icon: 'lucideSettings' },
       },
+      { path: 'mon-restaurant', component: MyRestaurantPage, data: { title: 'Mon restaurant' } },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },
