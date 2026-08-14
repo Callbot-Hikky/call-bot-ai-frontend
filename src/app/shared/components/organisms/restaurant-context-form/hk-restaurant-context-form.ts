@@ -1,4 +1,3 @@
-// TODO 5 : Pré-remplissage via input.required<RestaurantContext>() + this.form.patchValue(context()).
 import { Component, inject } from '@angular/core';
 import { HkCheckboxGroup } from '@shared/components/molecules/checkbox-group/hk-checkbox-group';
 import {
