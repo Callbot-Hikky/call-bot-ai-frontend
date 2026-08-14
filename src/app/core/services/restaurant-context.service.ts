@@ -9,8 +9,6 @@ export class RestaurantContextService {
   private readonly _priceRange = signal<string>('');
   private readonly _cuisines = signal<string[]>([]);
   private readonly _moods = signal<string[]>([]);
-  private readonly _loading = signal(false);
-  private readonly _error = signal(false);
 
   readonly dietary = this._dietary.asReadonly();
   readonly equipments = this._equipments.asReadonly();
@@ -18,8 +16,6 @@ export class RestaurantContextService {
   readonly priceRange = this._priceRange.asReadonly();
   readonly cuisines = this._cuisines.asReadonly();
   readonly moods = this._moods.asReadonly();
-  readonly loading = this._loading.asReadonly();
-  readonly error = this._error.asReadonly();
 
   readonly context = computed<RestaurantContext>(() => ({
     dietary: this._dietary(),
