@@ -112,3 +112,48 @@ export function fromDto(dto: RestaurantContextDto): RestaurantContext {
     moods: [...dto.details.ambiance],
   };
 }
+
+export const EMPTY_DTO: RestaurantContextDto = {
+  dietary: {
+    halal: false,
+    casher: false,
+    vegetarian: false,
+    gluten_free: false,
+    vegan: false,
+    bio: false,
+  },
+  equipments: {
+    terrace: false,
+    air_conditioning: false,
+    private_parking: false,
+    wheelchair_accessible: false,
+    pets_allowed: false,
+    wifi: false,
+    high_chairs: false,
+    rooftop: false,
+  },
+  payments: {
+    meal_vouchers: false,
+    takeaway: false,
+    card_payment: false,
+    delivery: false,
+    cash_only: false,
+    reservation_recommended: false,
+  },
+  details: {
+    price_range: '',
+    cuisine_type: [],
+    ambiance: [],
+  },
+};
+
+export function isFullDto(value: unknown): value is RestaurantContextDto {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    'dietary' in value &&
+    'equipments' in value &&
+    'payments' in value &&
+    'details' in value
+  );
+}

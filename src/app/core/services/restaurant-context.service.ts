@@ -1,6 +1,12 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { RestaurantContext } from '@core/models/restaurant-context.model';
 
+function sameSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((x) => set.has(x));
+}
+
 @Injectable({ providedIn: 'root' })
 export class RestaurantContextService {
   private readonly _dietary = signal<string[]>([]);
@@ -9,6 +15,7 @@ export class RestaurantContextService {
   private readonly _priceRange = signal<string>('');
   private readonly _cuisines = signal<string[]>([]);
   private readonly _moods = signal<string[]>([]);
+  private readonly _snapshot = signal<RestaurantContext | null>(null);
 
   readonly dietary = this._dietary.asReadonly();
   readonly equipments = this._equipments.asReadonly();
@@ -25,6 +32,20 @@ export class RestaurantContextService {
     cuisines: this._cuisines(),
     moods: this._moods(),
   }));
+
+  readonly isDirty = computed(() => {
+    const snap = this._snapshot();
+    if (!snap) return false;
+    const ctx = this.context();
+    return (
+      !sameSet(snap.dietary, ctx.dietary) ||
+      !sameSet(snap.equipments, ctx.equipments) ||
+      !sameSet(snap.payments, ctx.payments) ||
+      !sameSet(snap.cuisines, ctx.cuisines) ||
+      !sameSet(snap.moods, ctx.moods) ||
+      snap.priceRange !== ctx.priceRange
+    );
+  });
 
   setDietary(list: string[]) {
     this._dietary.set(list);
@@ -57,6 +78,7 @@ export class RestaurantContextService {
     this._priceRange.set(context.priceRange);
     this._cuisines.set(context.cuisines);
     this._moods.set(context.moods);
+    this._snapshot.set(context);
   }
 
   reset() {
