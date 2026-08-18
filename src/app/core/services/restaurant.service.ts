@@ -37,16 +37,11 @@ export class RestaurantService {
     id: string,
     attributes: RestaurantContextDto,
   ): Observable<RestaurantDto> {
-    this._loading.set(true);
-    this._error.set(false);
     return this.http.patch<RestaurantDto>(`${this.baseUrl}/${id}/attributes`, attributes).pipe(
       tap((restaurant) => {
         this._restaurant.set(restaurant);
-        this._loading.set(false);
       }),
       catchError((err) => {
-        this._error.set(true);
-        this._loading.set(false);
         return throwError(() => err);
       }),
     );
