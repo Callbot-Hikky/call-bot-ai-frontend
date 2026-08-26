@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  LOCALE_ID,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
@@ -7,6 +8,10 @@ import {
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
+import { registerLocaleData } from '@angular/common';
+import localeFr from '@angular/common/locales/fr';
+
+registerLocaleData(localeFr);
 import { firstValueFrom } from 'rxjs';
 import { authInterceptor } from '@core/interceptors/auth.interceptor';
 import { AuthService } from '@core/services/auth.service';
@@ -56,6 +61,7 @@ import {
   lucideWrench,
   lucideCreditCard,
   lucideRefreshCw,
+  lucideMinus,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -106,10 +112,12 @@ const ICONS = {
   lucideWrench,
   lucideCreditCard,
   lucideRefreshCw,
+  lucideMinus,
 };
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: LOCALE_ID, useValue: 'fr' },
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
