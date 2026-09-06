@@ -6,9 +6,9 @@
 
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
-/* Polices Geist (variable), servies en local via fontsource */
-@import '@fontsource-variable/geist/index.css';
-
+/* Polices : Instrument Sans (identique à la landing hikyy), servie en local
+   via fontsource. Geist Mono reste pour les chiffres tabulaires. */
+@import '@fontsource-variable/instrument-sans/index.css';
 @import '@fontsource-variable/geist-mono/index.css';
 
 /* =========================================================================
@@ -131,7 +131,7 @@
    ========================================================================= */
 @theme {
   /* Polices */
-  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-sans: 'Instrument Sans Variable', system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
   /* Échelle de marque : bg-brand-500, text-brand-700, ... */
