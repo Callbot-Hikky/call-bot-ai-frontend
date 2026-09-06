@@ -61,7 +61,7 @@ import { formatTime, telHref } from '@core/utils/format';
                   {{ req.phone }}
                 </span>
                 <a
-                  class="bg-primary text-primary-foreground focus-visible:ring-primary focus-visible:ring-offset-background inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors duration-150 hover:bg-green-800 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:bg-green-900"
+                  class="bg-primary text-primary-foreground focus-visible:ring-primary focus-visible:ring-offset-background hover:bg-brand-800 active:bg-brand-900 inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-sm px-3 text-sm font-medium transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
                   [href]="telHref(req.phone)"
                   (click)="callBack.emit(req)"
                 >
