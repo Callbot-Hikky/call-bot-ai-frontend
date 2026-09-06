@@ -8,54 +8,59 @@
 
 /* Polices Geist (variable), servies en local via fontsource */
 @import '@fontsource-variable/geist/index.css';
+
 @import '@fontsource-variable/geist-mono/index.css';
 
 /* =========================================================================
    Tokens Hikky : source de vérité unique.
-   Pour recalibrer une couleur (ex. la marque), on change ici et nulle part ailleurs.
+   Palette alignée sur la landing (call-bot-ai-landing) : shadcn « zinc »,
+   monochrome, clair par défaut. Pour recalibrer une couleur, on change ici
+   et nulle part ailleurs.
    ========================================================================= */
 :root {
   color-scheme: light;
 
-  /* Marque : vert frais et confiant (OKLCH), pas néon */
-  --brand-50: oklch(0.97 0.02 158);
-  --brand-100: oklch(0.94 0.04 158);
-  --brand-200: oklch(0.88 0.07 158);
-  --brand-300: oklch(0.81 0.1 158);
-  --brand-400: oklch(0.75 0.13 158);
-  --brand-500: oklch(0.69 0.15 158);
-  --brand-600: oklch(0.62 0.14 159);
-  --brand-700: oklch(0.53 0.12 160);
-  --brand-800: oklch(0.44 0.1 161);
-  --brand-900: oklch(0.37 0.08 162);
-  --primary-fg: oklch(1 0 0);
+  /* Marque : échelle zinc (monochrome). L'accent est neutralisé → cohérence
+     totale avec la landing, où la hiérarchie se fait par la valeur, pas la teinte. */
+  --brand-50: oklch(0.985 0 0);
+  --brand-100: oklch(0.967 0.001 286.375);
+  --brand-200: oklch(0.92 0.004 286.32);
+  --brand-300: oklch(0.871 0.006 286.286);
+  --brand-400: oklch(0.705 0.015 286.067);
+  --brand-500: oklch(0.552 0.016 285.938);
+  --brand-600: oklch(0.37 0.013 285.805);
+  --brand-700: oklch(0.21 0.006 285.885);
+  --brand-800: oklch(0.141 0.005 285.823);
+  --brand-900: oklch(0.11 0.004 285.8);
+  --primary-fg: oklch(0.985 0 0);
   --primary-hover: var(--brand-800);
   --primary-active: var(--brand-900);
 
-  /* Neutres : gris très légèrement chauds (hue ~95) */
-  --bg: oklch(0.99 0.004 95);
+  /* Neutres : zinc (hue ~286), comme la landing */
+  --bg: oklch(1 0 0);
   --surface: oklch(1 0 0);
-  --surface-2: oklch(0.975 0.004 95);
-  --border: oklch(0.92 0.005 95);
-  --border-strong: oklch(0.87 0.006 95);
-  --text: oklch(0.27 0.01 95);
-  --text-strong: oklch(0.2 0.01 95);
-  --text-muted: oklch(0.55 0.01 95);
-  --text-subtle: oklch(0.66 0.008 95);
+  --surface-2: oklch(0.967 0.001 286.375);
+  --border: oklch(0.92 0.004 286.32);
+  --border-strong: oklch(0.871 0.006 286.286);
+  --text: oklch(0.21 0.006 285.885);
+  --text-strong: oklch(0.141 0.005 285.823);
+  --text-muted: oklch(0.552 0.016 285.938);
+  --text-subtle: oklch(0.705 0.015 286.067);
 
-  /* Statuts : paire (texte, fond pâle de badge) */
-  --st-pending-fg: oklch(0.55 0.12 70);
-  --st-pending-bg: oklch(0.96 0.04 75);
-  --st-confirmed-fg: oklch(0.5 0.13 158);
-  --st-confirmed-bg: oklch(0.95 0.04 158);
-  --st-seated-fg: oklch(0.52 0.13 250);
-  --st-seated-bg: oklch(0.95 0.03 250);
-  --st-completed-fg: oklch(0.45 0.01 95);
-  --st-completed-bg: oklch(0.95 0.004 95);
-  --st-cancelled-fg: oklch(0.55 0.16 25);
+  /* Statuts : paire (texte, fond pâle de badge). Chroma volontairement basse
+     pour rester lisible sans casser le monochrome. */
+  --st-pending-fg: oklch(0.52 0.09 70);
+  --st-pending-bg: oklch(0.965 0.025 75);
+  --st-confirmed-fg: oklch(0.48 0.09 158);
+  --st-confirmed-bg: oklch(0.955 0.028 158);
+  --st-seated-fg: oklch(0.5 0.09 250);
+  --st-seated-bg: oklch(0.955 0.022 250);
+  --st-completed-fg: oklch(0.442 0.017 285.786);
+  --st-completed-bg: oklch(0.967 0.001 286.375);
+  --st-cancelled-fg: oklch(0.53 0.14 25);
   --st-cancelled-bg: oklch(0.96 0.03 25);
-  --st-noshow-fg: oklch(0.5 0.15 12);
-  --st-noshow-bg: oklch(0.95 0.03 12);
+  --st-noshow-fg: oklch(0.48 0.13 12);
+  --st-noshow-bg: oklch(0.955 0.025 12);
 
   /* Espacements (base 4px) */
   --space-1: 4px;
@@ -76,7 +81,7 @@
   --dur-slower: 320ms;
 
   /* Ombre d'anneau de focus Hikky (Spartan garde --ring en couleur, voir remap) */
-  --focus-ring: 0 0 0 3px oklch(0.69 0.15 158 / 0.25);
+  --focus-ring: 0 0 0 3px oklch(0.705 0.015 286.067 / 0.4);
 
   /* Z-index */
   --z-dropdown: 1000;
@@ -89,33 +94,35 @@
 
   /* ---- Variables Spartan remappées sur les tokens Hikky (pointeurs) ----
      Une seule source de vérité par couleur : ces variables ne dupliquent pas
-     les valeurs OKLCH, elles pointent vers les tokens ci-dessus. */
-  --radius: var(--radius-md);
+     les valeurs OKLCH, elles pointent vers les tokens ci-dessus.
+     Les valeurs correspondent une à une à celles de la landing. */
+  --radius: var(--radius-lg);
   --background: var(--bg);
-  --foreground: var(--text);
+  --foreground: var(--text-strong);
   --card: var(--surface);
-  --card-foreground: var(--text);
+  --card-foreground: var(--text-strong);
   --popover: var(--surface);
-  --popover-foreground: var(--text);
+  --popover-foreground: var(--text-strong);
   --primary: var(--brand-700);
   --primary-foreground: var(--primary-fg);
   --secondary: var(--surface-2);
-  --secondary-foreground: var(--text);
+  --secondary-foreground: var(--brand-700);
   --muted: var(--surface-2);
   --muted-foreground: var(--text-muted);
   --accent: var(--surface-2);
-  --accent-foreground: var(--text);
-  --destructive: var(--st-cancelled-fg);
+  --accent-foreground: var(--brand-700);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
   --input: var(--border);
-  --ring: var(--brand-500);
+  --ring: var(--brand-400);
   --sidebar: var(--bg);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: var(--brand-500);
+  --sidebar-primary: var(--brand-700);
   --sidebar-primary-foreground: var(--primary-fg);
   --sidebar-accent: var(--brand-100);
   --sidebar-accent-foreground: var(--brand-700);
   --sidebar-border: var(--border);
-  --sidebar-ring: var(--brand-500);
+  --sidebar-ring: var(--brand-400);
 }
 
 /* =========================================================================
@@ -164,16 +171,19 @@
   --color-text-muted: var(--text-muted);
   --color-text-subtle: var(--text-subtle);
 
-  /* Rayons : rounded-sm/md/lg */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Rayons : rounded-sm/md/lg — cales sur --radius: 0.625rem de la landing */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
 
   /* Ombres très douces, en couches : shadow-xs/sm/md/lg */
-  --shadow-xs: 0 1px 2px oklch(0.27 0.01 95 / 0.05);
-  --shadow-sm: 0 1px 3px oklch(0.27 0.01 95 / 0.06), 0 1px 2px oklch(0.27 0.01 95 / 0.04);
-  --shadow-md: 0 4px 12px oklch(0.27 0.01 95 / 0.06), 0 2px 4px oklch(0.27 0.01 95 / 0.04);
-  --shadow-lg: 0 12px 32px oklch(0.27 0.01 95 / 0.1), 0 4px 8px oklch(0.27 0.01 95 / 0.05);
+  --shadow-xs: 0 1px 2px oklch(0.141 0.005 285.823 / 0.05);
+  --shadow-sm:
+    0 1px 3px oklch(0.141 0.005 285.823 / 0.06), 0 1px 2px oklch(0.141 0.005 285.823 / 0.04);
+  --shadow-md:
+    0 4px 12px oklch(0.141 0.005 285.823 / 0.06), 0 2px 4px oklch(0.141 0.005 285.823 / 0.04);
+  --shadow-lg:
+    0 12px 32px oklch(0.141 0.005 285.823 / 0.1), 0 4px 8px oklch(0.141 0.005 285.823 / 0.05);
 
   /* Easings : ease-out (entrées), ease-in-out (déplacements), ease-spring (feedback) */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -188,6 +198,26 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Sélection et scrollbar : mêmes réglages que la landing. */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, var(--background));
+    border-radius: 999px;
+    border: 3px solid var(--background);
   }
 }
 
