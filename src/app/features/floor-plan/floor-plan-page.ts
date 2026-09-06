@@ -21,7 +21,7 @@ import {
 import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
 import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-editor/hk-floor-plan-editor';
 import { deriveTableStatus, layoutTables, mergeViews } from '@core/models/floor-plan.model';
-import { environment } from '@env/environment';
+import { SessionService } from '@core/services/session.service';
 import { ReservationService } from '@core/services/reservation.service';
 import { ReservationActionsService } from '@core/services/reservation-actions.service';
 import { TableService } from '@core/services/table.service';
@@ -174,7 +174,10 @@ export class FloorPlanPage {
   protected readonly vitrine = signal(false);
   // MODE SERVICE plein ecran (« poste d'accueil »).
   protected readonly serviceMode = signal(false);
-  protected readonly restaurantId = environment.restaurantId;
+  private readonly session = inject(SessionService);
+  protected get restaurantId(): string {
+    return this.session.restaurantId() ?? '';
+  }
   protected readonly restaurantName = 'Le Bistrot du Coin';
   private enteredFullscreen = false;
   private readonly floorPlanCmp = viewChild(HkFloorPlan);

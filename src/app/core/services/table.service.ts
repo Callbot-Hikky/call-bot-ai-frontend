@@ -5,6 +5,7 @@ import { delay, map, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
 import { FloorTable, TableDto, mapTable } from '@core/models/table.model';
+import { SessionService } from './session.service';
 
 // Donnees de creation d'une table (POST /api/tables). Le restaurantId est ajoute
 // par le service (celui de l'environnement).
@@ -39,6 +40,7 @@ interface TableRequestBody {
 @Injectable({ providedIn: 'root' })
 export class TableService {
   private readonly http = inject(HttpClient);
+  private readonly session = inject(SessionService);
   private readonly baseUrl = `${environment.apiUrl}/tables`;
 
   private readonly _tables = signal<FloorTable[]>([]);
@@ -77,7 +79,7 @@ export class TableService {
     }
     // L'alimentation du signal est la responsabilite de loadTables (comme
     // ReservationService.getToday) : getTables reste un simple flux de donnees.
-    const url = `${this.baseUrl}?restaurantId=${environment.restaurantId}`;
+    const url = `${this.baseUrl}?restaurantId=${this.session.restaurantId() ?? ''}`;
     return this.http.get<TableDto[]>(url).pipe(map((dtos) => dtos.map(mapTable)));
   }
 
@@ -102,7 +104,7 @@ export class TableService {
       );
     }
     const body: TableRequestBody = {
-      restaurantId: environment.restaurantId,
+      restaurantId: this.session.restaurantId() ?? '',
       name: input.name,
       capacity: input.capacity,
       zone: input.zone ?? null,
@@ -137,7 +139,7 @@ export class TableService {
       );
     }
     const body: TableRequestBody = {
-      restaurantId: environment.restaurantId,
+      restaurantId: this.session.restaurantId() ?? '',
       name: next.name,
       capacity: next.capacity,
       zone: next.zone ?? null,
