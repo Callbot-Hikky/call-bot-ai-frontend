@@ -5,12 +5,9 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
-import { firstValueFrom } from 'rxjs';
-import { authInterceptor } from '@core/interceptors/auth.interceptor';
-import { AuthService } from '@core/services/auth.service';
-import { environment } from '@env/environment';
+import { SessionService } from '@core/services/session.service';
 import {
   lucideLayoutDashboard,
   lucideCalendar,
@@ -112,16 +109,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch()),
     provideIcons(ICONS),
-    // Dev uniquement : récupère un token JWT au démarrage (auth réelle gérée ailleurs).
-    provideAppInitializer(() => {
-      const creds = environment.devAuth;
-      if (environment.useMock || !creds) {
-        return;
-      }
-      const auth = inject(AuthService);
-      return firstValueFrom(auth.login(creds.email, creds.password)).catch(() => undefined);
-    }),
+    provideAppInitializer(() => inject(SessionService).refresh()),
   ],
 };

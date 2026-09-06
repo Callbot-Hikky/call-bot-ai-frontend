@@ -18,6 +18,14 @@ export class RestaurantService {
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
+  create(payload: {
+    organizationId: string;
+    name: string;
+    phoneNumber: string;
+  }): Observable<RestaurantDto> {
+    return this.http.post<RestaurantDto>(this.baseUrl, payload);
+  }
+
   loadRestaurant(id: string): void {
     this._loading.set(true);
     this._error.set(false);

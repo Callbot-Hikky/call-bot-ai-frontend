@@ -9,7 +9,7 @@ import { RestaurantContextService } from '@core/services/restaurant-context.serv
 import { fromDto, EMPTY_DTO, isFullDto, toDto } from '@core/models/restaurant-context-dto.model';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { ToastService } from '@core/services/toast.service';
-import { environment } from '@env/environment';
+import { SessionService } from '@core/services/session.service';
 
 @Component({
   selector: 'app-my-restaurant',
@@ -61,7 +61,10 @@ Ces informations sont utilisées par notre assistant IA pour répondre correctem
 export class MyRestaurantPage {
   protected readonly store = inject(RestaurantContextService);
   protected readonly service = inject(RestaurantService);
-  protected readonly restaurantId = environment.restaurantId;
+  private readonly session = inject(SessionService);
+  protected get restaurantId(): string {
+    return this.session.restaurantId() ?? '';
+  }
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 

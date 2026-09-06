@@ -1,5 +1,7 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
+import { SessionService } from './session.service';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
 import { ReservationService } from './reservation.service';
@@ -40,7 +42,11 @@ describe('ReservationService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SessionService, useValue: { restaurantId: signal('rest-1') } },
+      ],
     });
     service = TestBed.inject(ReservationService);
     httpMock = TestBed.inject(HttpTestingController);
