@@ -385,6 +385,7 @@ export class OnboardingPage {
     this.loading.set(true);
     this.error.set(null);
     try {
+      await this.session.refresh();
       if (!skipTables) {
         const count = Math.max(0, this.tableCount());
         const capacity = Math.max(1, this.tableCapacity());
@@ -392,7 +393,6 @@ export class OnboardingPage {
           await firstValueFrom(this.tablesService.create({ name: `Table ${i}`, capacity }));
         }
       }
-      await this.session.refresh();
       await this.router.navigateByUrl('/dashboard');
     } catch {
       this.error.set('La finalisation a échoué, réessayez.');
