@@ -14,7 +14,7 @@ export interface BarDatum {
         <div class="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
           <span class="text-text-muted text-xs font-medium tabular-nums">{{ bar.value }}</span>
           <div
-            class="w-full rounded-t-md bg-gradient-to-t from-green-500 to-green-400 transition-[height] duration-500"
+            class="from-brand-500 to-brand-400 w-full rounded-t-md bg-gradient-to-t transition-[height] duration-500"
             [style.height.%]="heightPct(bar.value)"
           ></div>
         </div>

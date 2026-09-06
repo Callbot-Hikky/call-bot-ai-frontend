@@ -12,25 +12,25 @@
 
 /* =========================================================================
    Tokens Hikky : source de vérité unique.
-   Pour recalibrer une couleur (ex. le vert), on change ici et nulle part ailleurs.
+   Pour recalibrer une couleur (ex. la marque), on change ici et nulle part ailleurs.
    ========================================================================= */
 :root {
   color-scheme: light;
 
   /* Marque : vert frais et confiant (OKLCH), pas néon */
-  --green-50: oklch(0.97 0.02 158);
-  --green-100: oklch(0.94 0.04 158);
-  --green-200: oklch(0.88 0.07 158);
-  --green-300: oklch(0.81 0.1 158);
-  --green-400: oklch(0.75 0.13 158);
-  --green-500: oklch(0.69 0.15 158);
-  --green-600: oklch(0.62 0.14 159);
-  --green-700: oklch(0.53 0.12 160);
-  --green-800: oklch(0.44 0.1 161);
-  --green-900: oklch(0.37 0.08 162);
+  --brand-50: oklch(0.97 0.02 158);
+  --brand-100: oklch(0.94 0.04 158);
+  --brand-200: oklch(0.88 0.07 158);
+  --brand-300: oklch(0.81 0.1 158);
+  --brand-400: oklch(0.75 0.13 158);
+  --brand-500: oklch(0.69 0.15 158);
+  --brand-600: oklch(0.62 0.14 159);
+  --brand-700: oklch(0.53 0.12 160);
+  --brand-800: oklch(0.44 0.1 161);
+  --brand-900: oklch(0.37 0.08 162);
   --primary-fg: oklch(1 0 0);
-  --primary-hover: var(--green-800);
-  --primary-active: var(--green-900);
+  --primary-hover: var(--brand-800);
+  --primary-active: var(--brand-900);
 
   /* Neutres : gris très légèrement chauds (hue ~95) */
   --bg: oklch(0.99 0.004 95);
@@ -97,7 +97,7 @@
   --card-foreground: var(--text);
   --popover: var(--surface);
   --popover-foreground: var(--text);
-  --primary: var(--green-700);
+  --primary: var(--brand-700);
   --primary-foreground: var(--primary-fg);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--text);
@@ -107,15 +107,15 @@
   --accent-foreground: var(--text);
   --destructive: var(--st-cancelled-fg);
   --input: var(--border);
-  --ring: var(--green-500);
+  --ring: var(--brand-500);
   --sidebar: var(--bg);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: var(--green-500);
+  --sidebar-primary: var(--brand-500);
   --sidebar-primary-foreground: var(--primary-fg);
-  --sidebar-accent: var(--green-100);
-  --sidebar-accent-foreground: var(--green-700);
+  --sidebar-accent: var(--brand-100);
+  --sidebar-accent-foreground: var(--brand-700);
   --sidebar-border: var(--border);
-  --sidebar-ring: var(--green-500);
+  --sidebar-ring: var(--brand-500);
 }
 
 /* =========================================================================
@@ -127,17 +127,17 @@
   --font-sans: 'Geist Variable', system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  /* Échelle de marque : bg-green-500, text-green-700, ... */
-  --color-green-50: var(--green-50);
-  --color-green-100: var(--green-100);
-  --color-green-200: var(--green-200);
-  --color-green-300: var(--green-300);
-  --color-green-400: var(--green-400);
-  --color-green-500: var(--green-500);
-  --color-green-600: var(--green-600);
-  --color-green-700: var(--green-700);
-  --color-green-800: var(--green-800);
-  --color-green-900: var(--green-900);
+  /* Échelle de marque : bg-brand-500, text-brand-700, ... */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
 
   /* Statuts : bg-st-confirmed-bg, text-st-confirmed-fg, ... */
   --color-st-pending-fg: var(--st-pending-fg);

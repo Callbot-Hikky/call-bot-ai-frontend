@@ -15,7 +15,7 @@ import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
       #rla="routerLinkActive"
       class="relative flex h-10 items-center gap-3 rounded-sm px-3 text-sm font-medium transition-colors duration-150"
       [class]="
-        rla.isActive || active() ? 'bg-green-100 text-green-700' : 'text-foreground hover:bg-muted'
+        rla.isActive || active() ? 'bg-brand-100 text-brand-700' : 'text-foreground hover:bg-muted'
       "
       [class.justify-center]="collapsed()"
       [attr.aria-current]="rla.isActive || active() ? 'page' : null"
