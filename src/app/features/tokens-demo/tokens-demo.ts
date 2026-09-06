@@ -59,7 +59,7 @@ import { BrnDialogState } from '@spartan-ng/brain/dialog';
 export class TokensDemo {
   private readonly toastService = inject(ToastService);
 
-  protected readonly greens = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
+  protected readonly brandRamp = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
   protected readonly statuses: ReservationStatus[] = [
     'pending',
     'confirmed',

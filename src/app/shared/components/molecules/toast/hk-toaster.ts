@@ -32,7 +32,7 @@ const ICON_COLOR: Record<ToastVariant, string> = {
           <p class="text-foreground flex-1 text-sm">{{ t.message }}</p>
           @if (t.action; as action) {
             <button
-              class="text-primary cursor-pointer text-sm font-semibold hover:text-green-800"
+              class="text-primary hover:text-brand-800 cursor-pointer text-sm font-semibold"
               (click)="runAction(t)"
             >
               {{ action.label }}
