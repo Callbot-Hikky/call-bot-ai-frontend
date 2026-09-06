@@ -45,16 +45,16 @@ export class HkStatCard {
 
   protected readonly cardClasses = computed(() =>
     this.highlight()
-      ? 'flex h-full flex-col rounded-lg border border-green-800 bg-gradient-to-br from-green-700 to-green-800 p-6 shadow-md'
+      ? 'flex h-full flex-col rounded-lg border border-brand-800 bg-gradient-to-br from-brand-700 to-brand-800 p-6 shadow-md'
       : 'bg-card border-border/70 flex h-full flex-col rounded-lg border p-6 shadow-md',
   );
 
   protected readonly labelClasses = computed(() =>
-    this.highlight() ? 'text-green-100' : 'text-muted-foreground',
+    this.highlight() ? 'text-brand-100' : 'text-muted-foreground',
   );
 
   protected readonly chipClasses = computed(() =>
-    this.highlight() ? 'bg-white/15 text-white' : 'bg-green-100 text-green-700',
+    this.highlight() ? 'bg-white/15 text-white' : 'bg-brand-100 text-brand-700',
   );
 
   protected readonly valueClasses = computed(() =>
@@ -63,7 +63,7 @@ export class HkStatCard {
 
   protected readonly deltaClasses = computed(() => {
     if (this.highlight()) {
-      return 'text-green-100';
+      return 'text-brand-100';
     }
     switch (this.trend()) {
       case 'up':

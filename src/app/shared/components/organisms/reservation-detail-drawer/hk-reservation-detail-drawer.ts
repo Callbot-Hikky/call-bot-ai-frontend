@@ -28,7 +28,7 @@ import { telHref } from '@core/utils/format';
         @if (reservation(); as r) {
           <div class="flex h-full flex-col">
             <div
-              class="to-card border-border/70 flex items-center gap-3 border-b bg-gradient-to-br from-green-100 p-6"
+              class="to-card border-border/70 from-brand-100 flex items-center gap-3 border-b bg-gradient-to-br p-6"
             >
               <hk-avatar [name]="r.customerName" size="lg" />
               <div class="flex min-w-0 flex-col gap-1.5">
