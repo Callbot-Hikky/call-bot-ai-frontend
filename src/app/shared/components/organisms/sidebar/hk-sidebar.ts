@@ -3,8 +3,8 @@ import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
+import { AuthService } from '@core/services/auth.service';
 import { LayoutService } from '@core/services/layout.service';
-import { ToastService } from '@core/services/toast.service';
 import { NAV_ITEMS } from '@core/layout/nav-items';
 
 // Sidebar du shell : logo, navigation, profil en bas, bouton replier/déplier.
@@ -18,7 +18,7 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
     >
       <div class="flex h-14 items-center gap-2 px-3" [class.justify-center]="collapsed()">
         @if (!collapsed()) {
-          <span class="text-text-strong flex-1 text-lg font-semibold">Hikky</span>
+          <span class="text-text-strong flex-1 text-lg font-semibold">Alloquence</span>
         }
         <hk-icon-button
           [icon]="collapsed() ? 'lucideChevronRight' : 'lucideChevronLeft'"
@@ -81,9 +81,9 @@ export class HkSidebar {
   protected readonly layout = inject(LayoutService);
   protected readonly collapsed = this.layout.sidebarCollapsed;
   protected readonly navItems = NAV_ITEMS;
-  private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
 
-  protected onLogout(): void {
-    this.toast.show('Déconnexion (démo)', 'default');
+  protected onLogout(): Promise<void> {
+    return this.auth.signOut();
   }
 }
