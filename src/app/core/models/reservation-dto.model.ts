@@ -14,6 +14,23 @@ export interface BackCustomer {
   lastName: string | null;
 }
 
+export interface BackRestaurant {
+  id: string;
+  name: string;
+}
+
+// Miroir de CustomerResponse côté back (GET /customers/:id).
+// Utilisé quand on refetch un client avant de le PUT pour ne pas écraser ses champs.
+export interface BackCustomerFull {
+  id: string;
+  restaurantId: string;
+  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  notes: string | null;
+}
+
 export interface ReservationDto {
   id: string;
   restaurantId: string;
@@ -31,6 +48,7 @@ export interface ReservationDto {
   cancelledAt: string | null;
   table?: BackTable | null;
   customer?: BackCustomer | null;
+  restaurant?: BackRestaurant | null;
 }
 
 // Corps attendu par le backend pour POST / PUT (ReservationRequest).
@@ -52,6 +70,7 @@ export function mapReservation(dto: ReservationDto): Reservation {
   const name = [dto.customer?.firstName, dto.customer?.lastName].filter(Boolean).join(' ').trim();
   return {
     id: dto.id,
+    customerId: dto.customerId,
     customerName: name || 'Client',
     phone: dto.customer?.phone ?? '',
     dateTime: dto.startsAt,
@@ -60,17 +79,23 @@ export function mapReservation(dto: ReservationDto): Reservation {
       ? { id: dto.table.id, name: dto.table.name, capacity: dto.table.capacity }
       : undefined,
     status: dto.status as ReservationStatus,
-    notes: dto.notes ?? undefined,
+    notes: dto.notes ?? '',
     source: (dto.source as Reservation['source']) ?? undefined,
+    restaurant: dto.restaurant ? { id: dto.restaurant.id, name: dto.restaurant.name } : undefined,
   };
 }
 
 // Champs surchargeables lors d'une mutation PUT (le reste vient du DTO courant).
 // `tableId` permet d'affecter (UUID) ou de desaffecter (null) une table sans
-// changer le statut.
+// changer le statut. `startsAt` / `endsAt` / `partySize` / `notes` couvrent le
+// flow client "je change de créneau" (reschedule).
 export interface ReservationRequestOverrides {
   status?: string;
   tableId?: string | null;
+  startsAt?: string;
+  endsAt?: string;
+  partySize?: number;
+  notes?: string | null;
 }
 
 // Reconstruit le corps d'une mutation (PUT) a partir du DTO courant + surcharges.
@@ -84,11 +109,11 @@ export function toRequest(
     customerId: dto.customerId,
     tableId: overrides.tableId !== undefined ? overrides.tableId : dto.tableId,
     callId: dto.callId,
-    startsAt: dto.startsAt,
-    endsAt: dto.endsAt,
-    partySize: dto.partySize,
+    startsAt: overrides.startsAt ?? dto.startsAt,
+    endsAt: overrides.endsAt ?? dto.endsAt,
+    partySize: overrides.partySize ?? dto.partySize,
     status: overrides.status ?? dto.status,
     source: dto.source,
-    notes: dto.notes,
+    notes: overrides.notes !== undefined ? overrides.notes : dto.notes,
   };
 }

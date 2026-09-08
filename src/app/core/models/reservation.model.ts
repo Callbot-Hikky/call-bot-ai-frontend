@@ -12,8 +12,14 @@ export interface RestaurantTable {
   capacity: number;
 }
 
+export interface RestaurantSummary {
+  id: string;
+  name: string;
+}
+
 export interface Reservation {
   id: string;
+  customerId?: string;
   customerName: string;
   // Affiché en police mono dans l'interface
   phone: string;
@@ -26,6 +32,25 @@ export interface Reservation {
   notes?: string;
   // Origine de la réservation (utile pour valoriser le bot)
   source?: 'callbot' | 'manual' | 'web';
+  restaurant?: RestaurantSummary;
+}
+
+// Créneaux libres pour reprogrammer une réservation, sur 7 jours glissants.
+// Miroir exact de RescheduleSlotsResponse côté back.
+export interface RescheduleSlot {
+  startsAt: string;
+  endsAt: string;
+  tableId: string;
+  capacity: number;
+}
+
+export interface RescheduleDay {
+  date: string; // YYYY-MM-DD
+  slots: RescheduleSlot[];
+}
+
+export interface RescheduleSlotsResponse {
+  days: RescheduleDay[];
 }
 
 // LIVE (LOT B3) : diff par id apres un refresh silencieux. Retourne les

@@ -6,12 +6,14 @@ import { delay, map, switchMap, tap } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { SessionService } from './session.service';
 import {
+  RescheduleSlotsResponse,
   Reservation,
   ReservationStatus,
   RestaurantTable,
   newReservations,
 } from '@core/models/reservation.model';
 import {
+  BackCustomerFull,
   ReservationDto,
   ReservationRequestDto,
   mapReservation,
@@ -231,7 +233,7 @@ export class ReservationService {
         partySize: input.partySize,
         status: 'confirmed',
         source: 'manual',
-        notes: input.notes ?? undefined,
+        notes: input.notes ?? '',
       };
       return of(created).pipe(
         delay(200),
@@ -281,6 +283,85 @@ export class ReservationService {
           return created;
         }),
       );
+  }
+
+  getReservationById(id: string): Observable<Reservation> {
+    const url = `${this.baseUrl}/${id}?expand=table,customer,restaurant`;
+    return this.http.get<ReservationDto>(url).pipe(map(mapReservation));
+  }
+
+  // Créneaux libres sur 7 jours pour reprogrammer la réservation.
+  // fromDate optionnel (YYYY-MM-DD) : défaut = aujourd'hui côté back.
+  // partySize optionnel : surcharge la taille de la table sans écrire la resa
+  //   (pour que le picker s'ajuste quand l'utilisateur bouge le compteur).
+  getRescheduleSlots(
+    id: string,
+    fromDate?: string,
+    partySize?: number,
+  ): Observable<RescheduleSlotsResponse> {
+    const params: string[] = [];
+    if (fromDate) params.push(`fromDate=${fromDate}`);
+    if (partySize != null) params.push(`partySize=${partySize}`);
+    const query = params.length ? `?${params.join('&')}` : '';
+    return this.http.get<RescheduleSlotsResponse>(`${this.baseUrl}/${id}/reschedule-slots${query}`);
+  }
+
+  // Confirmation du client : nouveau créneau (+ éventuel ajustement partySize / notes).
+  // On refetch le DTO pour reconstruire un corps PUT complet — la page cliente n'a pas
+  // alimenté `_raw` (qui n'est peuplé que par la liste employée).
+  reschedule(
+    id: string,
+    changes: {
+      startsAt: string;
+      endsAt: string;
+      tableId: string;
+      partySize?: number;
+      notes?: string | null;
+    },
+  ): Observable<Reservation> {
+    const url = `${this.baseUrl}/${id}?expand=table,customer,restaurant`;
+    // notify=true : le back envoie les notifs Discord (client + resto) après le PUT.
+    // Seul ce flow (reschedule client) déclenche des notifications ; le staff qui
+    // bouge une table via /reservations/:id sans ce flag ne spammera pas le client.
+    return this.http.get<ReservationDto>(url).pipe(
+      switchMap((dto) =>
+        this.http
+          .put<ReservationDto>(
+            `${this.baseUrl}/${id}?notify=true`,
+            toRequest(dto, {
+              startsAt: changes.startsAt,
+              endsAt: changes.endsAt,
+              tableId: changes.tableId,
+              partySize: changes.partySize,
+              notes: changes.notes,
+            }),
+          )
+          .pipe(map(mapReservation)),
+      ),
+    );
+  }
+
+  // Mise à jour du client (nom corrigé par le client sur la sheet de confirmation).
+  // Refetch d'abord pour ne pas écraser les champs qu'on ne modifie pas.
+  updateCustomerName(
+    customerId: string,
+    firstName: string,
+    lastName: string | null = null,
+  ): Observable<void> {
+    const url = `${environment.apiUrl}/customers/${customerId}`;
+    return this.http.get<BackCustomerFull>(url).pipe(
+      switchMap((current) =>
+        this.http.put<unknown>(url, {
+          restaurantId: current.restaurantId,
+          phone: current.phone,
+          firstName: firstName || null,
+          lastName,
+          email: current.email ?? null,
+          notes: current.notes ?? null,
+        }),
+      ),
+      map(() => undefined),
+    );
   }
 
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {

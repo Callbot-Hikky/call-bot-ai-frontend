@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  LOCALE_ID,
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
@@ -7,6 +8,8 @@ import {
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
+import { registerLocaleData } from '@angular/common';
+import localeFr from '@angular/common/locales/fr';
 import { SessionService } from '@core/services/session.service';
 import {
   lucideLayoutDashboard,
@@ -53,9 +56,12 @@ import {
   lucideWrench,
   lucideCreditCard,
   lucideRefreshCw,
+  lucideMinus,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
+
+registerLocaleData(localeFr);
 
 // Icônes Lucide utilisées dans l'app, enregistrées une fois pour toutes.
 const ICONS = {
@@ -103,10 +109,12 @@ const ICONS = {
   lucideWrench,
   lucideCreditCard,
   lucideRefreshCw,
+  lucideMinus,
 };
 
 export const appConfig: ApplicationConfig = {
   providers: [
+    { provide: LOCALE_ID, useValue: 'fr' },
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     provideHttpClient(withFetch()),
