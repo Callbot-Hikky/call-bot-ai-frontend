@@ -6,16 +6,11 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
 import { registerLocaleData } from '@angular/common';
 import localeFr from '@angular/common/locales/fr';
-
-registerLocaleData(localeFr);
-import { firstValueFrom } from 'rxjs';
-import { authInterceptor } from '@core/interceptors/auth.interceptor';
-import { AuthService } from '@core/services/auth.service';
-import { environment } from '@env/environment';
+import { SessionService } from '@core/services/session.service';
 import {
   lucideLayoutDashboard,
   lucideCalendar,
@@ -65,6 +60,8 @@ import {
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
+
+registerLocaleData(localeFr);
 
 // Icônes Lucide utilisées dans l'app, enregistrées une fois pour toutes.
 const ICONS = {
@@ -120,16 +117,8 @@ export const appConfig: ApplicationConfig = {
     { provide: LOCALE_ID, useValue: 'fr' },
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch()),
     provideIcons(ICONS),
-    // Dev uniquement : récupère un token JWT au démarrage (auth réelle gérée ailleurs).
-    provideAppInitializer(() => {
-      const creds = environment.devAuth;
-      if (environment.useMock || !creds) {
-        return;
-      }
-      const auth = inject(AuthService);
-      return firstValueFrom(auth.login(creds.email, creds.password)).catch(() => undefined);
-    }),
+    provideAppInitializer(() => inject(SessionService).refresh()),
   ],
 };

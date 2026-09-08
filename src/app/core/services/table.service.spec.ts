@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TableService } from './table.service';
+import { SessionService } from './session.service';
 import { TableDto } from '@core/models/table.model';
-import { environment } from '@env/environment';
 
 // En test, environment.useMock vaut false : on teste le chemin HTTP reel (GET /tables).
 function tableDto(id: string, name: string, capacity: number): TableDto {
@@ -16,7 +17,11 @@ describe('TableService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: SessionService, useValue: { restaurantId: signal('rest-1') } },
+      ],
     });
     service = TestBed.inject(TableService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -67,7 +72,7 @@ describe('TableService', () => {
     const req = httpMock.expectOne((r) => r.url.endsWith('/tables'));
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
-      restaurantId: environment.restaurantId,
+      restaurantId: 'rest-1',
       name: 'T11',
       capacity: 4,
       zone: null,
@@ -88,7 +93,7 @@ describe('TableService', () => {
     const req = httpMock.expectOne((r) => r.url.endsWith('/tables/t1'));
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({
-      restaurantId: environment.restaurantId,
+      restaurantId: 'rest-1',
       name: 'Terrasse 1',
       capacity: 6,
       zone: 'Salle',

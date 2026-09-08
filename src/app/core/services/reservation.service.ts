@@ -4,6 +4,7 @@ import { EMPTY, Observable, of } from 'rxjs';
 import { delay, map, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
+import { SessionService } from './session.service';
 import {
   RescheduleSlotsResponse,
   Reservation,
@@ -27,6 +28,7 @@ import { localDateKey, localIso } from '@core/utils/format';
 @Injectable({ providedIn: 'root' })
 export class ReservationService {
   private readonly http = inject(HttpClient);
+  private readonly session = inject(SessionService);
   private readonly baseUrl = `${environment.apiUrl}/reservations`;
 
   private readonly _reservations = signal<Reservation[]>([]);
@@ -133,7 +135,7 @@ export class ReservationService {
     // Le back filtre par restaurant ; le filtre "du jour" est fait côté front (POC),
     // en jour LOCAL pour rester cohérent avec l'en-tête et les heures affichées.
     const target = date ?? localDateKey();
-    const url = `${this.baseUrl}?expand=table,customer&restaurantId=${environment.restaurantId}`;
+    const url = `${this.baseUrl}?expand=table,customer&restaurantId=${this.session.restaurantId() ?? ''}`;
     return this.http.get<ReservationDto[]>(url).pipe(
       map((dtos) => dtos.filter((d) => localDateKey(new Date(d.startsAt)) === target)),
       tap((dtos) => this._raw.set(dtos)),
@@ -183,7 +185,7 @@ export class ReservationService {
       );
     }
     const body: ReservationRequestDto = {
-      restaurantId: environment.restaurantId,
+      restaurantId: this.session.restaurantId() ?? '',
       customerId: null,
       tableId: table.id,
       callId: null,
@@ -240,7 +242,7 @@ export class ReservationService {
     }
     return this.http
       .post<{ id: string }>(`${environment.apiUrl}/customers`, {
-        restaurantId: environment.restaurantId,
+        restaurantId: this.session.restaurantId() ?? '',
         phone: input.phone,
         firstName: input.firstName || null,
         lastName: null,
@@ -250,7 +252,7 @@ export class ReservationService {
       .pipe(
         switchMap((customer) => {
           const body: ReservationRequestDto = {
-            restaurantId: environment.restaurantId,
+            restaurantId: this.session.restaurantId() ?? '',
             customerId: customer.id,
             tableId: null,
             callId: null,
