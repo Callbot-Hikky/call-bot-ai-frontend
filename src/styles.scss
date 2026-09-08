@@ -6,13 +6,13 @@
 
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
-/* Polices : Instrument Sans (identique à la landing hikyy), servie en local
+/* Polices : Instrument Sans (identique à la landing Alloquence), servie en local
    via fontsource. Geist Mono reste pour les chiffres tabulaires. */
 @import '@fontsource-variable/instrument-sans/index.css';
 @import '@fontsource-variable/geist-mono/index.css';
 
 /* =========================================================================
-   Tokens Hikky : source de vérité unique.
+   Tokens Alloquence : source de vérité unique.
    Palette alignée sur la landing (call-bot-ai-landing) : shadcn « zinc »,
    monochrome, clair par défaut. Pour recalibrer une couleur, on change ici
    et nulle part ailleurs.
@@ -36,9 +36,33 @@
   --primary-hover: var(--brand-800);
   --primary-active: var(--brand-900);
 
+  /* Accent chaud : repris du spectre « feu » du hero de la landing
+     (hsl 11 → 59). Usage volontairement parcimonieux — l'app reste
+     monochrome, le chaud ne sert qu'a signaler focus et element actif.
+     --warm-700 est la seule valeur posee sur du texte : 4.9:1 sur
+     --warm-100 (AA). Ne pas utiliser --warm-500/600 comme couleur de texte. */
+  --warm-100: oklch(0.96 0.03 55);
+  --warm-500: oklch(0.68 0.19 38);
+  --warm-600: oklch(0.58 0.18 34);
+  --warm-700: oklch(0.45 0.15 32);
+
+  /* Dégradé « flamme » : même ordre du feu que le hero de la landing
+     (rouge-orange → orange). Luminosité plafonnée à 0.48 pour que le blanc
+     posé dessus reste AA (>= 4.8:1) sur TOUTE la surface, y compris la
+     pointe la plus claire du dégradé. Ne pas éclaircir sans revérifier. */
+  --flame: linear-gradient(
+    135deg,
+    oklch(0.36 0.13 24) 0%,
+    oklch(0.44 0.17 32) 52%,
+    oklch(0.48 0.19 41) 100%
+  );
+  --flame-glow: radial-gradient(circle at 86% 10%, oklch(0.7 0.2 58 / 0.42), transparent 58%);
+  --flame-border: oklch(0.54 0.19 38);
+
   /* Neutres : zinc (hue ~286), comme la landing */
   --bg: oklch(1 0 0);
   --surface: oklch(1 0 0);
+  --surface-raised: oklch(1 0 0);
   --surface-2: oklch(0.967 0.001 286.375);
   --border: oklch(0.92 0.004 286.32);
   --border-strong: oklch(0.871 0.006 286.286);
@@ -80,8 +104,8 @@
   --dur-slow: 240ms;
   --dur-slower: 320ms;
 
-  /* Ombre d'anneau de focus Hikky (Spartan garde --ring en couleur, voir remap) */
-  --focus-ring: 0 0 0 3px oklch(0.705 0.015 286.067 / 0.4);
+  /* Ombre d'anneau de focus Alloquence (Spartan garde --ring en couleur, voir remap) */
+  --focus-ring: 0 0 0 3px oklch(0.68 0.19 38 / 0.4);
 
   /* Z-index */
   --z-dropdown: 1000;
@@ -92,7 +116,7 @@
   --z-tooltip: 1050;
   --z-toast: 1060;
 
-  /* ---- Variables Spartan remappées sur les tokens Hikky (pointeurs) ----
+  /* ---- Variables Spartan remappées sur les tokens Alloquence (pointeurs) ----
      Une seule source de vérité par couleur : ces variables ne dupliquent pas
      les valeurs OKLCH, elles pointent vers les tokens ci-dessus.
      Les valeurs correspondent une à une à celles de la landing. */
@@ -114,20 +138,20 @@
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --input: var(--border);
-  --ring: var(--brand-400);
+  --ring: var(--warm-500);
   --sidebar: var(--bg);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--brand-700);
   --sidebar-primary-foreground: var(--primary-fg);
-  --sidebar-accent: var(--brand-100);
-  --sidebar-accent-foreground: var(--brand-700);
+  --sidebar-accent: var(--warm-100);
+  --sidebar-accent-foreground: var(--warm-700);
   --sidebar-border: var(--border);
-  --sidebar-ring: var(--brand-400);
+  --sidebar-ring: var(--warm-500);
 }
 
 /* =========================================================================
    Exposition à Tailwind v4 : on n'expose que ce qui manque (les utilitaires
-   sémantiques neutres viennent déjà du preset Spartan, désormais reliés à Hikky).
+   sémantiques neutres viennent déjà du preset Spartan, désormais reliés à Alloquence).
    ========================================================================= */
 @theme {
   /* Polices */
@@ -145,6 +169,12 @@
   --color-brand-700: var(--brand-700);
   --color-brand-800: var(--brand-800);
   --color-brand-900: var(--brand-900);
+
+  /* Accent chaud : bg-warm-100, text-warm-700, bg-warm-500 (indicateur actif) */
+  --color-warm-100: var(--warm-100);
+  --color-warm-500: var(--warm-500);
+  --color-warm-600: var(--warm-600);
+  --color-warm-700: var(--warm-700);
 
   /* Statuts : bg-st-confirmed-bg, text-st-confirmed-fg, ... */
   --color-st-pending-fg: var(--st-pending-fg);
@@ -170,6 +200,20 @@
   --color-text-strong: var(--text-strong);
   --color-text-muted: var(--text-muted);
   --color-text-subtle: var(--text-subtle);
+
+  /* Meme piege que ci-dessus pour le vocabulaire surface/fg utilise par les
+     pages auth et le plan de salle : bg-surface, text-fg, text-primary-fg
+     etaient poses partout sans qu'aucune regle ne soit generee. Consequence
+     visible : le libelle des boutons primaires heritait du texte fonce sur
+     fond --brand-700, donc illisible. */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-subtle: var(--text-subtle);
+  --color-primary-fg: var(--primary-fg);
+  --color-border-strong: var(--border-strong);
 
   /* Rayons : rounded-sm/md/lg — cales sur --radius: 0.625rem de la landing */
   --radius-sm: 6px;
@@ -239,4 +283,22 @@
    réservation (portail CDK) reste au-dessus de l'overlay. */
 body.service-mode hk-header {
   display: none;
+}
+
+/* Surface « flamme » : réservée aux rares elements mis en avant (carte KPI
+   phare). Le glow est une couche separee pour rester au-dessus du degrade
+   sans toucher au contenu. */
+.hk-flame {
+  position: relative;
+  background-image: var(--flame);
+  border-color: var(--flame-border);
+  isolation: isolate;
+}
+.hk-flame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--flame-glow);
 }
