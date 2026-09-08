@@ -11,7 +11,7 @@ import { SessionService } from '@core/services/session.service';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="bg-surface flex min-h-screen items-center justify-center p-4">
+    <div class="bg-surface-2 flex min-h-screen items-center justify-center p-4">
       <form
         (ngSubmit)="submit()"
         class="border-border bg-surface-raised w-full max-w-sm space-y-4 rounded-xl border p-6"
@@ -88,7 +88,9 @@ export class RegisterPage {
     try {
       await firstValueFrom(this.auth.register(this.email(), this.password()));
       await this.session.refresh();
-      await this.router.navigateByUrl('/onboarding');
+      // Etape suivante de l'inscription : souscription a l'offre Pro (99 EUR/mois).
+      // L'onboarding du restaurant se fait apres le paiement.
+      await this.router.navigateByUrl('/offre');
     } catch {
       this.error.set('Impossible de créer le compte (e-mail déjà utilisé ?).');
     } finally {
