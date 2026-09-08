@@ -51,7 +51,7 @@ const DEFAULT_DAYS: DayHours[] = [
   standalone: true,
   imports: [FormsModule, HkRestaurantContextForm],
   template: `
-    <div class="bg-surface min-h-screen p-4">
+    <div class="bg-surface-2 min-h-screen p-4">
       <div class="mx-auto w-full max-w-2xl space-y-6 py-8">
         <div class="flex items-center gap-2">
           @for (s of [1, 2, 3, 4]; track s) {
