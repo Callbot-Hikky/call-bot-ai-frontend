@@ -283,6 +283,38 @@ export class ReservationService {
       );
   }
 
+  /**
+   * Constate une absence. Passe par la route dédiée, jamais par un simple changement de
+   * statut : c'est ce constat qui arme le compte à rebours avant tout débit, et un PUT
+   * qui écrirait `no_show` à la main débiterait sans jamais laisser la fenêtre de retour.
+   */
+  recordNoShow(id: string): Observable<Reservation> {
+    if (environment.useMock) {
+      return this.mutateStatus(id, 'no_show');
+    }
+    return this.http
+      .post<ReservationDto>(`${this.baseUrl}/${id}/no-show`, {})
+      .pipe(map((dto) => this.applyDto(dto)));
+  }
+
+  /** Revient sur un constat, tant que rien n'a été débité. */
+  undoNoShow(id: string): Observable<Reservation> {
+    if (environment.useMock) {
+      return this.mutateStatus(id, 'completed');
+    }
+    return this.http
+      .delete<ReservationDto>(`${this.baseUrl}/${id}/no-show`)
+      .pipe(map((dto) => this.applyDto(dto)));
+  }
+
+  private applyDto(dto: ReservationDto): Reservation {
+    this._raw.update((list) => list.map((d) => (d.id === dto.id ? { ...d, ...dto } : d)));
+    const updated = mapReservation({ ...dto });
+    this.applyUpdate(updated);
+
+    return updated;
+  }
+
   private mutateStatus(id: string, status: ReservationStatus): Observable<Reservation> {
     if (environment.useMock) {
       const current = this._reservations().find((r) => r.id === id);

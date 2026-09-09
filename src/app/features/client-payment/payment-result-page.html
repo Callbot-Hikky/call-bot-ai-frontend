@@ -3,7 +3,7 @@
     @if (outcome() === 'paid') {
       <div hlmCardHeader class="items-center">
         <ng-icon name="lucideCircleCheckBig" class="text-primary mb-2" size="40" />
-        <h3 hlmCardTitle>Paiement reçu</h3>
+        <h3 hlmCardTitle>C'est enregistré</h3>
         <p hlmCardDescription>Merci ! Votre réservation est en cours de confirmation.</p>
       </div>
       <div hlmCardContent>
@@ -15,7 +15,7 @@
     } @else {
       <div hlmCardHeader class="items-center">
         <ng-icon name="lucideCircleX" class="text-muted-foreground mb-2" size="40" />
-        <h3 hlmCardTitle>Paiement abandonné</h3>
+        <h3 hlmCardTitle>Abandonné</h3>
         <p hlmCardDescription>Votre table n'est pas encore confirmée.</p>
       </div>
       <div hlmCardContent>

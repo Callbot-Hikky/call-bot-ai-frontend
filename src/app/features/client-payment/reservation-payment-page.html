@@ -9,7 +9,7 @@
         <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
         <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
         <p hlmCardDescription>
-          Votre réservation a peut-être déjà été réglée, ou le délai de 30 minutes est écoulé et la
+          Votre réservation est peut-être déjà confirmée, ou le délai de 30 minutes est écoulé et la
           table a été remise à la vente.
         </p>
       </div>
@@ -21,7 +21,13 @@
     } @else if (reservation(); as current) {
       <div hlmCardHeader>
         <h3 hlmCardTitle>{{ current.restaurantName }}</h3>
-        <p hlmCardDescription>Réglez vos frais de réservation pour confirmer votre table.</p>
+        <p hlmCardDescription>
+          @if (isNoShow()) {
+            Enregistrez une carte pour confirmer votre table. Rien n'est débité.
+          } @else {
+            Réglez vos frais de réservation pour confirmer votre table.
+          }
+        </p>
       </div>
 
       <div hlmCardContent class="flex flex-col gap-4">
@@ -60,7 +66,13 @@
       <div hlmCardFooter class="flex-col items-stretch gap-2">
         <button hlmBtn class="w-full" [disabled]="redirecting()" (click)="pay()">
           <ng-icon name="lucideCreditCard" size="18" />
-          {{ redirecting() ? 'Ouverture du paiement…' : 'Payer ' + amount() }}
+          @if (redirecting()) {
+            Ouverture…
+          } @else if (isNoShow()) {
+            Enregistrer ma carte
+          } @else {
+            Payer {{ amount() }}
+          }
         </button>
         <p class="text-muted-foreground text-center text-xs">
           Paiement sécurisé par Stripe. Aucune donnée bancaire ne passe par Alloquence.

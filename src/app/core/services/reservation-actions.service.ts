@@ -120,6 +120,40 @@ export class ReservationActionsService {
       .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
   }
 
+  /**
+   * ABSENCE CONSTATEE : le client n'est pas venu. Rien n'est debite tout de suite —
+   * une fenetre de 2 h laisse au personnel le temps de revenir sur un constat pose
+   * par erreur, et le toast le dit pour que personne ne croie l'acte irreversible.
+   */
+  markNoShow(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
+    this.service
+      .recordNoShow(reservation.id)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => {
+          this.toast.show('Absence constatée — annulable pendant 2 h', 'success', {
+            label: 'Annuler le constat',
+            run: () => this.undoNoShow(reservation, destroyRef),
+          });
+          onDone?.();
+        },
+        error: (err) => this.toast.show(conflictMessage(err, 'Échec du constat'), 'error'),
+      });
+  }
+
+  undoNoShow(reservation: Reservation, destroyRef: DestroyRef): void {
+    this.service
+      .undoNoShow(reservation.id)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => this.toast.show('Constat annulé', 'success'),
+        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'annulation"), 'error'),
+      });
+  }
+
   cancel(reservation: Reservation, destroyRef: DestroyRef): void {
     if (this.isTerminal(reservation)) {
       return;

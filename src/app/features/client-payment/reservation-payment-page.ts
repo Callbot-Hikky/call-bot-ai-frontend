@@ -40,6 +40,12 @@ export class ReservationPaymentPage implements OnInit {
     return current?.amountCents ? formatCents(current.amountCents, current.currency) : '';
   });
 
+  /**
+   * Le mode no-show ne débite rien : la page enregistre une carte. Afficher « à régler »
+   * ferait croire à un prélèvement immédiat, ce qui est faux et se retourne en litige.
+   */
+  protected readonly isNoShow = computed(() => this.reservation()?.guaranteeMode === 'no_show');
+
   protected readonly perGuest = computed(() => {
     const current = this.reservation();
     if (!current?.amountCents || !current.partySize) {
