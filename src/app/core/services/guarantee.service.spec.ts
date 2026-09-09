@@ -43,9 +43,9 @@ describe('GuaranteeService', () => {
   });
 
   it('startOnboarding : POST et renvoie le lien Stripe', async () => {
-    const promise = firstValueFrom(service.startOnboarding());
+    const promise = firstValueFrom(service.startOnboarding('r1'));
 
-    const req = http.expectOne((r) => r.url.endsWith('/billing/connect/onboarding'));
+    const req = http.expectOne((r) => r.url.endsWith('/restaurants/r1/payment-account/onboarding'));
     expect(req.request.method).toBe('POST');
     req.flush({ url: 'https://connect.stripe.com/setup/1' });
 
@@ -53,9 +53,9 @@ describe('GuaranteeService', () => {
   });
 
   it('getPayouts : GET le registre des reversements', async () => {
-    const promise = firstValueFrom(service.getPayouts());
+    const promise = firstValueFrom(service.getPayouts('r1'));
 
-    const req = http.expectOne((r) => r.url.endsWith('/payouts'));
+    const req = http.expectOne((r) => r.url.endsWith('/restaurants/r1/payouts'));
     expect(req.request.method).toBe('GET');
     req.flush([{ id: 'p1', amountCents: 8500, status: 'paid' }]);
 

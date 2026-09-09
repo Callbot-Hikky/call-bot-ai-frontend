@@ -28,25 +28,33 @@ export class GuaranteeService {
     );
   }
 
-  getConnectAccount(): Observable<ConnectAccount> {
-    return this.http.get<ConnectAccount>(`${environment.apiUrl}/billing/connect`);
+  // Un compte de paiement par restaurant : un compte Stripe est lié à une entité légale
+  // et à un IBAN, et deux établissements d'un même propriétaire sont souvent deux
+  // sociétés. Un compte partagé paierait la mauvaise banque.
+  getConnectAccount(restaurantId: string): Observable<ConnectAccount> {
+    return this.http.get<ConnectAccount>(
+      `${environment.apiUrl}/restaurants/${restaurantId}/payment-account`,
+    );
   }
 
   // Redemande son état à Stripe : le restaurateur qui revient de l'inscription voit
   // son compte débloqué sans attendre le webhook.
-  refreshConnectAccount(): Observable<ConnectAccount> {
-    return this.http.post<ConnectAccount>(`${environment.apiUrl}/billing/connect/refresh`, {});
-  }
-
-  // Les liens Stripe expirent en quelques minutes : jamais mis en cache.
-  startOnboarding(): Observable<ConnectOnboarding> {
-    return this.http.post<ConnectOnboarding>(
-      `${environment.apiUrl}/billing/connect/onboarding`,
+  refreshConnectAccount(restaurantId: string): Observable<ConnectAccount> {
+    return this.http.post<ConnectAccount>(
+      `${environment.apiUrl}/restaurants/${restaurantId}/payment-account/refresh`,
       {},
     );
   }
 
-  getPayouts(): Observable<Payout[]> {
-    return this.http.get<Payout[]>(`${environment.apiUrl}/payouts`);
+  // Les liens Stripe expirent en quelques minutes : jamais mis en cache.
+  startOnboarding(restaurantId: string): Observable<ConnectOnboarding> {
+    return this.http.post<ConnectOnboarding>(
+      `${environment.apiUrl}/restaurants/${restaurantId}/payment-account/onboarding`,
+      {},
+    );
+  }
+
+  getPayouts(restaurantId: string): Observable<Payout[]> {
+    return this.http.get<Payout[]>(`${environment.apiUrl}/restaurants/${restaurantId}/payouts`);
   }
 }
