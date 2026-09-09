@@ -29,6 +29,9 @@ export interface ReservationDto {
   createdAt: string;
   updatedAt: string;
   cancelledAt: string | null;
+  guaranteeMode?: string | null;
+  guaranteeStatus?: string | null;
+  guaranteeAmountCents?: number | null;
   table?: BackTable | null;
   customer?: BackCustomer | null;
 }
@@ -62,6 +65,9 @@ export function mapReservation(dto: ReservationDto): Reservation {
     status: dto.status as ReservationStatus,
     notes: dto.notes ?? undefined,
     source: (dto.source as Reservation['source']) ?? undefined,
+    guaranteeMode: (dto.guaranteeMode as Reservation['guaranteeMode']) ?? undefined,
+    guaranteeStatus: (dto.guaranteeStatus as Reservation['guaranteeStatus']) ?? undefined,
+    guaranteeAmountCents: dto.guaranteeAmountCents ?? undefined,
   };
 }
 

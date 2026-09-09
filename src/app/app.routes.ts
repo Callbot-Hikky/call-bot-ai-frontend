@@ -31,6 +31,35 @@ export const routes: Routes = [
     loadComponent: () => import('@features/offer/offer-success').then((m) => m.OfferSuccess),
   },
 
+  // Parcours du convive : il a réservé par téléphone, n'a pas de compte, et n'en aura
+  // pas. Le jeton dans l'URL est sa seule identification — donc hors shell et hors garde.
+  {
+    path: 'client/reservations/payer/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-payment-page').then(
+        (m) => m.ReservationPaymentPage,
+      ),
+  },
+  {
+    path: 'client/reservations/annuler/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-cancel-page').then(
+        (m) => m.ReservationCancelPage,
+      ),
+  },
+  {
+    path: 'client/reservations/payee',
+    data: { outcome: 'paid' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+  {
+    path: 'client/reservations/paiement-annule',
+    data: { outcome: 'abandoned' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+
   {
     path: '',
     component: AppShell,
@@ -40,6 +69,12 @@ export const routes: Routes = [
       { path: 'reservations', component: ReservationsPage, data: { title: 'Réservations' } },
       { path: 'plan', component: FloorPlanPage, data: { title: 'Plan de salle' } },
       { path: 'appels', component: ComingSoonPage, data: { title: 'Appels', icon: 'lucidePhone' } },
+      {
+        path: 'parametres/paiements',
+        data: { title: 'Paiements' },
+        loadComponent: () =>
+          import('@features/settings/payment-settings-page').then((m) => m.PaymentSettingsPage),
+      },
       {
         path: 'parametres',
         component: ComingSoonPage,

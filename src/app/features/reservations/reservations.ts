@@ -35,6 +35,8 @@ import { conflictMessage } from '@core/utils/http-error';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
+  // Le plus urgent : la table est tenue et le compteur tourne.
+  awaiting_payment: 0,
   pending: 0,
   confirmed: 1,
   seated: 2,

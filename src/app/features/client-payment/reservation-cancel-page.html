@@ -1,0 +1,95 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-6">
+  <section hlmCard class="w-full max-w-md">
+    @if (loading()) {
+      <div hlmCardContent class="py-12 text-center">
+        <p class="text-muted-foreground text-sm">Chargement de votre réservation…</p>
+      </div>
+    } @else if (linkDead()) {
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
+        <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
+        <p hlmCardDescription>Appelez le restaurant pour toute modification.</p>
+      </div>
+    } @else if (result(); as outcome) {
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideCircleCheckBig" class="text-primary mb-2" size="36" />
+        <h3 hlmCardTitle>Réservation annulée</h3>
+        <p hlmCardDescription>
+          @if (outcome.refunded) {
+            Vos frais de réservation vous sont remboursés.
+          } @else {
+            La table a été libérée.
+          }
+        </p>
+      </div>
+      <div hlmCardContent>
+        @if (outcome.refunded) {
+          <div class="bg-muted flex items-center justify-between rounded-md px-4 py-3">
+            <span class="text-sm font-medium">Remboursé</span>
+            <span class="text-sm font-semibold">
+              {{ formatRefund(outcome.refundedAmountCents) }}
+            </span>
+          </div>
+          <p class="text-muted-foreground mt-3 text-sm">
+            Le remboursement apparaît sur votre relevé sous quelques jours ouvrés.
+          </p>
+        }
+      </div>
+    } @else if (reservation(); as current) {
+      <div hlmCardHeader>
+        <h3 hlmCardTitle>Annuler votre réservation</h3>
+        <p hlmCardDescription>{{ current.restaurantName }}</p>
+      </div>
+
+      <div hlmCardContent class="flex flex-col gap-4">
+        <dl class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Date</dt>
+            <dd class="font-medium">{{ formatDateTime(current.startsAt) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Couverts</dt>
+            <dd class="font-medium">{{ current.partySize }}</dd>
+          </div>
+        </dl>
+
+        @if (alreadyCancelled()) {
+          <p class="text-muted-foreground text-sm">Cette réservation est déjà annulée.</p>
+        } @else if (current.guaranteeStatus === 'secured') {
+          <!-- Le sort de l'argent est dit avant le clic, jamais découvert après. -->
+          @if (willBeRefunded()) {
+            <p class="text-sm">
+              Vous annulez dans les délais : vos frais de <strong>{{ amount() }}</strong> vous
+              seront <strong>intégralement remboursés</strong>.
+            </p>
+          } @else {
+            <p class="text-sm">
+              Vous annulez à moins de {{ current.refundWindowHours }} h du service : vos frais de
+              <strong>{{ amount() }}</strong> <strong>restent acquis au restaurant</strong>.
+            </p>
+          }
+        } @else {
+          <p class="text-muted-foreground text-sm">Aucun montant n'est en jeu.</p>
+        }
+
+        @if (errorMessage()) {
+          <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+        }
+      </div>
+
+      @if (!alreadyCancelled()) {
+        <div hlmCardFooter>
+          <button
+            hlmBtn
+            variant="destructive"
+            class="w-full"
+            [disabled]="cancelling()"
+            (click)="confirmCancellation()"
+          >
+            {{ cancelling() ? 'Annulation…' : 'Confirmer l’annulation' }}
+          </button>
+        </div>
+      }
+    }
+  </section>
+</main>
