@@ -1,0 +1,29 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-6">
+  <section hlmCard class="w-full max-w-md text-center">
+    @if (outcome() === 'paid') {
+      <div hlmCardHeader class="items-center">
+        <ng-icon name="lucideCircleCheckBig" class="text-primary mb-2" size="40" />
+        <h3 hlmCardTitle>Paiement reçu</h3>
+        <p hlmCardDescription>Merci ! Votre réservation est en cours de confirmation.</p>
+      </div>
+      <div hlmCardContent>
+        <p class="text-muted-foreground text-sm">
+          Vous recevez un message de confirmation dans un instant, avec le lien pour annuler si
+          besoin.
+        </p>
+      </div>
+    } @else {
+      <div hlmCardHeader class="items-center">
+        <ng-icon name="lucideCircleX" class="text-muted-foreground mb-2" size="40" />
+        <h3 hlmCardTitle>Paiement abandonné</h3>
+        <p hlmCardDescription>Votre table n'est pas encore confirmée.</p>
+      </div>
+      <div hlmCardContent>
+        <p class="text-muted-foreground text-sm">
+          Le lien reçu par message reste valable pendant 30 minutes après la prise de réservation.
+          Passé ce délai, appelez le restaurant.
+        </p>
+      </div>
+    }
+  </section>
+</main>

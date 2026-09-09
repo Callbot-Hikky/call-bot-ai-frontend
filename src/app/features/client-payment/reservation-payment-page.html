@@ -1,0 +1,71 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-6">
+  <section hlmCard class="w-full max-w-md">
+    @if (loading()) {
+      <div hlmCardContent class="py-12 text-center">
+        <p class="text-muted-foreground text-sm">Chargement de votre réservation…</p>
+      </div>
+    } @else if (linkDead()) {
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
+        <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
+        <p hlmCardDescription>
+          Votre réservation a peut-être déjà été réglée, ou le délai de 30 minutes est écoulé et la
+          table a été remise à la vente.
+        </p>
+      </div>
+      <div hlmCardContent>
+        <p class="text-muted-foreground text-sm">
+          Appelez directement le restaurant pour réserver à nouveau.
+        </p>
+      </div>
+    } @else if (reservation(); as current) {
+      <div hlmCardHeader>
+        <h3 hlmCardTitle>{{ current.restaurantName }}</h3>
+        <p hlmCardDescription>Réglez vos frais de réservation pour confirmer votre table.</p>
+      </div>
+
+      <div hlmCardContent class="flex flex-col gap-4">
+        <dl class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Date</dt>
+            <dd class="font-medium">{{ formatDateTime(current.startsAt) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Couverts</dt>
+            <dd class="font-medium">{{ current.partySize }}</dd>
+          </div>
+        </dl>
+
+        <div class="bg-muted flex items-baseline justify-between rounded-md px-4 py-3">
+          <span class="text-sm font-medium">À régler</span>
+          <span class="text-lg font-semibold">{{ amount() }}</span>
+        </div>
+        @if (perGuest()) {
+          <p class="text-muted-foreground -mt-2 text-xs">Soit {{ perGuest() }} par couvert.</p>
+        }
+
+        <p class="text-muted-foreground text-sm">
+          Ces frais <strong>ne sont pas déduits de l'addition</strong>.
+          @if (current.refundWindowHours) {
+            Ils vous sont intégralement remboursés si vous annulez plus de
+            {{ current.refundWindowHours }} h avant le service.
+          }
+        </p>
+
+        @if (errorMessage()) {
+          <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+        }
+      </div>
+
+      <div hlmCardFooter class="flex-col items-stretch gap-2">
+        <button hlmBtn class="w-full" [disabled]="redirecting()" (click)="pay()">
+          <ng-icon name="lucideCreditCard" size="18" />
+          {{ redirecting() ? 'Ouverture du paiement…' : 'Payer ' + amount() }}
+        </button>
+        <p class="text-muted-foreground text-center text-xs">
+          Paiement sécurisé par Stripe. Aucune donnée bancaire ne passe par Alloquence.
+        </p>
+      </div>
+    }
+  </section>
+</main>
