@@ -340,6 +340,40 @@ export class ReservationService {
     );
   }
 
+  // Corrige le nombre de couverts. Le back porte la regle : une baisse passe toujours
+  // (jamais de remboursement partiel), une hausse exige une table assez grande libre sur
+  // le creneau, et reste refusee en mode `booking_fee` tant que le complement n'est pas
+  // regle. Un refus remonte en 409 avec son motif, que l'appelant affiche au personnel.
+  updatePartySize(id: string, partySize: number): Observable<Reservation> {
+    if (environment.useMock) {
+      const current = this._reservations().find((r) => r.id === id);
+      if (!current) {
+        return EMPTY;
+      }
+      const updated: Reservation = { ...current, partySize };
+      return of(updated).pipe(
+        delay(200),
+        tap((res) => this.applyUpdate(res)),
+      );
+    }
+    const dto = this._raw().find((d) => d.id === id);
+    if (!dto) {
+      return EMPTY;
+    }
+    return this.http
+      .put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { partySize }))
+      .pipe(
+        map(() => {
+          const patched: ReservationDto = { ...dto, partySize };
+          this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
+          const updated = mapReservation(patched);
+          this.applyUpdate(updated);
+
+          return updated;
+        }),
+      );
+  }
+
   // Affecte une table a une reservation (plan de salle). PUT avec tableId rempli
   // (corps complet reconstruit par toRequest). La table passe alors Reservee/Installee.
   // On passe l'objet table pour mettre a jour la reference embarquee sans dependre

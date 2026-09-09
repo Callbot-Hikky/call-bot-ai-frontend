@@ -106,6 +106,40 @@ describe('ReservationService', () => {
     expect(service.reservations().length).toBe(2);
   });
 
+  // TICKET 08 : le changement de couverts passe par la regle portee cote back.
+  // Le front se contente d'envoyer la nouvelle valeur et d'appliquer la reponse.
+  it('updatePartySize envoie un PUT portant les nouveaux couverts', async () => {
+    service.loadToday('2026-06-24');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'confirmed')]);
+
+    const result = firstValueFrom(service.updatePartySize('1', 6));
+    const put = httpMock.expectOne((r) => r.method === 'PUT');
+    expect(put.request.url).toContain('/reservations/1');
+    expect((put.request.body as { partySize: number }).partySize).toBe(6);
+    // Le reste du corps reste celui du DTO courant (mutation idempotente).
+    expect((put.request.body as { status: string }).status).toBe('confirmed');
+    put.flush(dto('1', 'confirmed'));
+
+    await result;
+    expect(service.reservations().find((r) => r.id === '1')?.partySize).toBe(6);
+  });
+
+  it('updatePartySize refuse par le back laisse les couverts inchanges', async () => {
+    service.loadToday('2026-06-24');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'confirmed')]);
+
+    const result = firstValueFrom(service.updatePartySize('1', 6)).catch((e: unknown) => e);
+    httpMock
+      .expectOne((r) => r.method === 'PUT')
+      .flush(
+        { status: 409, error: 'top_up_required', message: 'top-up owed' },
+        { status: 409, statusText: 'Conflict' },
+      );
+
+    await result;
+    expect(service.reservations().find((r) => r.id === '1')?.partySize).toBe(2);
+  });
+
   it('cancel envoie un PUT et met le statut à cancelled', async () => {
     service.loadToday('2026-06-24');
     httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'confirmed')]);

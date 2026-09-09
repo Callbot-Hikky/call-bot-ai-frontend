@@ -27,4 +27,20 @@ describe('conflictMessage', () => {
   it('retombe sur le fallback pour une erreur non HTTP', () => {
     expect(conflictMessage(new Error('boom'), fallback)).toBe(fallback);
   });
+
+  // TICKET 08 : motifs de refus d'un changement de couverts. Sans message metier,
+  // le personnel verrait un echec sans savoir quoi faire ensuite.
+  it('traduit le code no_table_available d un 409', () => {
+    const err = new HttpErrorResponse({ status: 409, error: { error: 'no_table_available' } });
+    expect(conflictMessage(err, fallback)).toBe(
+      'Aucune table libre ne peut asseoir ce nombre de couverts sur ce créneau.',
+    );
+  });
+
+  it('traduit le code top_up_required d un 409', () => {
+    const err = new HttpErrorResponse({ status: 409, error: { error: 'top_up_required' } });
+    expect(conflictMessage(err, fallback)).toBe(
+      'Le droit de réservation a été payé par couvert : le complément doit être réglé avant.',
+    );
+  });
 });
