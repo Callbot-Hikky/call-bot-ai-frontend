@@ -69,6 +69,40 @@ export class ReservationActionsService {
       });
   }
 
+  // Correction des COUVERTS. Le back tranche (baisse libre, hausse conditionnee a une
+  // table assez grande, complement exige en `booking_fee`) ; ici on se contente de
+  // remonter son motif au personnel plutot qu'un echec muet.
+  updatePartySize(
+    reservation: Reservation,
+    partySize: number,
+    destroyRef: DestroyRef,
+    onDone?: () => void,
+  ): void {
+    if (this.isTerminal(reservation)) {
+      this.toast.show('Cette réservation est clôturée.');
+      return;
+    }
+    if (!Number.isInteger(partySize) || partySize < 1) {
+      this.toast.show('Le nombre de couverts doit être au moins 1.');
+      return;
+    }
+    if (partySize === reservation.partySize) {
+      onDone?.();
+      return;
+    }
+    this.service
+      .updatePartySize(reservation.id, partySize)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => {
+          this.toast.show(`Réservation mise à jour : ${partySize} couverts`, 'success');
+          onDone?.();
+        },
+        error: (err) =>
+          this.toast.show(conflictMessage(err, 'Échec du changement de couverts'), 'error'),
+      });
+  }
+
   finish(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
     if (reservation.status !== 'seated') {
       this.toast.show('Aucun client installé à cette table.');

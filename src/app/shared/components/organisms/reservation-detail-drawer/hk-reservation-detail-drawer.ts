@@ -10,6 +10,13 @@ import { Reservation } from '@core/models/reservation.model';
 import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
 import { telHref } from '@core/utils/format';
 
+// Correction du nombre de couverts demandee depuis le tiroir. Le drawer ne
+// tranche rien : il porte l'intention, la regle vit cote back.
+export interface PartySizeChangeEvent {
+  reservation: Reservation;
+  partySize: number;
+}
+
 // Détail d'une réservation dans un drawer (depuis la droite), via la primitive sheet.
 @Component({
   selector: 'hk-reservation-detail-drawer',
@@ -65,6 +72,28 @@ import { telHref } from '@core/utils/format';
                   <hk-icon name="lucideUsers" [size]="16" />
                 </span>
                 <span class="font-mono text-sm tabular-nums">{{ r.partySize }} couverts</span>
+                <!-- COUVERTS : correction sur place. Le back porte la regle (baisse
+                     libre, hausse conditionnee a une table, complement exige en droit
+                     de reservation) et renvoie son motif, affiche en toast. -->
+                <div class="ml-auto flex items-center gap-1">
+                  <button
+                    type="button"
+                    class="border-border/70 text-text-muted hover:bg-muted flex size-7 items-center justify-center rounded-md border disabled:opacity-40"
+                    [disabled]="r.partySize <= 1"
+                    aria-label="Retirer un couvert"
+                    (click)="changePartySize.emit({ reservation: r, partySize: r.partySize - 1 })"
+                  >
+                    <hk-icon name="lucideMinus" [size]="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="border-border/70 text-text-muted hover:bg-muted flex size-7 items-center justify-center rounded-md border"
+                    aria-label="Ajouter un couvert"
+                    (click)="changePartySize.emit({ reservation: r, partySize: r.partySize + 1 })"
+                  >
+                    <hk-icon name="lucidePlus" [size]="14" />
+                  </button>
+                </div>
               </div>
               @if (r.table) {
                 <div class="flex items-center gap-3">
@@ -159,6 +188,7 @@ export class HkReservationDetailDrawer {
   // Nomme `endService` (pas `finish`) : `finish` est un evenement DOM natif
   // (regle @angular-eslint/no-output-native).
   readonly endService = output<Reservation>();
+  readonly changePartySize = output<PartySizeChangeEvent>();
 
   protected readonly telHref = telHref;
 

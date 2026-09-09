@@ -74,9 +74,12 @@ export function mapReservation(dto: ReservationDto): Reservation {
 // Champs surchargeables lors d'une mutation PUT (le reste vient du DTO courant).
 // `tableId` permet d'affecter (UUID) ou de desaffecter (null) une table sans
 // changer le statut.
+// `partySize` permet de corriger le nombre de couverts : le back y applique sa
+// regle (controle de table, complement exige) et refuse en 409 avec un motif.
 export interface ReservationRequestOverrides {
   status?: string;
   tableId?: string | null;
+  partySize?: number;
 }
 
 // Reconstruit le corps d'une mutation (PUT) a partir du DTO courant + surcharges.
@@ -92,7 +95,7 @@ export function toRequest(
     callId: dto.callId,
     startsAt: dto.startsAt,
     endsAt: dto.endsAt,
-    partySize: dto.partySize,
+    partySize: overrides.partySize ?? dto.partySize,
     status: overrides.status ?? dto.status,
     source: dto.source,
     notes: dto.notes,

@@ -15,7 +15,10 @@ import {
   HkReservationList,
   ReservationSort,
 } from '@shared/components/organisms/reservation-list/hk-reservation-list';
-import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
+import {
+  HkReservationDetailDrawer,
+  PartySizeChangeEvent,
+} from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import {
@@ -112,6 +115,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       (call)="onCall($event)"
       (endService)="onFinish($event)"
       (markArrived)="onMarkArrived($event)"
+      (changePartySize)="onChangePartySize($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -291,6 +295,12 @@ export class ReservationsPage {
   // Client arrive (drawer) : installe la resa + ferme le drawer.
   protected onMarkArrived(reservation: Reservation): void {
     this.actions.markArrived(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // Correction des couverts (drawer) : le drawer reste ouvert, le personnel voit
+  // le nouveau chiffre ou le motif du refus sans perdre le contexte.
+  protected onChangePartySize(event: PartySizeChangeEvent): void {
+    this.actions.updatePartySize(event.reservation, event.partySize, this.destroyRef);
   }
 
   protected onConfirm(reservation: Reservation): void {
