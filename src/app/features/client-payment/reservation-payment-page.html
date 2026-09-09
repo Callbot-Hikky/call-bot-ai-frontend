@@ -43,20 +43,31 @@
         </dl>
 
         <div class="bg-muted flex items-baseline justify-between rounded-md px-4 py-3">
-          <span class="text-sm font-medium">À régler</span>
+          <span class="text-sm font-medium">
+            {{ isNoShow() ? 'Débité seulement si vous ne venez pas' : 'À régler' }}
+          </span>
           <span class="text-lg font-semibold">{{ amount() }}</span>
         </div>
         @if (perGuest()) {
           <p class="text-muted-foreground -mt-2 text-xs">Soit {{ perGuest() }} par couvert.</p>
         }
 
-        <p class="text-muted-foreground text-sm">
-          Ces frais <strong>ne sont pas déduits de l'addition</strong>.
-          @if (current.refundWindowHours) {
-            Ils vous sont intégralement remboursés si vous annulez plus de
-            {{ current.refundWindowHours }} h avant le service.
-          }
-        </p>
+        @if (isNoShow()) {
+          <!-- Aucune promesse de remboursement : il n'y a rien à rembourser. -->
+          <p class="text-muted-foreground text-sm">
+            <strong>Rien ne vous est débité aujourd'hui.</strong> Votre carte est simplement
+            enregistrée. Ce montant ne sera prélevé que si vous ne venez pas sans avoir annulé, et
+            vous pouvez annuler à tout moment depuis le lien reçu.
+          </p>
+        } @else {
+          <p class="text-muted-foreground text-sm">
+            Ces frais <strong>ne sont pas déduits de l'addition</strong>.
+            @if (current.refundWindowHours) {
+              Ils vous sont intégralement remboursés si vous annulez plus de
+              {{ current.refundWindowHours }} h avant le service.
+            }
+          </p>
+        }
 
         @if (errorMessage()) {
           <p class="text-destructive text-sm">{{ errorMessage() }}</p>
