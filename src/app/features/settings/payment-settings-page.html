@@ -76,15 +76,14 @@
               class="mt-1"
               [value]="mode.code"
               [checked]="current.mode === mode.code"
-              [disabled]="mode.code !== 'none' && !canCharge()"
-              (change)="selectMode(mode.code)"
+              (click)="selectMode(mode.code)"
             />
             <span class="flex flex-col gap-1">
               <span class="text-sm font-medium">{{ mode.label }}</span>
               <span class="text-muted-foreground text-xs">{{ mode.hint }}</span>
               @if (mode.code !== 'none' && !canCharge()) {
                 <span class="text-muted-foreground text-xs italic">
-                  Indisponible tant que votre compte de paiement n'est pas validé.
+                  Cliquez pour créer votre compte de paiement — ce mode s'activera ensuite.
                 </span>
               }
             </span>
