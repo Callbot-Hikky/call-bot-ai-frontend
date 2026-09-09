@@ -70,20 +70,22 @@ export class PaymentSettingsPage implements OnInit {
   }
 
   private load(): void {
-    this.guarantee.getConnectAccount().subscribe({
+    const restaurantId = this.restaurantId;
+    if (!restaurantId) {
+      return;
+    }
+    this.guarantee.getConnectAccount(restaurantId).subscribe({
       next: (account) => this.account.set(account),
       error: () => this.account.set(null),
     });
-    this.guarantee.getPayouts().subscribe({
+    this.guarantee.getPayouts(restaurantId).subscribe({
       next: (payouts) => this.payouts.set(payouts),
       error: () => this.payouts.set([]),
     });
-    if (this.restaurantId) {
-      this.guarantee.getSettings(this.restaurantId).subscribe({
-        next: (settings) => this.settings.set(settings),
-        error: () => this.settings.set(null),
-      });
-    }
+    this.guarantee.getSettings(restaurantId).subscribe({
+      next: (settings) => this.settings.set(settings),
+      error: () => this.settings.set(null),
+    });
   }
 
   protected startOnboarding(): void {
@@ -91,7 +93,7 @@ export class PaymentSettingsPage implements OnInit {
       return;
     }
     this.connecting.set(true);
-    this.guarantee.startOnboarding().subscribe({
+    this.guarantee.startOnboarding(this.restaurantId).subscribe({
       next: (onboarding) => {
         window.location.href = onboarding.url;
       },
@@ -103,7 +105,7 @@ export class PaymentSettingsPage implements OnInit {
   }
 
   protected refreshAccount(): void {
-    this.guarantee.refreshConnectAccount().subscribe({
+    this.guarantee.refreshConnectAccount(this.restaurantId).subscribe({
       next: (account) => this.account.set(account),
       error: () => this.toast.show("Impossible de relire l'état du compte.", 'error'),
     });
