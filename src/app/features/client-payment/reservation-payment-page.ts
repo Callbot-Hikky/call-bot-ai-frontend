@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import type { OnInit } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCreditCard, lucideTriangleAlert } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -22,7 +23,7 @@ import type { PublicReservation } from '@core/models/guarantee.model';
   templateUrl: './reservation-payment-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ReservationPaymentPage {
+export class ReservationPaymentPage implements OnInit {
   // Alimenté par withComponentInputBinding() depuis le paramètre de route.
   readonly token = input.required<string>();
 
@@ -44,12 +45,14 @@ export class ReservationPaymentPage {
     if (!current?.amountCents || !current.partySize) {
       return '';
     }
-    return formatCents(current.amountCents / current.partySize, current.currency);
+    // Arrondi au centime : la règle du fichier de modèles est que tout montant est
+    // un entier de centimes, y compris un montant seulement affiché.
+    return formatCents(Math.round(current.amountCents / current.partySize), current.currency);
   });
 
-  constructor() {
+  ngOnInit(): void {
     // Lecture au montage : sans jeton valide il n'y a rien à afficher.
-    queueMicrotask(() => this.load());
+    this.load();
   }
 
   private load(): void {

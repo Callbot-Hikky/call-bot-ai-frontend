@@ -27,6 +27,9 @@ export interface ConnectAccount {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
+  // Litiges bancaires, absorbés par Alloquence mais suivis par organisation.
+  disputeCount: number;
+  paidReservationCount: number;
 }
 
 export interface ConnectOnboarding {

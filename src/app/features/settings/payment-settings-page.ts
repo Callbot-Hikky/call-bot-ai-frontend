@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { OnInit } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCreditCard, lucideRefreshCw, lucideTriangleAlert } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -29,7 +30,7 @@ import type {
   templateUrl: './payment-settings-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class PaymentSettingsPage {
+export class PaymentSettingsPage implements OnInit {
   private readonly guarantee = inject(GuaranteeService);
   private readonly session = inject(SessionService);
   private readonly toast = inject(ToastService);
@@ -60,8 +61,8 @@ export class PaymentSettingsPage {
     },
   ];
 
-  constructor() {
-    queueMicrotask(() => this.load());
+  ngOnInit(): void {
+    this.load();
   }
 
   private get restaurantId(): string {
@@ -108,9 +109,18 @@ export class PaymentSettingsPage {
     });
   }
 
+  /**
+   * Cliquer un mode payant que Stripe n'a pas encore débloqué lance l'inscription au
+   * lieu de ne rien faire : c'est exactement le moment où le restaurateur veut la faire.
+   */
   protected selectMode(mode: GuaranteeMode): void {
+    if (mode !== 'none' && !this.canCharge()) {
+      this.startOnboarding();
+
+      return;
+    }
     const current = this.settings();
-    if (!current || (mode !== 'none' && !this.canCharge())) {
+    if (!current) {
       return;
     }
     this.settings.set({ ...current, mode });

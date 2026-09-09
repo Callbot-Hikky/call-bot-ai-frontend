@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import type { OnInit } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleCheckBig, lucideTriangleAlert } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
@@ -24,7 +25,7 @@ import type { Cancellation, PublicReservation } from '@core/models/guarantee.mod
   templateUrl: './reservation-cancel-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ReservationCancelPage {
+export class ReservationCancelPage implements OnInit {
   readonly token = input.required<string>();
 
   private readonly payments = inject(ReservationPaymentService);
@@ -57,8 +58,8 @@ export class ReservationCancelPage {
     return Date.now() < deadline;
   });
 
-  constructor() {
-    queueMicrotask(() => this.load());
+  ngOnInit(): void {
+    this.load();
   }
 
   private load(): void {
