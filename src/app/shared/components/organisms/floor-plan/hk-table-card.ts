@@ -168,6 +168,12 @@ const WALK_IN_GUARD_MIN = 90;
                 <hk-button [size]="actionSize()" variant="secondary" (click)="unassign.emit(res)">
                   Libérer la table
                 </hk-button>
+                <!-- ABSENCE CONSTATEE : meme geste que dans la liste, pour le
+                     personnel qui travaille depuis le plan. Reversible 2 h via le
+                     toast, donc pas de confirmation supplementaire ici. -->
+                <hk-button [size]="actionSize()" variant="secondary" (click)="markNoShow.emit(res)">
+                  Absence constatée
+                </hk-button>
               }
               <div class="flex items-center gap-1.5">
                 <hk-button
@@ -222,6 +228,8 @@ export class HkTableCard {
   readonly finishService = output<Reservation>();
   readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
+  // Constat d'absence (garantie no-show) d'une resa attendue sur cette table.
+  readonly markNoShow = output<Reservation>();
 
   protected readonly formatTime = formatTime;
   protected readonly walkInSize = signal(1);
