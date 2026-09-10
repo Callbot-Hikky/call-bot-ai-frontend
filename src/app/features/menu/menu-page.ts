@@ -110,6 +110,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
               [class.border-primary]="editing() === card.mode"
               [class.border-border]="editing() !== card.mode"
               [attr.aria-pressed]="menu()!.mode === card.mode"
+              [attr.aria-label]="'Publier : ' + card.title"
               [disabled]="service.saving()"
               (click)="choose(card.mode)"
             >
@@ -176,9 +177,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     [attr.data-testid]="'remove-file-' + pdf.id"
                     [disabled]="service.saving()"
                     (click)="askRemove(pdf.id)"
-                    aria-label="Supprimer le PDF"
                   >
-                    <hk-icon name="lucideTrash2" [size]="16" />
+                    <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only"
+                      >Supprimer</span
+                    >
                   </hk-button>
                 </div>
                 @if (pendingFile() === pdf.id) {
@@ -241,9 +243,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                             [attr.data-testid]="'move-up-' + file.id"
                             [disabled]="first || service.saving()"
                             (click)="move(file.id, -1)"
-                            aria-label="Monter la photo"
                           >
-                            <hk-icon name="lucideChevronUp" [size]="16" />
+                            <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
+                              >Monter la photo</span
+                            >
                           </hk-button>
                           <hk-button
                             variant="ghost"
@@ -251,9 +254,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                             [attr.data-testid]="'move-down-' + file.id"
                             [disabled]="last || service.saving()"
                             (click)="move(file.id, 1)"
-                            aria-label="Descendre la photo"
                           >
-                            <hk-icon name="lucideChevronDown" [size]="16" />
+                            <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
+                              >Descendre la photo</span
+                            >
                           </hk-button>
                           <hk-button
                             variant="ghost"
@@ -261,9 +265,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                             [attr.data-testid]="'remove-file-' + file.id"
                             [disabled]="service.saving()"
                             (click)="askRemove(file.id)"
-                            aria-label="Supprimer la photo"
                           >
-                            <hk-icon name="lucideTrash2" [size]="16" />
+                            <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only"
+                              >Supprimer</span
+                            >
                           </hk-button>
                         </div>
                       </div>
