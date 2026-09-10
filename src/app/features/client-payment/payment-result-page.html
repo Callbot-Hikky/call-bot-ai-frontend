@@ -12,6 +12,24 @@
           besoin.
         </p>
       </div>
+    } @else if (outcome() === 'top-up-paid') {
+      <div hlmCardHeader class="items-center">
+        <ng-icon name="lucideHourglass" class="text-primary mb-2" size="40" />
+        <h3 hlmCardTitle>Complément réglé</h3>
+        <p hlmCardDescription>Nous vérifions qu'une table peut vous accueillir.</p>
+      </div>
+      <div hlmCardContent class="space-y-3">
+        <p class="text-muted-foreground text-sm">
+          Aucune table n'était retenue pendant que vous régliez. Vous recevez un message dans un
+          instant : soit votre réservation passe au nombre de couverts demandé, soit aucune table
+          n'était disponible et
+          <span class="text-foreground font-medium">le complément vous est remboursé en entier</span
+          >.
+        </p>
+        <p class="text-muted-foreground text-sm">
+          Dans les deux cas, votre réservation initiale reste confirmée.
+        </p>
+      </div>
     } @else {
       <div hlmCardHeader class="items-center">
         <ng-icon name="lucideCircleX" class="text-muted-foreground mb-2" size="40" />

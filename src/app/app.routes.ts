@@ -61,6 +61,12 @@ export const routes: Routes = [
       import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
   },
   {
+    path: 'client/reservations/complement-regle',
+    data: { outcome: 'top-up-paid' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+  {
     path: 'client/reservations/paiement-annule',
     data: { outcome: 'abandoned' },
     loadComponent: () =>
