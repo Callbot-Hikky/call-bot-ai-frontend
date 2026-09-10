@@ -1,6 +1,17 @@
 import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, catchError, defer, delay, from, map, of, switchMap, tap, throwError } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  defer,
+  delay,
+  from,
+  map,
+  of,
+  switchMap,
+  tap,
+  throwError,
+} from 'rxjs';
 import { environment } from '@env/environment';
 import { MenuDto, mapMenu } from '@core/models/menu-dto.model';
 import {
@@ -259,7 +270,9 @@ export class MenuService {
     let position = 0;
     const renumbered = files.map((f) => (f.kind === 'image' ? { ...f, position: position++ } : f));
     const stillPublished =
-      removed && ((state.mode === 'pdf' && removed.kind === 'pdf') || (state.mode === 'images' && removed.kind === 'image'))
+      removed &&
+      ((state.mode === 'pdf' && removed.kind === 'pdf') ||
+        (state.mode === 'images' && removed.kind === 'image'))
         ? renumbered.some((f) => f.kind === removed.kind)
         : true;
     this.mockState = { ...state, files: renumbered, mode: stillPublished ? state.mode : 'none' };

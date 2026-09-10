@@ -46,7 +46,9 @@ describe('HkFileDropzone', () => {
     component['handleFiles']([file('gros.png', 'image/png', 101)]);
     await fixture.whenStable();
     expect(emitted).toHaveLength(0);
-    expect(fixture.nativeElement.querySelector('[data-testid="dropzone-error"]')?.textContent).toContain('volumineux');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="dropzone-error"]')?.textContent,
+    ).toContain('volumineux');
   });
 
   it('ne fait rien quand la zone est desactivee', async () => {
