@@ -183,3 +183,22 @@ describe('menu.model', () => {
     });
   });
 });
+
+describe('menu.model : page publique', () => {
+  it('isSafePublicFileUrl n accepte que nos URL de fichiers publics', async () => {
+    const { isSafePublicFileUrl } = await import('./menu.model');
+    const ok =
+      '/api/public/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/06a7fb1d-3c23-4632-a7d0-a6754249c2a4';
+    expect(isSafePublicFileUrl(ok)).toBe(true);
+    expect(isSafePublicFileUrl('https://evil.example/x.pdf')).toBe(false);
+    expect(isSafePublicFileUrl('javascript:alert(1)')).toBe(false);
+    expect(
+      isSafePublicFileUrl('/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/x'),
+    ).toBe(false);
+    expect(
+      isSafePublicFileUrl(
+        '/api/public/restaurants/../menu/files/06a7fb1d-3c23-4632-a7d0-a6754249c2a4',
+      ),
+    ).toBe(false);
+  });
+});

@@ -272,3 +272,27 @@ export function menuErrorMessage(err: unknown, fallback: string): string {
   }
   return fallback;
 }
+
+// --- Page publique --------------------------------------------------------------
+
+export interface PublicMenu {
+  restaurantName: string;
+  mode: MenuMode;
+  // null quand le mode publie n'est pas la saisie, ou si le document est inattendu.
+  manual: ManualMenu | null;
+  files: MenuFile[];
+}
+
+const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+const PUBLIC_FILE_URL = new RegExp(`^/api/public/restaurants/${UUID}/menu/files/${UUID}$`, 'i');
+
+// Seules nos propres URL de fichiers publics peuvent etre incorporees dans un cadre :
+// un chemin relatif, sur notre origine, avec deux identifiants au format strict.
+export function isSafePublicFileUrl(url: string): boolean {
+  return PUBLIC_FILE_URL.test(url);
+}
+
+// « 18.50 » stocke -> « 18,50 » affiche, virgule francaise.
+export function formatPrice(price: string): string {
+  return price ? price.replace('.', ',') : '';
+}

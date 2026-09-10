@@ -1,5 +1,5 @@
 import { Component, OnInit, effect, input, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { delay, of, switchMap } from 'rxjs';
@@ -25,12 +25,23 @@ const MAX_PARTY_SIZE = 20;
     ...HlmSheetImports,
     BrnSheetContent,
     HlmButton,
+    RouterLink,
   ],
   template: `
     <div class="flex flex-col gap-10">
       <h1 class="text-xl font-bold">
         {{ reservation()?.restaurant?.name || 'Nom du restaurant' }}
       </h1>
+      @if (reservation()?.restaurant?.id; as restaurantId) {
+        <a
+          class="text-primary -mt-6 text-sm underline"
+          data-testid="link-menu"
+          [routerLink]="['/client/restaurants', restaurantId, 'menu']"
+          [queryParams]="{ reservation: id() }"
+        >
+          Vous voulez voir le menu ?
+        </a>
+      }
 
       <div class="flex flex-col gap-4">
         <p class="font-bold">

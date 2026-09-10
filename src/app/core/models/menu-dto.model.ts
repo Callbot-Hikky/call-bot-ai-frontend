@@ -4,6 +4,7 @@ import {
   MenuFile,
   MenuLimits,
   MenuMode,
+  PublicMenu,
   emptyManual,
   isManualMenu,
 } from './menu.model';
@@ -46,5 +47,22 @@ function mapFile(dto: MenuFileDto): MenuFile {
     position: dto.position,
     sizeBytes: dto.sizeBytes,
     url: dto.url,
+  };
+}
+
+// Forme EXACTE de PublicMenuResponse cote back.
+export interface PublicMenuDto {
+  restaurantName: string;
+  mode: MenuMode;
+  manual: unknown;
+  files: MenuFileDto[];
+}
+
+export function mapPublicMenu(dto: PublicMenuDto): PublicMenu {
+  return {
+    restaurantName: dto.restaurantName,
+    mode: dto.mode,
+    manual: isManualMenu(dto.manual) ? dto.manual : null,
+    files: dto.files.map(mapFile),
   };
 }
