@@ -14,7 +14,7 @@ import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
         <hk-sidebar />
       </div>
 
-      <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <hk-header />
         <main
           class="to-background flex-1 overflow-auto bg-gradient-to-b from-green-50/40 p-4 sm:p-6 lg:p-8"

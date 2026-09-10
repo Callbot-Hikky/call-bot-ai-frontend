@@ -253,7 +253,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     data-testid="pdf-preview"
                     [src]="safe"
                     title="Aperçu de votre carte en PDF"
-                    class="border-border/70 h-[60vh] w-full rounded-lg border bg-white"
+                    class="border-border/70 h-[32rem] w-full rounded-lg border bg-white"
                   ></iframe>
                 }
                 <p class="text-text-subtle text-xs">Déposer un nouveau PDF remplace celui-ci.</p>
