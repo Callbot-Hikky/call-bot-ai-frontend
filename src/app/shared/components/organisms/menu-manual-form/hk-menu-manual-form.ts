@@ -38,7 +38,7 @@ type PendingRemoval =
                 [attr.data-testid]="'section-name-' + s"
                 [value]="section.name"
                 (valueChange)="setSectionName(s, $event)"
-                placeholder="Nom de la section (ex. Entrees, Plats, Desserts)"
+                placeholder="Nom de la section (ex. Entrées, Plats, Desserts)"
                 [disabled]="disabled()"
                 [error]="section.name.trim() === ''"
               />
