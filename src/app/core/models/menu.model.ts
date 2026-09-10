@@ -66,7 +66,7 @@ export const MANUAL_LIMITS = {
 } as const;
 
 export const MODE_LABELS: Record<MenuMode, string> = {
-  none: 'Aucun menu publie',
+  none: 'Aucun menu publié',
   pdf: 'PDF',
   images: 'Photos',
   manual: 'Saisie manuelle',
@@ -191,7 +191,7 @@ export function validateManual(menu: ManualMenu): string[] {
       errors.push(`La section ${s + 1} n'a pas de nom.`);
     } else if (section.name.length > MANUAL_LIMITS.sectionName) {
       errors.push(
-        `Le nom de la section « ${label} » depasse ${MANUAL_LIMITS.sectionName} caracteres.`,
+        `Le nom de la section « ${label} » dépasse ${MANUAL_LIMITS.sectionName} caractères.`,
       );
     }
     if (section.items.length > MANUAL_LIMITS.itemsPerSection) {
@@ -202,12 +202,12 @@ export function validateManual(menu: ManualMenu): string[] {
         errors.push(`Le plat ${i + 1} de « ${label} » n'a pas de nom.`);
       } else if (item.name.length > MANUAL_LIMITS.itemName) {
         errors.push(
-          `Le nom du plat « ${item.name.slice(0, 20)}… » depasse ${MANUAL_LIMITS.itemName} caracteres.`,
+          `Le nom du plat « ${item.name.slice(0, 20)}… » dépasse ${MANUAL_LIMITS.itemName} caractères.`,
         );
       }
       if (item.description.length > MANUAL_LIMITS.description) {
         errors.push(
-          `La description de « ${item.name || `plat ${i + 1}`} » depasse ${MANUAL_LIMITS.description} caracteres.`,
+          `La description de « ${item.name || `plat ${i + 1}`} » dépasse ${MANUAL_LIMITS.description} caractères.`,
         );
       }
       if (item.price !== '' && normalizePrice(item.price) === null) {
@@ -254,13 +254,13 @@ export function detectFileType(bytes: Uint8Array): MenuFileType | null {
 // --- Erreurs du back -> francais (meme principe que conflictMessage). ---------
 
 export const MENU_ERROR_MESSAGES: Record<string, string> = {
-  unsupported_file_type: 'Seuls les fichiers PDF, JPEG, PNG et WebP sont acceptes.',
+  unsupported_file_type: 'Seuls les fichiers PDF, JPEG, PNG et WebP sont acceptés.',
   file_too_large: 'Fichier trop volumineux : 10 Mo maximum pour un PDF, 5 Mo pour une image.',
   too_many_files: 'Vous avez atteint la limite de 8 images.',
-  mode_not_ready: 'Ajoutez d abord du contenu avant de publier ce mode.',
-  invalid_manual: 'Le menu saisi est mal forme.',
-  invalid_file_order: 'L ordre des images est incomplet, rechargez la page.',
-  forbidden: 'Ce restaurant n appartient pas a votre compte.',
+  mode_not_ready: "Ajoutez d'abord du contenu avant de publier ce mode.",
+  invalid_manual: 'Le menu saisi est mal formé.',
+  invalid_file_order: "L'ordre des images est incomplet, rechargez la page.",
+  forbidden: "Ce restaurant n'appartient pas à votre compte.",
 };
 
 export function menuErrorMessage(err: unknown, fallback: string): string {

@@ -32,13 +32,13 @@ const MODE_CARDS: ModeCard[] = [
     mode: 'pdf',
     icon: 'lucideFileText',
     title: 'PDF',
-    description: 'Deposez votre carte en un fichier.',
+    description: 'Déposez votre carte en un fichier.',
   },
   {
     mode: 'images',
     icon: 'lucideImage',
     title: 'Photos',
-    description: "Jusqu'a 8 photos de votre carte.",
+    description: "Jusqu'à 8 photos de votre carte.",
   },
   {
     mode: 'manual',
@@ -49,13 +49,13 @@ const MODE_CARDS: ModeCard[] = [
 ];
 
 const SAVE_LABELS: Record<SaveState, string> = {
-  saved: 'Enregistre',
-  saving: 'Enregistrement en cours',
-  dirty: 'Modifications a enregistrer',
-  failed: "Echec de l'enregistrement",
+  saved: 'Enregistré',
+  saving: 'Enregistrément en cours',
+  dirty: 'Modifications à enregistrer',
+  failed: "Échec de l'enregistrement",
 };
 
-// Page « Menu et QR code » du restaurateur : choisir ce qui est publie (PDF,
+// Page « Menu et QR code » du restaurateur : choisir ce qui est publié (PDF,
 // photos ou saisie), preparer le contenu de chaque mode, voir l'etat.
 // Cliquer une carte publie ce mode ; si son contenu manque, le back refuse et
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
@@ -64,7 +64,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
   imports: [HkPageHeader, HkButton, HkIcon, HkSkeleton, HkFileDropzone, HkMenuManualForm],
   template: `
     <hk-page-header
-      subtitle="Choisissez comment vos clients voient votre carte : un PDF, des photos ou une saisie a la main. Un seul mode est publie a la fois."
+      subtitle="Choisissez comment vos clients voient votre carte : un PDF, des photos ou une saisie à la main. Un seul mode est publié à la fois."
     >
       <span class="text-text-subtle text-xs" data-testid="save-state" aria-live="polite">
         {{ saveLabel() }}
@@ -73,7 +73,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
 
     @if (!restaurantId) {
       <div class="bg-card border-border/70 rounded-lg border p-10 text-center shadow-md">
-        <p class="text-text-strong font-medium">Aucun restaurant n'est rattache a votre compte.</p>
+        <p class="text-text-strong font-medium">Aucun restaurant n'est rattaché à votre compte.</p>
         <p class="text-muted-foreground text-sm">
           Terminez d'abord la configuration de votre restaurant.
         </p>
@@ -84,10 +84,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
       >
         <hk-icon name="lucideTriangleAlert" [size]="32" class="text-st-cancelled-fg" />
         <p class="text-text-strong text-base font-medium">Impossible de charger le menu</p>
-        <p class="text-muted-foreground text-sm">Verifiez votre connexion et reessayez.</p>
+        <p class="text-muted-foreground text-sm">Vérifiez votre connexion et réessayez.</p>
         <hk-button size="sm" variant="secondary" data-testid="menu-retry" (click)="retry()">
           <hk-icon name="lucideRefreshCw" [size]="14" />
-          Reessayer
+          Réessayer
         </hk-button>
       </div>
     } @else if (service.loading() || !menu()) {
@@ -145,7 +145,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
           </div>
         } @else {
           <p class="text-text-subtle text-sm" data-testid="nothing-published">
-            Rien n'est publie pour l'instant : vos clients voient « menu bientot disponible ».
+            Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
           </p>
         }
 
@@ -201,7 +201,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     >
                   </div>
                 }
-                <p class="text-text-subtle text-xs">Deposer un nouveau PDF remplace celui-ci.</p>
+                <p class="text-text-subtle text-xs">Déposer un nouveau PDF remplace celui-ci.</p>
               }
               <hk-file-dropzone
                 [accept]="pdfMimes"
@@ -310,7 +310,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
             </section>
           }
           @case ('manual') {
-            <section class="flex flex-col gap-4" aria-label="Carte saisie a la main">
+            <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
               <hk-menu-manual-form
                 [menu]="draft()"
                 (menuChange)="onManualChange($event)"
@@ -324,10 +324,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   (click)="saveNow()"
                 >
                   <hk-icon name="lucideSave" [size]="16" />
-                  Enregistrer maintenant
+                  Enregistrér maintenant
                 </hk-button>
                 <span class="text-text-subtle text-xs"
-                  >Vos modifications sont enregistrees automatiquement.</span
+                  >Vos modifications sont enregistrées automatiquement.</span
                 >
               </div>
             </section>
@@ -396,7 +396,7 @@ export class MenuPage {
   protected countFor(mode: MenuMode): string {
     switch (mode) {
       case 'pdf':
-        return this.pdfFile() ? '1 fichier pret' : 'Aucun fichier';
+        return this.pdfFile() ? '1 fichier prêt' : 'Aucun fichier';
       case 'images': {
         const n = this.images().length;
         return n === 0 ? 'Aucune photo' : `${n} photo${n > 1 ? 's' : ''}`;
@@ -423,7 +423,7 @@ export class MenuPage {
       .subscribe({
         next: () =>
           this.toast.show(
-            mode === 'none' ? 'Menu depublie.' : 'Mode publie mis a jour.',
+            mode === 'none' ? 'Menu dépublié.' : 'Mode publié mis à jour.',
             'success',
           ),
         error: (err: Error) => this.toast.show(err.message, 'error'),
@@ -438,7 +438,7 @@ export class MenuPage {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: () => this.toast.show('Fichier ajoute.', 'success'),
+        next: () => this.toast.show('Fichier ajouté.', 'success'),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
   }
@@ -458,8 +458,8 @@ export class MenuPage {
         next: (menu) =>
           this.toast.show(
             menu.mode === 'none'
-              ? 'Fichier supprime. Plus rien n est publie.'
-              : 'Fichier supprime.',
+              ? 'Fichier supprimé. Plus rien n est publié.'
+              : 'Fichier supprimé.',
             'success',
           ),
         error: (err: Error) => this.toast.show(err.message, 'error'),
@@ -488,7 +488,7 @@ export class MenuPage {
       .saveManual(this.draft())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.toast.show('Menu enregistre.', 'success'),
+        next: () => this.toast.show('Menu enregistré.', 'success'),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
   }

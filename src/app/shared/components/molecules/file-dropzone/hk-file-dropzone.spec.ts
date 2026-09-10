@@ -39,7 +39,7 @@ describe('HkFileDropzone', () => {
     await fixture.whenStable();
     expect(emitted).toHaveLength(0);
     const error = fixture.nativeElement.querySelector('[data-testid="dropzone-error"]');
-    expect(error?.textContent).toContain('accepte');
+    expect(error?.textContent).toContain('accepté');
   });
 
   it('refuse un fichier trop gros avec la limite dans le message', async () => {

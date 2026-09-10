@@ -32,8 +32,8 @@ export type SaveState = 'saved' | 'saving' | 'dirty' | 'failed';
 
 const AUTOSAVE_MS = 600;
 const LOAD_FAILED = 'Impossible de charger le menu.';
-const SAVE_FAILED = "L'enregistrement a echoue. Verifiez votre connexion et reessayez.";
-const UPLOAD_FAILED = "L'envoi du fichier a echoue. Verifiez votre connexion et reessayez.";
+const SAVE_FAILED = "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.";
+const UPLOAD_FAILED = "L'envoi du fichier a échoué. Vérifiez votre connexion et réessayez.";
 
 // Menu du restaurateur. Mock-first : en mode mock l'etat vit en memoire avec les
 // memes regles que le back ; en mode reel le back est la source de verite et
@@ -80,8 +80,9 @@ export class MenuService {
   }
 
   // Le mode seul : le back conserve la saisie quand `manual` est absent.
+  // Un refus ici ne concerne pas la saisie : l'étiquette d'état de la saisie ne bouge pas.
   setMode(mode: MenuMode): Observable<Menu> {
-    return this.put({ mode });
+    return this.put({ mode }, false);
   }
 
   saveManual(manual: ManualMenu): Observable<Menu> {
@@ -92,7 +93,7 @@ export class MenuService {
       return throwError(() => new Error(errors[0]));
     }
     const mode = this._menu()?.mode ?? 'none';
-    return this.put({ mode, manual });
+    return this.put({ mode, manual }, true);
   }
 
   // Autosave : chaque frappe repousse l'envoi de 600 ms. L'etat affiche dit la verite :
@@ -155,28 +156,37 @@ export class MenuService {
     return this.http.get<MenuDto>(`${this.baseUrl}/${restaurantId}/menu`).pipe(map(mapMenu));
   }
 
-  private put(body: { mode: MenuMode; manual?: ManualMenu }): Observable<Menu> {
+  private put(
+    body: { mode: MenuMode; manual?: ManualMenu },
+    tracksSaveState: boolean,
+  ): Observable<Menu> {
     this._saving.set(true);
-    this._saveState.set('saving');
+    if (tracksSaveState) {
+      this._saveState.set('saving');
+    }
     const req$ = environment.useMock
       ? this.mockPut(body)
       : this.http.put<MenuDto>(this.menuUrl(), body).pipe(map(mapMenu));
     return req$.pipe(
-      tap((menu) => this.accept(menu)),
-      catchError((err) => this.reject(err, SAVE_FAILED)),
+      tap((menu) => this.accept(menu, tracksSaveState)),
+      catchError((err) => this.reject(err, SAVE_FAILED, tracksSaveState)),
     );
   }
 
-  private accept(menu: Menu): void {
+  private accept(menu: Menu, tracksSaveState = false): void {
     this._menu.set(menu);
     this._saving.set(false);
-    this._saveState.set('saved');
-    this._lastError.set(null);
+    if (tracksSaveState) {
+      this._saveState.set('saved');
+      this._lastError.set(null);
+    }
   }
 
-  private reject(err: unknown, fallback: string): Observable<never> {
+  private reject(err: unknown, fallback: string, tracksSaveState = false): Observable<never> {
     this._saving.set(false);
-    this._saveState.set('failed');
+    if (tracksSaveState) {
+      this._saveState.set('failed');
+    }
     const message =
       err instanceof HttpErrorResponse
         ? menuErrorMessage(err, fallback)

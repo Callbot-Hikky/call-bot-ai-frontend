@@ -91,6 +91,7 @@ describe('MenuService', () => {
 
     await expect(promise).rejects.toThrow(/contenu/);
     expect(service.lastError()).toMatch(/contenu/);
+    expect(service.saveState()).toBe('saved');
   });
 
   it('saveManual : PUT avec le mode courant et le document', async () => {
@@ -142,7 +143,7 @@ describe('MenuService', () => {
         .expectOne((r) => r.method === 'PUT')
         .flush({ error: 'invalid_manual' }, { status: 400, statusText: 'Bad Request' });
       expect(service.saveState()).toBe('failed');
-      expect(service.lastError()).toMatch(/mal forme/);
+      expect(service.lastError()).toMatch(/mal formé/);
     } finally {
       vi.useRealTimers();
     }

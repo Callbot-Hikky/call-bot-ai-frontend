@@ -45,7 +45,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkFileDropzone {
-  // Types MIME acceptes. Vide = tout accepter (le service tranchera sur les octets).
+  // Types MIME acceptés. Vide = tout accepter (le service tranchera sur les octets).
   readonly accept = input<string[]>([]);
   readonly maxBytes = input<number>(Number.POSITIVE_INFINITY);
   readonly multiple = input(false);
@@ -63,6 +63,8 @@ export class HkFileDropzone {
     event.preventDefault();
     if (!this.disabled()) {
       this.dragging.set(true);
+      // Nouvelle tentative : l'ancien refus n'a plus de raison de rester affiché.
+      this.error.set(null);
     }
   }
 
@@ -87,7 +89,7 @@ export class HkFileDropzone {
     const accepted = this.accept();
     const rejectedType = picked.find((f) => accepted.length > 0 && !accepted.includes(f.type));
     if (rejectedType) {
-      this.error.set(`« ${rejectedType.name} » n'est pas accepte (${describeAccepted(accepted)}).`);
+      this.error.set(`« ${rejectedType.name} » n'est pas accepté (${describeAccepted(accepted)}).`);
       return;
     }
     const tooBig = picked.find((f) => f.size > this.maxBytes());
@@ -112,7 +114,7 @@ function describeAccepted(accepted: string[]): string {
 }
 
 function humanSize(bytes: number): string {
-  if (!Number.isFinite(bytes)) return 'illimite';
+  if (!Number.isFinite(bytes)) return 'illimité';
   if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} Mo`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} Ko`;
   return `${bytes} octets`;
