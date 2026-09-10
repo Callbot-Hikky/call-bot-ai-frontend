@@ -14,6 +14,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
         <hk-icon [name]="icon()!" [size]="16" class="text-text-subtle" />
       }
       <input
+        [attr.id]="inputId()"
         class="placeholder:text-text-subtle text-foreground w-full bg-transparent text-sm outline-none disabled:cursor-not-allowed"
         [value]="value()"
         [placeholder]="placeholder()"
@@ -26,6 +27,8 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 })
 export class HkInput {
   readonly value = model('');
+  // Identifiant du champ, pour le relier a un <label for>.
+  readonly inputId = input<string>();
   readonly placeholder = input('');
   readonly icon = input<string>();
   readonly disabled = input(false);

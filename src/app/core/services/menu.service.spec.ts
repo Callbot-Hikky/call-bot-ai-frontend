@@ -132,6 +132,23 @@ describe('MenuService', () => {
     }
   });
 
+  it('saveManual apres scheduleManualSave : un seul PUT, l autosave est desarme', async () => {
+    vi.useFakeTimers();
+    try {
+      service.load(RID);
+      http.expectOne(() => true).flush(dto({ mode: 'manual' }));
+      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      service.scheduleManualSave(manual);
+      const promise = firstValueFrom(service.saveManual(manual));
+      http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'manual', manual }));
+      await promise;
+      vi.advanceTimersByTime(1000);
+      http.expectNone((r) => r.method === 'PUT');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('scheduleManualSave : une erreur passe en failed avec un message', () => {
     vi.useFakeTimers();
     try {

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
 import { MenuPage } from './menu-page';
 import { SessionService } from '@core/services/session.service';
@@ -55,6 +56,7 @@ describe('MenuPage', () => {
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
         { provide: SessionService, useValue: { restaurantId } },
         {
           provide: RestaurantService,
@@ -163,11 +165,47 @@ describe('MenuPage', () => {
     expect(fixture.nativeElement.querySelectorAll('hk-qr-card')).toHaveLength(1);
   });
 
-  it('sans restaurant dans la session, explique quoi faire au lieu d appeler le back', async () => {
+  it('sans restaurant dans la session, explique quoi faire et propose la configuration', async () => {
     restaurantId.set(null);
     fixture = TestBed.createComponent(MenuPage);
     await fixture.whenStable();
     http.expectNone(() => true);
     expect(fixture.nativeElement.textContent).toContain('restaurant');
+    expect(fixture.nativeElement.querySelector('a[href="/mon-restaurant"]')).not.toBeNull();
+  });
+
+  it('en mode PDF, affiche un aperçu intégré de l URL admin, et seulement d une URL admin', async () => {
+    const pdf = {
+      id: '06a7fb1d-3c23-4632-a7d0-a6754249c2a4',
+      kind: 'pdf' as const,
+      contentType: 'application/pdf',
+      position: 0,
+      sizeBytes: 1234,
+      url: '/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/06a7fb1d-3c23-4632-a7d0-a6754249c2a4',
+    };
+    await render(dto({ mode: 'pdf', files: [pdf] }));
+    const frame: HTMLIFrameElement = fixture.nativeElement.querySelector(
+      'iframe[data-testid="pdf-preview"]',
+    );
+    expect(frame).not.toBeNull();
+    expect(frame.getAttribute('src')).toBe(pdf.url);
+  });
+
+  it('un lot de photos continue apres un refus et donne un seul bilan', async () => {
+    await render(dto({ mode: 'images', files: IMAGES }));
+    const png = (name: string) => {
+      const bytes = new Uint8Array(64);
+      bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+      return new File([bytes], name, { type: 'image/png' });
+    };
+    const bad = new File([new Uint8Array(64)], 'x.png', { type: 'image/png' });
+    fixture.componentInstance['onFiles']([png('a.png'), bad, png('c.png')]);
+    const first = await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'));
+    first.flush(dto({ mode: 'images', files: IMAGES }));
+    const second = await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'));
+    second.flush(dto({ mode: 'images', files: IMAGES }));
+    await fixture.whenStable();
+    expect(toast.show).toHaveBeenCalledTimes(1);
+    expect(toast.show).toHaveBeenCalledWith(expect.stringMatching(/2 sur 3/), 'error');
   });
 });

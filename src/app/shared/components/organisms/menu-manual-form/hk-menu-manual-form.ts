@@ -6,6 +6,8 @@ import { HkInput } from '@shared/components/atoms/input/hk-input';
 import {
   MANUAL_LIMITS,
   ManualItem,
+  normalizePrice,
+  trimItem,
   ManualMenu,
   addItem,
   addSection,
@@ -34,10 +36,15 @@ type PendingRemoval =
         <section class="bg-card border-border/70 flex flex-col gap-4 rounded-lg border p-4">
           <div class="flex items-center gap-2">
             <div class="flex-1">
+              <label class="sr-only" [attr.for]="'section-name-' + s"
+                >Nom de la section {{ s + 1 }}</label
+              >
               <hk-input
                 [attr.data-testid]="'section-name-' + s"
+                [inputId]="'section-name-' + s"
                 [value]="section.name"
                 (valueChange)="setSectionName(s, $event)"
+                (focusout)="trimSectionAt(s)"
                 placeholder="Nom de la section (ex. Entrées, Plats, Desserts)"
                 [disabled]="disabled()"
                 [error]="section.name.trim() === ''"
@@ -87,9 +94,14 @@ type PendingRemoval =
             <div class="border-border/60 flex flex-col gap-2 rounded-md border p-3">
               <div class="flex items-start gap-2">
                 <div class="flex-1" [attr.data-testid]="'item-name-' + s + '-' + i">
+                  <label class="sr-only" [attr.for]="'item-name-' + s + '-' + i"
+                    >Nom du plat {{ i + 1 }}</label
+                  >
                   <hk-input
+                    [inputId]="'item-name-' + s + '-' + i"
                     [value]="item.name"
                     (valueChange)="setItem(s, i, { name: $event })"
+                    (focusout)="trimAt(s, i)"
                     (keydown.enter)="onEnter($event, s)"
                     placeholder="Nom du plat"
                     [disabled]="disabled()"
@@ -97,7 +109,11 @@ type PendingRemoval =
                   />
                 </div>
                 <div class="w-28" [attr.data-testid]="'item-price-' + s + '-' + i">
+                  <label class="sr-only" [attr.for]="'item-price-' + s + '-' + i"
+                    >Prix du plat {{ i + 1 }}</label
+                  >
                   <hk-input
+                    [inputId]="'item-price-' + s + '-' + i"
                     [value]="item.price"
                     (valueChange)="setPriceRaw(s, i, $event)"
                     (focusout)="normalizePriceAt(s, i)"
@@ -137,9 +153,14 @@ type PendingRemoval =
                   >
                 </div>
               }
+              <label class="sr-only" [attr.for]="'item-desc-' + s + '-' + i"
+                >Description du plat {{ i + 1 }}</label
+              >
               <textarea
                 hlmTextarea
                 rows="2"
+                [id]="'item-desc-' + s + '-' + i"
+                (focusout)="trimAt(s, i)"
                 [value]="item.description"
                 (input)="setDescription(s, i, $event)"
                 [attr.maxlength]="limits.description"
@@ -255,8 +276,20 @@ export class HkMenuManualForm {
     }
   }
 
+  // A la sortie du champ : espaces rognes, une seule fois.
+  protected trimAt(s: number, i: number): void {
+    this.menu.set(trimItem(this.menu(), s, i));
+  }
+
+  protected trimSectionAt(s: number): void {
+    const section = this.menu().sections[s];
+    if (section) {
+      this.setSectionName(s, section.name.trim());
+    }
+  }
+
   protected hasInvalidPrice(item: ManualItem): boolean {
-    return item.price !== '' && !/^\d{1,4}(?:[.,]\d{1,2})?$/.test(item.price.trim());
+    return item.price !== '' && normalizePrice(item.price) === null;
   }
 
   protected onEnter(event: Event, s: number): void {

@@ -115,15 +115,37 @@ describe('menu.model', () => {
       expect(original.sections).toHaveLength(1);
     });
 
-    it('updateItem rogne les espaces et normalise le prix', () => {
+    it('updateItem normalise le prix et garde le nom tel que tape', () => {
       let menu = addSection(emptyManual(), 'Plats');
       menu = addItem(menu, 0);
-      menu = updateItem(menu, 0, 0, { name: '  Tajine  ', price: '18,5' });
+      menu = updateItem(menu, 0, 0, { name: 'Tajine ', price: '18,5' });
       expect(menu.sections[0].items[0]).toEqual({
-        name: 'Tajine',
+        name: 'Tajine ',
         description: '',
         price: '18.50',
       });
+    });
+
+    it('trimItem rogne le nom et la description a la sortie du champ', async () => {
+      const { trimItem } = await import('./menu.model');
+      let menu = addSection(emptyManual(), 'Plats');
+      menu = addItem(menu, 0);
+      menu = updateItem(menu, 0, 0, { name: '  Tajine  ', description: ' Aux pruneaux ' });
+      menu = trimItem(menu, 0, 0);
+      expect(menu.sections[0].items[0]).toEqual({
+        name: 'Tajine',
+        description: 'Aux pruneaux',
+        price: '',
+      });
+    });
+
+    it('isSafeAdminFileUrl n accepte que notre URL admin de fichier', async () => {
+      const { isSafeAdminFileUrl } = await import('./menu.model');
+      const id = '40de0820-8f77-408a-aad4-847c889f7ffa';
+      const file = '06a7fb1d-3c23-4632-a7d0-a6754249c2a4';
+      expect(isSafeAdminFileUrl(`/api/restaurants/${id}/menu/files/${file}`)).toBe(true);
+      expect(isSafeAdminFileUrl(`/api/public/restaurants/${id}/menu/files/${file}`)).toBe(false);
+      expect(isSafeAdminFileUrl('https://evil.example/x.pdf')).toBe(false);
     });
   });
 

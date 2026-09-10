@@ -115,6 +115,11 @@ const ONLINE_BOOKING_ENABLED = false;
             </div>
           }
           @case ('pdf') {
+            @if (!pdfFile()) {
+              <p class="text-text-muted reveal text-base" [style.animation-delay.ms]="80">
+                La carte de {{ m.restaurantName }} arrive bientôt.
+              </p>
+            }
             <div class="reveal flex flex-col gap-3" [style.animation-delay.ms]="80">
               @if (pdfUrl(); as safe) {
                 <iframe

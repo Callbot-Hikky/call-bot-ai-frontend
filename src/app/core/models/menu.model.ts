@@ -65,13 +65,6 @@ export const MANUAL_LIMITS = {
   itemsPerSection: 50,
 } as const;
 
-export const MODE_LABELS: Record<MenuMode, string> = {
-  none: 'aucun',
-  pdf: 'PDF',
-  images: 'photos',
-  manual: 'saisie manuelle',
-};
-
 export function emptyManual(): ManualMenu {
   return { version: 1, sections: [] };
 }
@@ -140,8 +133,9 @@ export function removeItem(menu: ManualMenu, sectionIndex: number, itemIndex: nu
   };
 }
 
-// Rogne les espaces et normalise le prix ; un prix invalide est garde tel quel
-// pour que la validation puisse le signaler, au lieu d'etre efface en silence.
+// Normalise le prix ; un prix invalide est garde tel quel pour que la validation
+// puisse le signaler. Le nom et la description sont rognes a la sortie du champ
+// (voir le formulaire), jamais a la frappe : sinon le champ et le modele divergent.
 export function updateItem(
   menu: ManualMenu,
   sectionIndex: number,
@@ -157,8 +151,6 @@ export function updateItem(
         items: s.items.map((item, j) => {
           if (j !== itemIndex) return item;
           const next = { ...item, ...patch };
-          if (patch.name !== undefined) next.name = patch.name.trim();
-          if (patch.description !== undefined) next.description = patch.description.trim();
           if (patch.price !== undefined)
             next.price = normalizePrice(patch.price) ?? patch.price.trim();
           return next;
@@ -168,9 +160,19 @@ export function updateItem(
   };
 }
 
+// Rogne le nom et la description d'un plat : appele a la sortie du champ.
+export function trimItem(menu: ManualMenu, sectionIndex: number, itemIndex: number): ManualMenu {
+  const item = menu.sections[sectionIndex]?.items[itemIndex];
+  if (!item) return menu;
+  return updateItem(menu, sectionIndex, itemIndex, {
+    name: item.name.trim(),
+    description: item.description.trim(),
+  });
+}
+
 // « 12 », « 12.5 », « 12,50 » -> « 12.50 » ; vide -> vide ; sinon null.
 // Quatre chiffres max avant la virgule : personne ne vend un plat 10 000 euros.
-const PRICE_PATTERN = /^\d{1,4}(?:[.,]\d{1,2})?$/;
+export const PRICE_PATTERN = /^\d{1,4}(?:[.,]\d{1,2})?$/;
 
 export function normalizePrice(input: string): string | null {
   const raw = input.trim();
@@ -290,6 +292,13 @@ const PUBLIC_FILE_URL = new RegExp(`^/api/public/restaurants/${UUID}/menu/files/
 // un chemin relatif, sur notre origine, avec deux identifiants au format strict.
 export function isSafePublicFileUrl(url: string): boolean {
   return PUBLIC_FILE_URL.test(url);
+}
+
+const ADMIN_FILE_URL = new RegExp(`^/api/restaurants/${UUID}/menu/files/${UUID}$`, 'i');
+
+// Meme regle pour l'apercu du restaurateur : notre URL admin, deux identifiants stricts.
+export function isSafeAdminFileUrl(url: string): boolean {
+  return ADMIN_FILE_URL.test(url);
 }
 
 // « 18.50 » stocke -> « 18,50 » affiche, virgule francaise.

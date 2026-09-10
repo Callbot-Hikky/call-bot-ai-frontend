@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   effect,
   inject,
@@ -26,15 +27,13 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
     >
       <div
         class="border-border/60 flex size-40 shrink-0 items-center justify-center self-center rounded-md border bg-white p-2 sm:self-start"
-        [attr.aria-label]="'QR code : ' + title()"
-        role="img"
       >
         @if (png(); as src) {
           <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
         } @else if (svgHtml(); as html) {
           <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
         } @else {
-          <span class="text-text-subtle text-xs">Génération…</span>
+          <span class="text-text-subtle text-xs">Génération du QR code…</span>
         }
       </div>
 
@@ -96,7 +95,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
         </div>
         @if (copyFailed()) {
           <p class="text-st-cancelled-fg text-xs" role="alert">
-            Impossible de copier automatiquement : sélectionnez le lien ci-dessus.
+            Copie impossible depuis ce navigateur. Sélectionnez le lien ci-dessus pour le copier.
           </p>
         }
       </div>
@@ -112,6 +111,9 @@ export class HkQrCard {
   readonly description = input('');
 
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly destroyRef = inject(DestroyRef);
+  private copiedTimer: ReturnType<typeof setTimeout> | null = null;
+  private generation = 0;
 
   protected readonly svg = signal('');
   protected readonly png = signal<string | null>(null);
@@ -133,9 +135,8 @@ export class HkQrCard {
         )
       : null,
   );
-  protected readonly pngHref = computed<SafeUrl | null>(() =>
-    this.png() ? this.sanitizer.bypassSecurityTrustUrl(this.png()!) : null,
-  );
+  // data:image/png est accepte tel quel par la sanitisation d'Angular : pas de contournement.
+  protected readonly pngHref = computed<string | null>(() => this.png());
 
   constructor() {
     effect(() => {
@@ -144,13 +145,21 @@ export class HkQrCard {
         void this.generate(url);
       }
     });
+    this.destroyRef.onDestroy(() => {
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+    });
   }
 
+  // Un lien change pendant la generation : seul le dernier resultat est garde.
   private async generate(url: string): Promise<void> {
+    const run = ++this.generation;
     const options = { margin: 1, errorCorrectionLevel: 'M' as const };
-    this.svg.set(await QRCode.toString(url, { ...options, type: 'svg' }));
+    const svg = await QRCode.toString(url, { ...options, type: 'svg' });
+    if (run !== this.generation) return;
+    this.svg.set(svg);
     try {
-      this.png.set(await QRCode.toDataURL(url, { ...options, width: 512 }));
+      const png = await QRCode.toDataURL(url, { ...options, width: 512 });
+      if (run === this.generation) this.png.set(png);
     } catch {
       // Pas de canvas (tests) : le SVG suffit a l'affichage et a l'impression.
       this.png.set(null);
@@ -162,7 +171,8 @@ export class HkQrCard {
       await navigator.clipboard.writeText(this.url());
       this.copied.set(true);
       this.copyFailed.set(false);
-      setTimeout(() => this.copied.set(false), 2000);
+      if (this.copiedTimer) clearTimeout(this.copiedTimer);
+      this.copiedTimer = setTimeout(() => this.copied.set(false), 2000);
     } catch {
       this.copyFailed.set(true);
     }
