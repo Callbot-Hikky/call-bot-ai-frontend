@@ -139,6 +139,17 @@ test.describe('Menu : page restaurateur', () => {
 
     await page.getByTestId('mode-pdf').click();
     await expect(page.getByTestId('publish-state')).toContainText('votre carte en PDF');
+
+    // Un seul défilement : la molette fait défiler la zone principale, jamais la fenêtre.
+    await page.mouse.move(700, 300);
+    await page.mouse.wheel(0, 3000);
+    await page.waitForTimeout(300);
+    const scroll = await page.evaluate(() => ({
+      winY: window.scrollY,
+      mainTop: document.querySelector('main')!.scrollTop,
+    }));
+    expect(scroll.winY).toBe(0);
+    expect(scroll.mainTop).toBeGreaterThan(0);
   });
 
   test('QR code : lien public, téléchargements nommés, copie', async ({
