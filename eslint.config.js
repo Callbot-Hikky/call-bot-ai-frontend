@@ -7,7 +7,7 @@ const angular = require('angular-eslint');
 module.exports = defineConfig([
   {
     // On ne linte pas les composants Spartan ni le build
-    ignores: ['src/app/shared/ui/**', 'dist/**'],
+    ignores: ['src/app/shared/ui/**', 'dist/**', 'e2e/**', 'playwright.config.ts', 'test-results/**', 'playwright-report/**'],
   },
   {
     files: ['**/*.ts'],

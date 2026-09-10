@@ -32,6 +32,7 @@ pnpm install        # installer les dépendances
 pnpm start          # serveur de dev sur http://localhost:4200
 pnpm build          # build de production dans dist/
 pnpm test           # tests unitaires (Vitest)
+pnpm e2e            # tests de bout en bout (Playwright, back local sur 8080 requis)
 pnpm lint           # analyse ESLint
 pnpm format         # formater le code avec Prettier
 pnpm format:check   # vérifier le formatage sans modifier
