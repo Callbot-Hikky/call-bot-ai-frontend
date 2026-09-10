@@ -1,5 +1,7 @@
 import { Reservation, ReservationStatus } from './reservation.model';
 
+import type { PendingTopUp } from './guarantee.model';
+
 // Forme brute renvoyée par le backend (ReservationResponse, objets liés via ?expand).
 export interface BackTable {
   id: string;
@@ -34,6 +36,8 @@ export interface ReservationDto {
   guaranteeAmountCents?: number | null;
   table?: BackTable | null;
   customer?: BackCustomer | null;
+  // Present uniquement tant qu'une hausse de couverts attend son reglement.
+  pendingTopUp?: PendingTopUp | null;
 }
 
 // Corps attendu par le backend pour POST / PUT (ReservationRequest).
@@ -68,6 +72,7 @@ export function mapReservation(dto: ReservationDto): Reservation {
     guaranteeMode: (dto.guaranteeMode as Reservation['guaranteeMode']) ?? undefined,
     guaranteeStatus: (dto.guaranteeStatus as Reservation['guaranteeStatus']) ?? undefined,
     guaranteeAmountCents: dto.guaranteeAmountCents ?? undefined,
+    pendingTopUp: dto.pendingTopUp ?? undefined,
   };
 }
 
@@ -75,7 +80,9 @@ export function mapReservation(dto: ReservationDto): Reservation {
 // `tableId` permet d'affecter (UUID) ou de desaffecter (null) une table sans
 // changer le statut.
 // `partySize` permet de corriger le nombre de couverts : le back y applique sa
-// regle (controle de table, complement exige) et refuse en 409 avec un motif.
+// regle. Une baisse passe, une hausse exige une table libre, et sur une
+// reservation payante elle ouvre un complement au lieu de s'appliquer — la
+// reponse fait alors foi, pas la valeur demandee.
 export interface ReservationRequestOverrides {
   status?: string;
   tableId?: string | null;

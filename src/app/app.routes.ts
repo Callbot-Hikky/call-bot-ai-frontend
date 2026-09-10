@@ -41,6 +41,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'client/reservations/complement/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-top-up-page').then(
+        (m) => m.ReservationTopUpPage,
+      ),
+  },
+  {
     path: 'client/reservations/annuler/:token',
     loadComponent: () =>
       import('@features/client-payment/reservation-cancel-page').then(

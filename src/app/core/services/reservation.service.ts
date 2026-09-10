@@ -342,8 +342,12 @@ export class ReservationService {
 
   // Corrige le nombre de couverts. Le back porte la regle : une baisse passe toujours
   // (jamais de remboursement partiel), une hausse exige une table assez grande libre sur
-  // le creneau, et reste refusee en mode `booking_fee` tant que le complement n'est pas
-  // regle. Un refus remonte en 409 avec son motif, que l'appelant affiche au personnel.
+  // le creneau, et sur une reservation payante elle ouvre un complement au lieu de
+  // s'appliquer. Un refus franc remonte en 409 avec son motif.
+  //
+  // La reponse fait foi, jamais la valeur demandee : quand un complement s'ouvre, le
+  // back renvoie l'ancien nombre de couverts et un `pendingTopUp`. Recopier la demande
+  // afficherait au personnel une tablee qui n'a pas bouge.
   updatePartySize(id: string, partySize: number): Observable<Reservation> {
     if (environment.useMock) {
       const current = this._reservations().find((r) => r.id === id);
@@ -363,8 +367,12 @@ export class ReservationService {
     return this.http
       .put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { partySize }))
       .pipe(
-        map(() => {
-          const patched: ReservationDto = { ...dto, partySize };
+        map((response) => {
+          const patched: ReservationDto = {
+            ...dto,
+            partySize: response.partySize,
+            pendingTopUp: response.pendingTopUp ?? null,
+          };
           this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
           const updated = mapReservation(patched);
           this.applyUpdate(updated);

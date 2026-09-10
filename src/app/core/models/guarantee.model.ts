@@ -64,6 +64,29 @@ export interface PublicReservation {
   expiresAt: string | null;
 }
 
+// Ce que le convive voit derriere un lien de complement. Les deux nombres de
+// couverts y figurent : il achete la difference, une page qui n'afficherait que
+// le plus grand laisserait croire que la hausse est deja faite.
+export interface PublicTopUp {
+  restaurantName: string;
+  startsAt: string;
+  currentPartySize: number;
+  targetPartySize: number;
+  amountCents: number;
+  currency: string;
+  // `pending` tant que le delai court, `closed` une fois passe.
+  status: 'pending' | 'closed';
+  expiresAt: string | null;
+}
+
+// Complement en attente sur une reservation, vu du tableau de bord.
+export interface PendingTopUp {
+  targetPartySize: number;
+  amountCents: number;
+  currency: string;
+  expiresAt: string | null;
+}
+
 export interface PaymentRedirect {
   url: string;
 }
