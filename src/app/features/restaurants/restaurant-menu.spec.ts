@@ -1,0 +1,144 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideZonelessChangeDetection } from '@angular/core';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+
+import { RestaurantMenuPage } from './restaurant-menu';
+import { PublicMenuDto } from '@core/models/menu-dto.model';
+
+const RID = '40de0820-8f77-408a-aad4-847c889f7ffa';
+const FILE = '06a7fb1d-3c23-4632-a7d0-a6754249c2a4';
+
+function dto(partial: Partial<PublicMenuDto> = {}): PublicMenuDto {
+  return { restaurantName: 'Chez Hikky', mode: 'none', manual: null, files: [], ...partial };
+}
+
+describe('RestaurantMenuPage', () => {
+  let fixture: ComponentFixture<RestaurantMenuPage>;
+  let http: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [RestaurantMenuPage],
+      providers: [
+        provideZonelessChangeDetection(),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+      ],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  async function render(body: PublicMenuDto | null, reservation?: string): Promise<void> {
+    fixture = TestBed.createComponent(RestaurantMenuPage);
+    fixture.componentRef.setInput('id', RID);
+    if (reservation) fixture.componentRef.setInput('reservation', reservation);
+    await fixture.whenStable();
+    const req = http.expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`));
+    if (body) req.flush(body);
+    else req.flush('boom', { status: 404, statusText: 'Not Found' });
+    await fixture.whenStable();
+  }
+
+  it('affiche le nom du restaurant et la carte saisie avec les prix', async () => {
+    await render(
+      dto({
+        mode: 'manual',
+        manual: {
+          version: 1,
+          sections: [
+            {
+              name: 'Plats',
+              items: [
+                { name: 'Tajine', description: 'Aux pruneaux', price: '18.50' },
+                { name: 'Couscous', description: '', price: '' },
+              ],
+            },
+          ],
+        },
+      }),
+    );
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('Chez Hikky');
+    expect(text).toContain('Plats');
+    expect(text).toContain('Tajine');
+    expect(text).toContain('18,50');
+    expect(fixture.nativeElement.querySelector('b')).toBeNull();
+  });
+
+  it('affiche les photos du mode images avec leur URL publique', async () => {
+    await render(
+      dto({
+        mode: 'images',
+        files: [
+          {
+            id: FILE,
+            kind: 'image',
+            contentType: 'image/png',
+            position: 0,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+          },
+        ],
+      }),
+    );
+    const img: HTMLImageElement = fixture.nativeElement.querySelector(
+      'img[data-testid="menu-image"]',
+    );
+    expect(img.getAttribute('src')).toBe(`/api/public/restaurants/${RID}/menu/files/${FILE}`);
+    expect(img.getAttribute('loading')).toBe('lazy');
+  });
+
+  it('affiche le PDF dans un cadre et un lien pour l ouvrir', async () => {
+    await render(
+      dto({
+        mode: 'pdf',
+        files: [
+          {
+            id: FILE,
+            kind: 'pdf',
+            contentType: 'application/pdf',
+            position: 0,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+          },
+        ],
+      }),
+    );
+    expect(fixture.nativeElement.querySelector('iframe[data-testid="menu-pdf"]')).not.toBeNull();
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector(
+      'a[data-testid="open-pdf"]',
+    );
+    expect(link.getAttribute('href')).toContain('/api/public/');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('dit que la carte arrive quand rien n est publie', async () => {
+    await render(dto({ mode: 'none' }));
+    expect(fixture.nativeElement.textContent).toContain('bientôt');
+  });
+
+  it('propose de modifier la réservation quand on vient du message de confirmation', async () => {
+    await render(dto({ mode: 'none' }), 'resa-1');
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector(
+      'a[data-testid="link-reschedule"]',
+    );
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('/client/reservations/resa-1/reschedule');
+  });
+
+  it('sans réservation, ne propose pas encore la réservation en ligne', async () => {
+    await render(dto({ mode: 'none' }));
+    expect(fixture.nativeElement.querySelector('a[data-testid="link-reschedule"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[data-testid="link-schedule"]')).toBeNull();
+  });
+
+  it('un restaurant inconnu affiche un message clair', async () => {
+    await render(null);
+    expect(fixture.nativeElement.textContent).toContain('introuvable');
+  });
+});

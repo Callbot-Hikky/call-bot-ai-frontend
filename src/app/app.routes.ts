@@ -52,6 +52,11 @@ export const routes: Routes = [
     children: [
       { path: 'reservations/:id/reschedule', component: ReservationPage },
       { path: 'reservations/:id/confirmed', component: ReservationConfirmedPage },
+      {
+        path: 'restaurants/:id/menu',
+        loadComponent: () =>
+          import('./features/restaurants/restaurant-menu').then((m) => m.RestaurantMenuPage),
+      },
     ],
   },
 ];

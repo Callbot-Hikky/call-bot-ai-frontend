@@ -214,6 +214,31 @@ describe('MenuService', () => {
     expect(service.menu()?.files).toHaveLength(1);
   });
 
+  it('getPublic : GET /public/restaurants/{id}/menu sans toucher l etat admin', async () => {
+    const promise = firstValueFrom(service.getPublic(RID));
+    const req = http.expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`));
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      restaurantName: 'Chez Hikky',
+      mode: 'images',
+      manual: null,
+      files: [
+        {
+          id: 'f1',
+          kind: 'image',
+          contentType: 'image/png',
+          position: 0,
+          sizeBytes: 1,
+          url: `/api/public/restaurants/${RID}/menu/files/f1`,
+        },
+      ],
+    });
+    const menu = await promise;
+    expect(menu.restaurantName).toBe('Chez Hikky');
+    expect(menu.files[0].url).toContain('/api/public/');
+    expect(service.menu()).toBeNull();
+  });
+
   it('removeFile et reorder : DELETE puis PUT files/order avec la liste', async () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto());

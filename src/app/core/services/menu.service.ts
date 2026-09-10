@@ -13,7 +13,7 @@ import {
   throwError,
 } from 'rxjs';
 import { environment } from '@env/environment';
-import { MenuDto, mapMenu } from '@core/models/menu-dto.model';
+import { MenuDto, PublicMenuDto, mapMenu, mapPublicMenu } from '@core/models/menu-dto.model';
 import {
   DEFAULT_LIMITS,
   FILE_TYPE_MIME,
@@ -22,6 +22,7 @@ import {
   Menu,
   MenuFile,
   MenuMode,
+  PublicMenu,
   detectFileType,
   emptyManual,
   menuErrorMessage,
@@ -145,6 +146,23 @@ export class MenuService {
       tap((menu) => this.accept(menu)),
       catchError((err) => this.reject(err, SAVE_FAILED)),
     );
+  }
+
+  // Lecture publique : sans session, ne touche pas a l'etat admin de ce service.
+  getPublic(restaurantId: string): Observable<PublicMenu> {
+    if (environment.useMock) {
+      const state = this.mockMenu(restaurantId);
+      const kind = state.mode === 'pdf' ? 'pdf' : state.mode === 'images' ? 'image' : null;
+      return of({
+        restaurantName: 'Le Bistrot du Coin',
+        mode: state.mode,
+        manual: state.mode === 'manual' ? state.manual : null,
+        files: kind ? state.files.filter((f) => f.kind === kind) : [],
+      }).pipe(delay(300));
+    }
+    return this.http
+      .get<PublicMenuDto>(`${environment.apiUrl}/public/restaurants/${restaurantId}/menu`)
+      .pipe(map(mapPublicMenu));
   }
 
   // --- interne ---------------------------------------------------------------

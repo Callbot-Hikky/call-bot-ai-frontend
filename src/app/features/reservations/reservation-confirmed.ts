@@ -2,12 +2,13 @@ import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon } from '@ng-icons/core';
+import { RouterLink } from '@angular/router';
 import { ReservationService } from '@core/services/reservation.service';
 import { Reservation } from '@core/models/reservation.model';
 
 @Component({
   selector: 'app-reservation-confirmed',
-  imports: [DatePipe, HlmIcon, NgIcon],
+  imports: [DatePipe, HlmIcon, NgIcon, RouterLink],
   template: `
     <div class="flex flex-col items-center gap-8 py-10 text-center">
       <div class="bg-primary/10 text-primary flex size-20 items-center justify-center rounded-full">
@@ -55,6 +56,16 @@ import { Reservation } from '@core/models/reservation.model';
             <span class="font-semibold">{{ r.customerName }}</span>
           </div>
         </div>
+        @if (r.restaurant?.id; as restaurantId) {
+          <a
+            class="text-primary text-sm underline"
+            data-testid="link-menu"
+            [routerLink]="['/client/restaurants', restaurantId, 'menu']"
+            [queryParams]="{ reservation: id() }"
+          >
+            Vous voulez voir le menu ?
+          </a>
+        }
       }
     </div>
   `,
