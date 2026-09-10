@@ -20,7 +20,13 @@ import { RestaurantService } from '@core/services/restaurant.service';
 import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
-import { FILE_TYPE_MIME, ManualMenu, MenuMode, emptyManual } from '@core/models/menu.model';
+import {
+  FILE_TYPE_MIME,
+  MODE_LABELS,
+  ManualMenu,
+  MenuMode,
+  emptyManual,
+} from '@core/models/menu.model';
 
 interface ModeCard {
   mode: Exclude<MenuMode, 'none'>;
@@ -136,8 +142,21 @@ const SAVE_LABELS: Record<SaveState, string> = {
           }
         </div>
 
-        @if (menu()!.mode !== 'none') {
-          <div>
+        <div
+          class="bg-card border-border/70 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3"
+          data-testid="publish-state"
+          aria-live="polite"
+        >
+          @if (menu()!.mode !== 'none') {
+            <p class="text-text-strong text-sm">
+              <span
+                class="bg-st-confirmed-bg text-st-confirmed-fg mr-2 rounded-full px-2 py-0.5 text-xs font-medium"
+              >
+                Publié
+              </span>
+              Vos clients voient votre carte en mode <strong>{{ modeLabel(menu()!.mode) }}</strong
+              >.
+            </p>
             <hk-button
               variant="ghost"
               size="sm"
@@ -147,12 +166,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
             >
               Ne rien publier pour l'instant
             </hk-button>
-          </div>
-        } @else {
-          <p class="text-text-subtle text-sm" data-testid="nothing-published">
-            Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
-          </p>
-        }
+          } @else {
+            <p class="text-text-subtle text-sm" data-testid="nothing-published">
+              Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
+              Cliquez un mode ci-dessus pour le publier.
+            </p>
+          }
+        </div>
 
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
@@ -241,7 +261,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                         data-testid="image-thumb"
                         [src]="file.url"
                         [alt]="'Photo ' + (i + 1) + ' de la carte'"
-                        class="aspect-[3/4] w-full rounded-md object-cover"
+                        class="bg-muted h-56 w-full rounded-md object-contain"
                         loading="lazy"
                       />
                       <div class="flex items-center justify-between gap-1">
@@ -553,6 +573,10 @@ export class MenuPage {
         next: () => this.toast.show('Menu enregistré.', 'success'),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
+  }
+
+  protected modeLabel(mode: MenuMode): string {
+    return MODE_LABELS[mode];
   }
 
   protected humanSize(bytes: number): string {

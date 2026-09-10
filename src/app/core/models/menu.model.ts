@@ -66,10 +66,10 @@ export const MANUAL_LIMITS = {
 } as const;
 
 export const MODE_LABELS: Record<MenuMode, string> = {
-  none: 'Aucun menu publié',
+  none: 'aucun',
   pdf: 'PDF',
-  images: 'Photos',
-  manual: 'Saisie manuelle',
+  images: 'photos',
+  manual: 'saisie manuelle',
 };
 
 export function emptyManual(): ManualMenu {
