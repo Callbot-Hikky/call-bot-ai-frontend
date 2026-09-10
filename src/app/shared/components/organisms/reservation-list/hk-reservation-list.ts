@@ -50,7 +50,7 @@ export interface ReservationSort {
             />
           }
         </button>
-        <span class="sm:w-[150px]"></span>
+        <span class="sm:w-[190px]"></span>
       </div>
 
       @if (loading()) {
@@ -82,6 +82,7 @@ export interface ReservationSort {
               (confirm)="confirm.emit($event)"
               (cancelReservation)="cancelReservation.emit($event)"
               (call)="call.emit($event)"
+              (markNoShow)="markNoShow.emit($event)"
             />
           }
         </div>
@@ -101,6 +102,7 @@ export class HkReservationList {
   readonly confirm = output<Reservation>();
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
+  readonly markNoShow = output<Reservation>();
   readonly retry = output<void>();
   readonly sortChange = output<ReservationSort>();
 

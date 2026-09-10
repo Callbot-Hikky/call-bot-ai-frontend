@@ -186,6 +186,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             (finishService)="finishService.emit($event)"
             (markArrived)="markArrived.emit($event)"
             (unassign)="unassign.emit($event)"
+            (markNoShow)="markNoShow.emit($event)"
           />
         </div>
       }
@@ -653,6 +654,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 (finishService)="finishService.emit($event)"
                 (markArrived)="markArrived.emit($event)"
                 (unassign)="unassign.emit($event)"
+                (markNoShow)="markNoShow.emit($event)"
               />
             </div>
           }
@@ -774,6 +776,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             (finishService)="finishService.emit($event)"
             (markArrived)="markArrived.emit($event)"
             (unassign)="unassign.emit($event)"
+            (markNoShow)="markNoShow.emit($event)"
           />
         </div>
       }
@@ -937,6 +940,8 @@ export class HkFloorPlan {
   // Fusion guidee + affectation (« aucune table assez grande »).
   readonly mergeAssign = output<MergeAssignEvent>();
   readonly unassign = output<Reservation>();
+  // Constat d'absence (garantie no-show) depuis la carte de table.
+  readonly markNoShow = output<Reservation>();
   // WALK-IN : installation immediate sur une table libre (la page fait le POST).
   readonly walkIn = output<WalkInEvent>();
   readonly retry = output<void>();

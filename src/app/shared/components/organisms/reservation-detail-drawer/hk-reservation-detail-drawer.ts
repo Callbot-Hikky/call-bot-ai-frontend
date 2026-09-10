@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input, model, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, model, output } from '@angular/core';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
@@ -183,6 +183,16 @@ export interface PartySizeChangeEvent {
                 }
               }
               <hk-button variant="secondary" (click)="call.emit(r)">Appeler</hk-button>
+              @if (noShowable()) {
+                <!-- ABSENCE CONSTATEE : ici, contrairement a la ligne de liste, pas de
+                     condition de retard - le drawer est un geste delibere, le personnel
+                     y vient pour trancher le sort d'une resa precise. Le constat reste
+                     annulable 2 h depuis le toast. -->
+                <hk-button variant="secondary" (click)="markNoShow.emit(r)">
+                  <hk-icon name="lucideUserX" [size]="16" />
+                  Absence constatée
+                </hk-button>
+              }
               @if (showUnassign() && r.table && r.status !== 'seated') {
                 <hk-button variant="secondary" (click)="unassign.emit(r)">
                   <hk-icon name="lucideUnlink" [size]="16" />
@@ -211,6 +221,8 @@ export class HkReservationDetailDrawer {
   readonly cancelReservation = output<Reservation>();
   readonly call = output<Reservation>();
   readonly markArrived = output<Reservation>();
+  // Constat d'absence (garantie no-show) : le client n'est pas venu.
+  readonly markNoShow = output<Reservation>();
   readonly unassign = output<Reservation>();
   // Fin du service d'une resa `seated` (la table redevient libre par derivation).
   // Nomme `endService` (pas `finish`) : `finish` est un evenement DOM natif
@@ -219,6 +231,13 @@ export class HkReservationDetailDrawer {
   readonly changePartySize = output<PartySizeChangeEvent>();
 
   protected readonly telHref = telHref;
+
+  // Le constat d'absence ne vise que les resas ATTENDUES : un client installe est
+  // la, une resa close a deja son sort. Statut seul, sans condition d'heure.
+  protected readonly noShowable = computed(() => {
+    const status = this.reservation()?.status;
+    return status === 'pending' || status === 'confirmed';
+  });
 
   protected formattedDate(iso: string): string {
     return new Date(iso).toLocaleString('fr-FR', {

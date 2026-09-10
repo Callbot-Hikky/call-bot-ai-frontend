@@ -96,6 +96,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (confirm)="onConfirm($event)"
         (cancelReservation)="onCancel($event)"
         (call)="onCall($event)"
+        (markNoShow)="onMarkNoShow($event)"
         (retry)="service.loadToday()"
       />
     </div>
@@ -115,6 +116,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       (call)="onCall($event)"
       (endService)="onFinish($event)"
       (markArrived)="onMarkArrived($event)"
+      (markNoShow)="onMarkNoShowFromDrawer($event)"
       (changePartySize)="onChangePartySize($event)"
     />
   `,
@@ -295,6 +297,17 @@ export class ReservationsPage {
   // Client arrive (drawer) : installe la resa + ferme le drawer.
   protected onMarkArrived(reservation: Reservation): void {
     this.actions.markArrived(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // ABSENCE CONSTATEE depuis la LISTE : le drawer n'est pas ouvert, rien a fermer.
+  protected onMarkNoShow(reservation: Reservation): void {
+    this.actions.markNoShow(reservation, this.destroyRef);
+  }
+
+  // Depuis le DRAWER : le constat clot la resa, garder le detail ouvert sur une
+  // fiche devenue inerte n'aiderait personne -> on ferme, comme « Client arrive ».
+  protected onMarkNoShowFromDrawer(reservation: Reservation): void {
+    this.actions.markNoShow(reservation, this.destroyRef, () => this.drawerState.set('closed'));
   }
 
   // Correction des couverts (drawer) : le drawer reste ouvert, le personnel voit

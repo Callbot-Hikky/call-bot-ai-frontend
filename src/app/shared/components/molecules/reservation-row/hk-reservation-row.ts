@@ -70,7 +70,7 @@ import { formatTime } from '@core/utils/format';
         </span>
       </button>
 
-      <div class="flex items-center gap-1 sm:w-[150px] sm:justify-end">
+      <div class="flex items-center gap-1 sm:w-[190px] sm:justify-end">
         @if (!reservation().table && placeable()) {
           <!-- Non placee : raccourci direct vers le plan (la resa arrive preselectionnee). -->
           <hk-icon-button
@@ -89,6 +89,18 @@ import { formatTime } from '@core/utils/format';
             label="Confirmer la réservation"
             hkTooltip="Confirmer"
             (click)="confirm.emit(reservation())"
+          />
+        }
+        @if (noShowable()) {
+          <!-- ABSENCE CONSTATEE : n'apparait qu'une fois la resa EN RETARD, pour que
+               personne ne declare absent un client encore attendu. Pas de dialogue de
+               confirmation : le constat est reversible 2 h, et le toast qui le suit
+               porte deja son action d'annulation. -->
+          <hk-icon-button
+            icon="lucideUserX"
+            label="Constater l'absence du client"
+            hkTooltip="Absence constatée"
+            (click)="markNoShow.emit(reservation())"
           />
         }
         @if (active()) {
@@ -118,6 +130,8 @@ export class HkReservationRow {
   readonly call = output<Reservation>();
   // Demande de placement sur le plan (resa non placee uniquement).
   readonly place = output<Reservation>();
+  // Constat d'absence (garantie no-show) : le client n'est pas venu.
+  readonly markNoShow = output<Reservation>();
 
   protected readonly time = computed(() => formatTime(this.reservation().dateTime));
 
@@ -135,4 +149,10 @@ export class HkReservationRow {
 
   // Seules les resas vivantes se placent (annulee/terminee : non).
   protected readonly placeable = this.active;
+
+  // CONSTAT D'ABSENCE : reserve aux resas attendues et EN RETARD. Un client
+  // installe (`seated`) est la, une resa a l'heure peut encore arriver : dans les
+  // deux cas le bouton n'aurait pas de sens. `lateMinutes` porte deja cette regle
+  // (statut attendu + fenetre +15 min / +2 h), on la reutilise telle quelle.
+  protected readonly noShowable = computed(() => this.lateMinutes() !== null);
 }
