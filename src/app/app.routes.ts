@@ -9,6 +9,7 @@ import { ReservationConfirmedPage } from '@features/reservations/reservation-con
 import { FloorPlanPage } from './features/floor-plan/floor-plan-page';
 import { ComingSoonPage } from './features/coming-soon/coming-soon';
 import { MyRestaurantPage } from './features/my-restaurant/my-restaurant';
+import { MenuPage } from './features/menu/menu-page';
 import { LoginPage } from './features/auth/login-page';
 import { RegisterPage } from './features/auth/register-page';
 import { OnboardingPage } from './features/auth/onboarding-page';
@@ -37,6 +38,7 @@ export const routes: Routes = [
         data: { title: 'Paramètres', icon: 'lucideSettings' },
       },
       { path: 'mon-restaurant', component: MyRestaurantPage, data: { title: 'Mon restaurant' } },
+      { path: 'menu', component: MenuPage, data: { title: 'Menu et QR code' } },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },
