@@ -4,8 +4,6 @@ import { ClientShell } from '@core/layout/client-shell';
 import { TokensDemo } from './features/tokens-demo/tokens-demo';
 import { DashboardPage } from './features/dashboard/dashboard';
 import { ReservationsPage } from './features/reservations/reservations';
-import { ReservationPage } from '@features/reservations/reservation';
-import { ReservationConfirmedPage } from '@features/reservations/reservation-confirmed';
 import { FloorPlanPage } from './features/floor-plan/floor-plan-page';
 import { ComingSoonPage } from './features/coming-soon/coming-soon';
 import { MyRestaurantPage } from './features/my-restaurant/my-restaurant';
@@ -50,8 +48,19 @@ export const routes: Routes = [
     path: 'client',
     component: ClientShell,
     children: [
-      { path: 'reservations/:id/reschedule', component: ReservationPage },
-      { path: 'reservations/:id/confirmed', component: ReservationConfirmedPage },
+      // Pages publiques chargees a la demande : elles ne pesent pas sur le bundle initial.
+      {
+        path: 'reservations/:id/reschedule',
+        loadComponent: () =>
+          import('@features/reservations/reservation').then((m) => m.ReservationPage),
+      },
+      {
+        path: 'reservations/:id/confirmed',
+        loadComponent: () =>
+          import('@features/reservations/reservation-confirmed').then(
+            (m) => m.ReservationConfirmedPage,
+          ),
+      },
       {
         path: 'restaurants/:id/menu',
         loadComponent: () =>
