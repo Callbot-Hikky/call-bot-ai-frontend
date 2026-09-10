@@ -22,8 +22,22 @@ function dto(partial: Partial<MenuDto> = {}): MenuDto {
 }
 
 const IMAGES = [
-  { id: 'a', kind: 'image' as const, contentType: 'image/png', position: 0, sizeBytes: 10, url: '/api/restaurants/r-1/menu/files/a' },
-  { id: 'b', kind: 'image' as const, contentType: 'image/png', position: 1, sizeBytes: 10, url: '/api/restaurants/r-1/menu/files/b' },
+  {
+    id: 'a',
+    kind: 'image' as const,
+    contentType: 'image/png',
+    position: 0,
+    sizeBytes: 10,
+    url: '/api/restaurants/r-1/menu/files/a',
+  },
+  {
+    id: 'b',
+    kind: 'image' as const,
+    contentType: 'image/png',
+    position: 1,
+    sizeBytes: 10,
+    url: '/api/restaurants/r-1/menu/files/b',
+  },
 ];
 
 describe('MenuPage', () => {
@@ -53,7 +67,9 @@ describe('MenuPage', () => {
   async function render(body: MenuDto | null, status = 200): Promise<void> {
     fixture = TestBed.createComponent(MenuPage);
     await fixture.whenStable();
-    const req = http.expectOne((r) => r.method === 'GET' && r.url.endsWith(`/restaurants/${RID}/menu`));
+    const req = http.expectOne(
+      (r) => r.method === 'GET' && r.url.endsWith(`/restaurants/${RID}/menu`),
+    );
     if (body) req.flush(body);
     else req.flush('boom', { status, statusText: 'Error' });
     await fixture.whenStable();
@@ -65,7 +81,9 @@ describe('MenuPage', () => {
     expect(text).toContain('PDF');
     expect(text).toContain('Photos');
     expect(text).toContain('Saisie manuelle');
-    expect(fixture.nativeElement.querySelector('[data-testid="mode-manual"]')?.textContent).toContain('Publié');
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="mode-manual"]')?.textContent,
+    ).toContain('Publié');
   });
 
   it('choisir un mode envoie PUT et un refus du back devient un toast en francais', async () => {
@@ -95,14 +113,18 @@ describe('MenuPage', () => {
 
   it('en mode photos, les vignettes pointent sur les URL admin et la suppression demande confirmation', async () => {
     await render(dto({ mode: 'images', files: IMAGES }));
-    const imgs: HTMLImageElement[] = Array.from(fixture.nativeElement.querySelectorAll('[data-testid="image-thumb"]'));
+    const imgs: HTMLImageElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('[data-testid="image-thumb"]'),
+    );
     expect(imgs).toHaveLength(2);
     expect(imgs[0].getAttribute('src')).toBe('/api/restaurants/r-1/menu/files/a');
 
     (fixture.nativeElement.querySelector('[data-testid="remove-file-a"]') as HTMLElement).click();
     await fixture.whenStable();
     http.expectNone((r) => r.method === 'DELETE');
-    (fixture.nativeElement.querySelector('[data-testid="confirm-remove-file"]') as HTMLElement).click();
+    (
+      fixture.nativeElement.querySelector('[data-testid="confirm-remove-file"]') as HTMLElement
+    ).click();
     await fixture.whenStable();
     const del = http.expectOne((r) => r.method === 'DELETE');
     expect(del.request.url).toContain('/menu/files/a');

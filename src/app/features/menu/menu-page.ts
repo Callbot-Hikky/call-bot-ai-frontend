@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { concatMap, from } from 'rxjs';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
@@ -20,9 +28,24 @@ interface ModeCard {
 }
 
 const MODE_CARDS: ModeCard[] = [
-  { mode: 'pdf', icon: 'lucideFileText', title: 'PDF', description: 'Deposez votre carte en un fichier.' },
-  { mode: 'images', icon: 'lucideImage', title: 'Photos', description: "Jusqu'a 8 photos de votre carte." },
-  { mode: 'manual', icon: 'lucidePencil', title: 'Saisie manuelle', description: 'Tapez vos sections et vos plats.' },
+  {
+    mode: 'pdf',
+    icon: 'lucideFileText',
+    title: 'PDF',
+    description: 'Deposez votre carte en un fichier.',
+  },
+  {
+    mode: 'images',
+    icon: 'lucideImage',
+    title: 'Photos',
+    description: "Jusqu'a 8 photos de votre carte.",
+  },
+  {
+    mode: 'manual',
+    icon: 'lucidePencil',
+    title: 'Saisie manuelle',
+    description: 'Tapez vos sections et vos plats.',
+  },
 ];
 
 const SAVE_LABELS: Record<SaveState, string> = {
@@ -51,10 +74,14 @@ const SAVE_LABELS: Record<SaveState, string> = {
     @if (!restaurantId) {
       <div class="bg-card border-border/70 rounded-lg border p-10 text-center shadow-md">
         <p class="text-text-strong font-medium">Aucun restaurant n'est rattache a votre compte.</p>
-        <p class="text-muted-foreground text-sm">Terminez d'abord la configuration de votre restaurant.</p>
+        <p class="text-muted-foreground text-sm">
+          Terminez d'abord la configuration de votre restaurant.
+        </p>
       </div>
     } @else if (service.error()) {
-      <div class="bg-card border-border/70 flex flex-col items-center gap-3 rounded-lg border p-10 text-center shadow-md">
+      <div
+        class="bg-card border-border/70 flex flex-col items-center gap-3 rounded-lg border p-10 text-center shadow-md"
+      >
         <hk-icon name="lucideTriangleAlert" [size]="32" class="text-st-cancelled-fg" />
         <p class="text-text-strong text-base font-medium">Impossible de charger le menu</p>
         <p class="text-muted-foreground text-sm">Verifiez votre connexion et reessayez.</p>
@@ -89,7 +116,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
               <div class="flex items-center justify-between">
                 <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
                 @if (menu()!.mode === card.mode) {
-                  <span class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-xs font-medium">
+                  <span
+                    class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-xs font-medium"
+                  >
                     Publié
                   </span>
                 }
@@ -103,7 +132,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
 
         @if (menu()!.mode !== 'none') {
           <div>
-            <hk-button variant="ghost" size="sm" data-testid="unpublish" [disabled]="service.saving()" (click)="choose('none')">
+            <hk-button
+              variant="ghost"
+              size="sm"
+              data-testid="unpublish"
+              [disabled]="service.saving()"
+              (click)="choose('none')"
+            >
               Ne rien publier pour l'instant
             </hk-button>
           </div>
@@ -117,7 +152,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
           @case ('pdf') {
             <section class="flex flex-col gap-4" aria-label="Carte en PDF">
               @if (pdfFile(); as pdf) {
-                <div class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4">
+                <div
+                  class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4"
+                >
                   <hk-icon name="lucideFileText" [size]="24" class="text-primary" />
                   <div class="flex-1">
                     <p class="text-text-strong text-sm font-medium">Carte en PDF</p>
@@ -133,15 +170,33 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideExternalLink" [size]="14" />
                     Ouvrir
                   </a>
-                  <hk-button variant="ghost" size="sm" [attr.data-testid]="'remove-file-' + pdf.id" [disabled]="service.saving()" (click)="askRemove(pdf.id)" aria-label="Supprimer le PDF">
+                  <hk-button
+                    variant="ghost"
+                    size="sm"
+                    [attr.data-testid]="'remove-file-' + pdf.id"
+                    [disabled]="service.saving()"
+                    (click)="askRemove(pdf.id)"
+                    aria-label="Supprimer le PDF"
+                  >
                     <hk-icon name="lucideTrash2" [size]="16" />
                   </hk-button>
                 </div>
                 @if (pendingFile() === pdf.id) {
-                  <div class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm" role="alert">
+                  <div
+                    class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
+                    role="alert"
+                  >
                     <span>Supprimer ce PDF ?</span>
-                    <hk-button variant="danger" size="sm" data-testid="confirm-remove-file" (click)="confirmRemove()">Supprimer</hk-button>
-                    <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)">Annuler</hk-button>
+                    <hk-button
+                      variant="danger"
+                      size="sm"
+                      data-testid="confirm-remove-file"
+                      (click)="confirmRemove()"
+                      >Supprimer</hk-button
+                    >
+                    <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
+                      >Annuler</hk-button
+                    >
                   </div>
                 }
                 <p class="text-text-subtle text-xs">Deposer un nouveau PDF remplace celui-ci.</p>
@@ -160,7 +215,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
             <section class="flex flex-col gap-4" aria-label="Carte en photos">
               @if (images().length > 0) {
                 <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="image-list">
-                  @for (file of images(); track file.id; let i = $index; let first = $first; let last = $last) {
+                  @for (
+                    file of images();
+                    track file.id;
+                    let i = $index;
+                    let first = $first;
+                    let last = $last
+                  ) {
                     <li class="bg-card border-border/70 flex flex-col gap-2 rounded-lg border p-2">
                       <img
                         data-testid="image-thumb"
@@ -170,24 +231,58 @@ const SAVE_LABELS: Record<SaveState, string> = {
                         loading="lazy"
                       />
                       <div class="flex items-center justify-between gap-1">
-                        <span class="text-text-subtle text-xs tabular-nums">{{ i + 1 }}/{{ images().length }}</span>
+                        <span class="text-text-subtle text-xs tabular-nums"
+                          >{{ i + 1 }}/{{ images().length }}</span
+                        >
                         <div class="flex gap-1">
-                          <hk-button variant="ghost" size="sm" [attr.data-testid]="'move-up-' + file.id" [disabled]="first || service.saving()" (click)="move(file.id, -1)" aria-label="Monter la photo">
+                          <hk-button
+                            variant="ghost"
+                            size="sm"
+                            [attr.data-testid]="'move-up-' + file.id"
+                            [disabled]="first || service.saving()"
+                            (click)="move(file.id, -1)"
+                            aria-label="Monter la photo"
+                          >
                             <hk-icon name="lucideChevronUp" [size]="16" />
                           </hk-button>
-                          <hk-button variant="ghost" size="sm" [attr.data-testid]="'move-down-' + file.id" [disabled]="last || service.saving()" (click)="move(file.id, 1)" aria-label="Descendre la photo">
+                          <hk-button
+                            variant="ghost"
+                            size="sm"
+                            [attr.data-testid]="'move-down-' + file.id"
+                            [disabled]="last || service.saving()"
+                            (click)="move(file.id, 1)"
+                            aria-label="Descendre la photo"
+                          >
                             <hk-icon name="lucideChevronDown" [size]="16" />
                           </hk-button>
-                          <hk-button variant="ghost" size="sm" [attr.data-testid]="'remove-file-' + file.id" [disabled]="service.saving()" (click)="askRemove(file.id)" aria-label="Supprimer la photo">
+                          <hk-button
+                            variant="ghost"
+                            size="sm"
+                            [attr.data-testid]="'remove-file-' + file.id"
+                            [disabled]="service.saving()"
+                            (click)="askRemove(file.id)"
+                            aria-label="Supprimer la photo"
+                          >
                             <hk-icon name="lucideTrash2" [size]="16" />
                           </hk-button>
                         </div>
                       </div>
                       @if (pendingFile() === file.id) {
-                        <div class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs" role="alert">
+                        <div
+                          class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs"
+                          role="alert"
+                        >
                           <span>Supprimer ?</span>
-                          <hk-button variant="danger" size="sm" data-testid="confirm-remove-file" (click)="confirmRemove()">Oui</hk-button>
-                          <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)">Non</hk-button>
+                          <hk-button
+                            variant="danger"
+                            size="sm"
+                            data-testid="confirm-remove-file"
+                            (click)="confirmRemove()"
+                            >Oui</hk-button
+                          >
+                          <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
+                            >Non</hk-button
+                          >
                         </div>
                       }
                     </li>
@@ -195,7 +290,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 </ul>
               }
               <p class="text-text-subtle text-xs" data-testid="image-count">
-                {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiche est l'ordre vu par vos clients.
+                {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiche est
+                l'ordre vu par vos clients.
               </p>
               <hk-file-dropzone
                 [accept]="imageMimes"
@@ -210,13 +306,24 @@ const SAVE_LABELS: Record<SaveState, string> = {
           }
           @case ('manual') {
             <section class="flex flex-col gap-4" aria-label="Carte saisie a la main">
-              <hk-menu-manual-form [menu]="draft()" (menuChange)="onManualChange($event)" [disabled]="service.loading()" />
+              <hk-menu-manual-form
+                [menu]="draft()"
+                (menuChange)="onManualChange($event)"
+                [disabled]="service.loading()"
+              />
               <div class="flex items-center gap-3">
-                <hk-button size="sm" data-testid="save-manual" [disabled]="service.saving()" (click)="saveNow()">
+                <hk-button
+                  size="sm"
+                  data-testid="save-manual"
+                  [disabled]="service.saving()"
+                  (click)="saveNow()"
+                >
                   <hk-icon name="lucideSave" [size]="16" />
                   Enregistrer maintenant
                 </hk-button>
-                <span class="text-text-subtle text-xs">Vos modifications sont enregistrees automatiquement.</span>
+                <span class="text-text-subtle text-xs"
+                  >Vos modifications sont enregistrees automatiquement.</span
+                >
               </div>
             </section>
           }
@@ -244,9 +351,13 @@ export class MenuPage {
   protected readonly draft = signal<ManualMenu>(emptyManual());
   private draftInitialized = false;
 
-  protected readonly pdfFile = computed(() => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null);
+  protected readonly pdfFile = computed(
+    () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
+  );
   protected readonly images = computed(() =>
-    (this.menu()?.files ?? []).filter((f) => f.kind === 'image').sort((a, b) => a.position - b.position),
+    (this.menu()?.files ?? [])
+      .filter((f) => f.kind === 'image')
+      .sort((a, b) => a.position - b.position),
   );
   protected readonly canAddImage = computed(
     () => this.images().length < (this.menu()?.limits.imageMaxCount ?? 8),
@@ -306,7 +417,10 @@ export class MenuPage {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () =>
-          this.toast.show(mode === 'none' ? 'Menu depublie.' : 'Mode publie mis a jour.', 'success'),
+          this.toast.show(
+            mode === 'none' ? 'Menu depublie.' : 'Mode publie mis a jour.',
+            'success',
+          ),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
   }
@@ -338,7 +452,9 @@ export class MenuPage {
       .subscribe({
         next: (menu) =>
           this.toast.show(
-            menu.mode === 'none' ? 'Fichier supprime. Plus rien n est publie.' : 'Fichier supprime.',
+            menu.mode === 'none'
+              ? 'Fichier supprime. Plus rien n est publie.'
+              : 'Fichier supprime.',
             'success',
           ),
         error: (err: Error) => this.toast.show(err.message, 'error'),
@@ -373,6 +489,8 @@ export class MenuPage {
   }
 
   protected humanSize(bytes: number): string {
-    return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo` : `${Math.round(bytes / 1024)} Ko`;
+    return bytes >= 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+      : `${Math.round(bytes / 1024)} Ko`;
   }
 }

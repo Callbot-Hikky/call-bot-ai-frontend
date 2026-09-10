@@ -16,7 +16,10 @@ import {
   validateManual,
 } from '@core/models/menu.model';
 
-type PendingRemoval = { type: 'section'; s: number } | { type: 'item'; s: number; i: number } | null;
+type PendingRemoval =
+  | { type: 'section'; s: number }
+  | { type: 'item'; s: number; i: number }
+  | null;
 
 // Saisie manuelle de la carte : sections, plats, prix. Le modele est immuable,
 // chaque changement remonte par `menu` (model bidirectionnel). Le prix n'est
@@ -56,12 +59,25 @@ type PendingRemoval = { type: 'section'; s: number } | { type: 'item'; s: number
           </div>
 
           @if (isPending('section', s)) {
-            <div class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm" role="alert">
+            <div
+              class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
+              role="alert"
+            >
               <span>Supprimer cette section et ses {{ section.items.length }} plat(s) ?</span>
-              <hk-button variant="danger" size="sm" data-testid="confirm-remove" (click)="confirmRemoval()">
+              <hk-button
+                variant="danger"
+                size="sm"
+                data-testid="confirm-remove"
+                (click)="confirmRemoval()"
+              >
                 Supprimer
               </hk-button>
-              <hk-button variant="secondary" size="sm" data-testid="cancel-remove" (click)="pending.set(null)">
+              <hk-button
+                variant="secondary"
+                size="sm"
+                data-testid="cancel-remove"
+                (click)="pending.set(null)"
+              >
                 Annuler
               </hk-button>
             </div>
@@ -103,12 +119,22 @@ type PendingRemoval = { type: 'section'; s: number } | { type: 'item'; s: number
                 </hk-button>
               </div>
               @if (isPending('item', s, i)) {
-                <div class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-sm" role="alert">
+                <div
+                  class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-sm"
+                  role="alert"
+                >
                   <span>Supprimer ce plat ?</span>
-                  <hk-button variant="danger" size="sm" data-testid="confirm-remove" (click)="confirmRemoval()">
+                  <hk-button
+                    variant="danger"
+                    size="sm"
+                    data-testid="confirm-remove"
+                    (click)="confirmRemoval()"
+                  >
                     Supprimer
                   </hk-button>
-                  <hk-button variant="secondary" size="sm" (click)="pending.set(null)">Annuler</hk-button>
+                  <hk-button variant="secondary" size="sm" (click)="pending.set(null)"
+                    >Annuler</hk-button
+                  >
                 </div>
               }
               <textarea
@@ -160,7 +186,11 @@ type PendingRemoval = { type: 'section'; s: number } | { type: 'item'; s: number
       </div>
 
       @if (errors().length > 0) {
-        <ul class="text-st-cancelled-fg flex flex-col gap-1 text-sm" data-testid="manual-errors" role="alert">
+        <ul
+          class="text-st-cancelled-fg flex flex-col gap-1 text-sm"
+          data-testid="manual-errors"
+          role="alert"
+        >
           @for (error of errors(); track error) {
             <li>{{ error }}</li>
           }
@@ -177,7 +207,9 @@ export class HkMenuManualForm {
   protected readonly limits = MANUAL_LIMITS;
   protected readonly pending = signal<PendingRemoval>(null);
   protected readonly errors = computed(() => validateManual(this.menu()));
-  protected readonly canAddSection = computed(() => this.menu().sections.length < MANUAL_LIMITS.sections);
+  protected readonly canAddSection = computed(
+    () => this.menu().sections.length < MANUAL_LIMITS.sections,
+  );
 
   protected addSectionToMenu(): void {
     this.menu.set(addSection(this.menu(), ''));
@@ -208,7 +240,10 @@ export class HkMenuManualForm {
       sections: this.menu().sections.map((section, si) =>
         si !== s
           ? section
-          : { ...section, items: section.items.map((item, ii) => (ii === i ? { ...item, price: value } : item)) },
+          : {
+              ...section,
+              items: section.items.map((item, ii) => (ii === i ? { ...item, price: value } : item)),
+            },
       ),
     });
   }
@@ -238,13 +273,15 @@ export class HkMenuManualForm {
   protected isPending(type: 'section' | 'item', s: number, i?: number): boolean {
     const p = this.pending();
     if (!p || p.type !== type || p.s !== s) return false;
-    return type === 'section' || p.type === 'item' && p.i === i;
+    return type === 'section' || (p.type === 'item' && p.i === i);
   }
 
   protected confirmRemoval(): void {
     const p = this.pending();
     if (!p) return;
-    this.menu.set(p.type === 'section' ? removeSection(this.menu(), p.s) : removeItem(this.menu(), p.s, p.i));
+    this.menu.set(
+      p.type === 'section' ? removeSection(this.menu(), p.s) : removeItem(this.menu(), p.s, p.i),
+    );
     this.pending.set(null);
   }
 }
