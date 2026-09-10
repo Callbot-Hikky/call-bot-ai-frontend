@@ -12,7 +12,7 @@ import { HlmCardImports } from '@spartan-ng/helm/card';
  *
  * <p>Le retour d'un complément a sa propre page, et pas seulement son propre texte :
  * régler un complément n'achète pas une table, il achète le droit d'être déplacé sur une
- * plus grande **s'il en reste une**. La page « c'est enregistré » promettrait une
+ * plus grande <em>s'il en reste une</em>. La page « c'est enregistré » promettrait une
  * confirmation là où le paiement peut encore repartir en remboursement.
  */
 @Component({
