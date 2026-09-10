@@ -7,6 +7,7 @@ import { MenuPage } from './menu-page';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { MenuDto } from '@core/models/menu-dto.model';
+import { RestaurantService } from '@core/services/restaurant.service';
 
 const RID = 'r-1';
 
@@ -55,6 +56,13 @@ describe('MenuPage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: SessionService, useValue: { restaurantId } },
+        {
+          provide: RestaurantService,
+          useValue: {
+            restaurant: signal({ id: RID, name: 'Le Bistrot du Coin' }),
+            loadRestaurant: vi.fn(),
+          },
+        },
       ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
@@ -138,6 +146,21 @@ describe('MenuPage', () => {
     const req = http.expectOne((r) => r.method === 'PUT' && r.url.endsWith('/files/order'));
     expect(req.request.body).toEqual({ fileIds: ['b', 'a'] });
     req.flush(dto({ mode: 'images', files: IMAGES }));
+  });
+
+  it('affiche la carte QR du menu avec le lien public et un nom de fichier lisible', async () => {
+    await render(dto());
+    const card = fixture.nativeElement.querySelector('hk-qr-card');
+    expect(card).not.toBeNull();
+    expect(card.querySelector('[data-testid="qr-url"]')?.textContent).toContain(
+      `/client/restaurants/${RID}/menu`,
+    );
+    await vi.waitFor(() =>
+      expect(card.querySelector('[data-testid="download-svg"]')?.getAttribute('download')).toBe(
+        'menu-le-bistrot-du-coin.svg',
+      ),
+    );
+    expect(fixture.nativeElement.querySelectorAll('hk-qr-card')).toHaveLength(1);
   });
 
   it('sans restaurant dans la session, explique quoi faire au lieu d appeler le back', async () => {
