@@ -52,9 +52,9 @@ type PendingRemoval =
               [attr.data-testid]="'remove-section-' + s"
               [disabled]="disabled()"
               (click)="askRemoval({ type: 'section', s })"
-              aria-label="Supprimer la section"
             >
               <hk-icon name="lucideTrash2" [size]="16" />
+              <span class="sr-only">Supprimer la section</span>
             </hk-button>
           </div>
 
@@ -113,9 +113,9 @@ type PendingRemoval =
                   [attr.data-testid]="'remove-item-' + s + '-' + i"
                   [disabled]="disabled()"
                   (click)="askRemoval({ type: 'item', s, i })"
-                  aria-label="Supprimer le plat"
                 >
                   <hk-icon name="lucideX" [size]="16" />
+                  <span class="sr-only">Supprimer le plat</span>
                 </hk-button>
               </div>
               @if (isPending('item', s, i)) {
