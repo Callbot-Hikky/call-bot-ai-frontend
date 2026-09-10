@@ -46,3 +46,7 @@ Thumbs.db
 # Notes de travail locales (jamais versionnees)
 .claude/
 claude plan 2d/
+
+# Tests de bout en bout (Playwright)
+test-results/
+playwright-report/
