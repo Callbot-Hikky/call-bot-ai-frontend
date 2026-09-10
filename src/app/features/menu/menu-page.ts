@@ -154,38 +154,6 @@ const SAVE_LABELS: Record<SaveState, string> = {
           </p>
         }
 
-        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
-          <div class="flex flex-col gap-1">
-            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
-            <p class="text-text-subtle text-sm">
-              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
-              directement à la bonne page, sans compte ni application.
-            </p>
-          </div>
-          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
-            <hk-qr-card
-              title="Voir le menu"
-              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
-              [url]="menuUrl()"
-              [fileName]="'menu-' + slug()"
-            />
-            @if (onlineBooking) {
-              <hk-qr-card
-                title="Réserver une table"
-                description="Vos clients réservent en ligne, sans appeler."
-                [url]="bookingUrl()"
-                [fileName]="'reservation-' + slug()"
-              />
-            }
-          </div>
-          @if (menu()!.mode === 'none') {
-            <p class="text-text-subtle text-sm" data-testid="qr-hint">
-              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
-              disponible ».
-            </p>
-          }
-        </section>
-
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
           <p class="text-text-subtle text-sm">
@@ -377,6 +345,38 @@ const SAVE_LABELS: Record<SaveState, string> = {
             </section>
           }
         }
+
+        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
+          <div class="flex flex-col gap-1">
+            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
+            <p class="text-text-subtle text-sm">
+              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
+              directement à la bonne page, sans compte ni application.
+            </p>
+          </div>
+          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
+            <hk-qr-card
+              title="Voir le menu"
+              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
+              [url]="menuUrl()"
+              [fileName]="'menu-' + slug()"
+            />
+            @if (onlineBooking) {
+              <hk-qr-card
+                title="Réserver une table"
+                description="Vos clients réservent en ligne, sans appeler."
+                [url]="bookingUrl()"
+                [fileName]="'reservation-' + slug()"
+              />
+            }
+          </div>
+          @if (menu()!.mode === 'none') {
+            <p class="text-text-subtle text-sm" data-testid="qr-hint">
+              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
+              disponible ».
+            </p>
+          }
+        </section>
       </div>
     }
   `,
