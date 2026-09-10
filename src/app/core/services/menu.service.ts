@@ -87,6 +87,11 @@ export class MenuService {
   }
 
   saveManual(manual: ManualMenu): Observable<Menu> {
+    // Un enregistrement explicite remplace l'autosave en attente : pas de double envoi.
+    if (this.autosaveTimer) {
+      clearTimeout(this.autosaveTimer);
+      this.autosaveTimer = null;
+    }
     const errors = validateManual(manual);
     if (errors.length > 0) {
       this._saveState.set('failed');

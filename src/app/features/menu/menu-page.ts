@@ -7,8 +7,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { concatMap, from } from 'rxjs';
+import { catchError, concatMap, from, of, toArray } from 'rxjs';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
@@ -22,10 +24,10 @@ import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
   FILE_TYPE_MIME,
-  MODE_LABELS,
   ManualMenu,
   MenuMode,
   emptyManual,
+  isSafeAdminFileUrl,
 } from '@core/models/menu.model';
 
 interface ModeCard {
@@ -40,7 +42,7 @@ const MODE_CARDS: ModeCard[] = [
     mode: 'pdf',
     icon: 'lucideFileText',
     title: 'PDF',
-    description: 'Déposez votre carte en un fichier.',
+    description: 'Un seul fichier PDF, 10 Mo maximum.',
   },
   {
     mode: 'images',
@@ -61,7 +63,7 @@ const ONLINE_BOOKING_ENABLED = false;
 
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'Enregistré',
-  saving: 'Enregistrément en cours',
+  saving: 'Enregistrement en cours',
   dirty: 'Modifications à enregistrer',
   failed: "Échec de l'enregistrement",
 };
@@ -72,7 +74,16 @@ const SAVE_LABELS: Record<SaveState, string> = {
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
 @Component({
   selector: 'app-menu',
-  imports: [HkPageHeader, HkButton, HkIcon, HkSkeleton, HkFileDropzone, HkMenuManualForm, HkQrCard],
+  imports: [
+    HkPageHeader,
+    HkButton,
+    HkIcon,
+    HkSkeleton,
+    HkFileDropzone,
+    HkMenuManualForm,
+    HkQrCard,
+    RouterLink,
+  ],
   template: `
     <hk-page-header
       subtitle="Choisissez comment vos clients voient votre carte : un PDF, des photos ou une saisie à la main. Un seul mode est publié à la fois."
@@ -88,6 +99,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
         <p class="text-muted-foreground text-sm">
           Terminez d'abord la configuration de votre restaurant.
         </p>
+        <a routerLink="/mon-restaurant" class="text-primary mt-3 inline-block text-sm underline">
+          Configurer mon restaurant
+        </a>
       </div>
     } @else if (service.error()) {
       <div
@@ -118,10 +132,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
               type="button"
               [attr.data-testid]="'mode-' + card.mode"
               class="bg-card hover:border-primary flex flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-colors focus-visible:ring-2"
-              [class.border-primary]="editing() === card.mode"
-              [class.border-border]="editing() !== card.mode"
+              [class.border-primary]="menu()!.mode === card.mode"
+              [class.border-border]="menu()!.mode !== card.mode"
+              [class.ring-2]="editing() === card.mode"
+              [class.ring-primary/30]="editing() === card.mode"
               [attr.aria-pressed]="menu()!.mode === card.mode"
-              [attr.aria-label]="'Publier : ' + card.title"
+              [attr.aria-label]="'Publier le format ' + card.title + ' et ouvrir sa préparation'"
               [disabled]="service.saving()"
               (click)="choose(card.mode)"
             >
@@ -154,8 +170,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
               >
                 Publié
               </span>
-              Vos clients voient votre carte en mode <strong>{{ modeLabel(menu()!.mode) }}</strong
-              >.
+              Vos clients voient {{ publishedLabel(menu()!.mode) }}.
             </p>
             <hk-button
               variant="ghost"
@@ -169,7 +184,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
           } @else {
             <p class="text-text-subtle text-sm" data-testid="nothing-published">
               Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
-              Cliquez un mode ci-dessus pour le publier.
+              Cliquez un format ci-dessus pour le publier.
             </p>
           }
         </div>
@@ -177,7 +192,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
           <p class="text-text-subtle text-sm">
-            Préparez chaque mode ici, puis choisissez lequel est publié.
+            Préparez chaque format ici, puis choisissez celui que vos clients verront.
           </p>
         </div>
 
@@ -233,6 +248,14 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     >
                   </div>
                 }
+                @if (pdfPreview(); as safe) {
+                  <iframe
+                    data-testid="pdf-preview"
+                    [src]="safe"
+                    title="Aperçu de votre carte en PDF"
+                    class="border-border/70 h-[60vh] w-full rounded-lg border bg-white"
+                  ></iframe>
+                }
                 <p class="text-text-subtle text-xs">Déposer un nouveau PDF remplace celui-ci.</p>
               }
               <hk-file-dropzone
@@ -240,7 +263,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 [maxBytes]="menu()!.limits.pdfMaxBytes"
                 [disabled]="service.saving()"
                 label="Glissez votre carte en PDF ici"
-                hint="ou cliquez pour la choisir (10 Mo max)"
+                hint="ou cliquez pour la choisir. PDF, 10 Mo maximum."
                 (filesPicked)="onFiles($event)"
               />
             </section>
@@ -327,7 +350,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 </ul>
               }
               <p class="text-text-subtle text-xs" data-testid="image-count">
-                {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiche est
+                {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiché est
                 l'ordre vu par vos clients.
               </p>
               <hk-file-dropzone
@@ -356,7 +379,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   (click)="saveNow()"
                 >
                   <hk-icon name="lucideSave" [size]="16" />
-                  Enregistrér maintenant
+                  Enregistrer maintenant
                 </hk-button>
                 <span class="text-text-subtle text-xs"
                   >Vos modifications sont enregistrées automatiquement.</span
@@ -409,6 +432,7 @@ export class MenuPage {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly restaurants = inject(RestaurantService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   protected readonly restaurantId = this.session.restaurantId();
   protected readonly cards = MODE_CARDS;
@@ -438,6 +462,13 @@ export class MenuPage {
   protected readonly pdfFile = computed(
     () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
   );
+  // Le cadre n'accepte que l'URL admin de NOTRE fichier, verifiee par sa forme.
+  protected readonly pdfPreview = computed<SafeResourceUrl | null>(() => {
+    const file = this.pdfFile();
+    return file && isSafeAdminFileUrl(file.url)
+      ? this.sanitizer.bypassSecurityTrustResourceUrl(file.url)
+      : null;
+  });
   protected readonly images = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'image')
@@ -478,7 +509,7 @@ export class MenuPage {
   protected countFor(mode: MenuMode): string {
     switch (mode) {
       case 'pdf':
-        return this.pdfFile() ? '1 fichier prêt' : 'Aucun fichier';
+        return this.pdfFile() ? 'PDF prêt' : 'Aucun fichier';
       case 'images': {
         const n = this.images().length;
         return n === 0 ? 'Aucune photo' : `${n} photo${n > 1 ? 's' : ''}`;
@@ -505,23 +536,42 @@ export class MenuPage {
       .subscribe({
         next: () =>
           this.toast.show(
-            mode === 'none' ? 'Menu dépublié.' : 'Mode publié mis à jour.',
+            mode === 'none' ? "Votre carte n'est plus publiée." : 'Votre carte est publiée.',
             'success',
           ),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
   }
 
-  // Les fichiers partent un par un : le back tranche sur les octets, le nombre et la taille.
+  // Les fichiers partent un par un, dans l'ordre : un refus n'arrete pas les suivants,
+  // et un seul bilan est affiche a la fin.
   protected onFiles(files: File[]): void {
     from(files)
       .pipe(
-        concatMap((file) => this.service.upload(file)),
+        concatMap((file) =>
+          this.service
+            .upload(file)
+            .pipe(catchError((err: Error) => of({ failed: file.name, reason: err.message }))),
+        ),
+        toArray(),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe({
-        next: () => this.toast.show('Fichier ajouté.', 'success'),
-        error: (err: Error) => this.toast.show(err.message, 'error'),
+      .subscribe((results) => {
+        const failures = results.filter(
+          (r): r is { failed: string; reason: string } => 'failed' in r,
+        );
+        const sent = results.length - failures.length;
+        if (failures.length === 0) {
+          const single = files[0].type === FILE_TYPE_MIME.pdf ? 'PDF ajouté.' : 'Photo ajoutée.';
+          this.toast.show(sent === 1 ? single : `${sent} photos ajoutées.`, 'success');
+        } else if (sent === 0) {
+          this.toast.show(failures[0].reason, 'error');
+        } else {
+          this.toast.show(
+            `${sent} sur ${results.length} envoyés. « ${failures[0].failed} » : ${failures[0].reason}`,
+            'error',
+          );
+        }
       });
   }
 
@@ -540,7 +590,7 @@ export class MenuPage {
         next: (menu) =>
           this.toast.show(
             menu.mode === 'none'
-              ? 'Fichier supprimé. Plus rien n est publié.'
+              ? "Fichier supprimé. Plus rien n'est publié."
               : 'Fichier supprimé.',
             'success',
           ),
@@ -575,8 +625,17 @@ export class MenuPage {
       });
   }
 
-  protected modeLabel(mode: MenuMode): string {
-    return MODE_LABELS[mode];
+  protected publishedLabel(mode: MenuMode): string {
+    switch (mode) {
+      case 'pdf':
+        return 'votre carte en PDF';
+      case 'images':
+        return 'vos photos';
+      case 'manual':
+        return 'votre carte saisie';
+      default:
+        return '';
+    }
   }
 
   protected humanSize(bytes: number): string {

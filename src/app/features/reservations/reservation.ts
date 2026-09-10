@@ -29,19 +29,21 @@ const MAX_PARTY_SIZE = 20;
   ],
   template: `
     <div class="flex flex-col gap-10">
-      <h1 class="text-xl font-bold">
-        {{ reservation()?.restaurant?.name || 'Nom du restaurant' }}
-      </h1>
-      @if (reservation()?.restaurant?.id; as restaurantId) {
-        <a
-          class="text-primary -mt-6 text-sm underline"
-          data-testid="link-menu"
-          [routerLink]="['/client/restaurants', restaurantId, 'menu']"
-          [queryParams]="{ reservation: id() }"
-        >
-          Vous voulez voir le menu ?
-        </a>
-      }
+      <div class="flex flex-col gap-2">
+        <h1 class="text-xl font-bold">
+          {{ reservation()?.restaurant?.name || 'Nom du restaurant' }}
+        </h1>
+        @if (reservation()?.restaurant?.id; as restaurantId) {
+          <a
+            class="text-primary text-sm underline"
+            data-testid="link-menu"
+            [routerLink]="['/client/restaurants', restaurantId, 'menu']"
+            [queryParams]="{ reservation: id() }"
+          >
+            Vous voulez voir le menu ?
+          </a>
+        }
+      </div>
 
       <div class="flex flex-col gap-4">
         <p class="font-bold">

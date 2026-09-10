@@ -11,7 +11,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
   template: `
     <label
       data-testid="file-dropzone"
-      class="border-border flex flex-col items-center gap-2 rounded-md border-2 border-dashed p-8 text-center transition-colors"
+      class="border-border focus-within:ring-primary/30 flex flex-col items-center gap-2 rounded-md border-2 border-dashed p-8 text-center transition-colors focus-within:ring-2"
       [class.cursor-pointer]="!disabled()"
       [class.hover:border-primary]="!disabled()"
       [class.hover:bg-muted]="!disabled()"
@@ -28,7 +28,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
       <span class="text-text-subtle text-xs">{{ hint() }}</span>
       <input
         type="file"
-        class="hidden"
+        class="sr-only"
         data-testid="file-input"
         [accept]="acceptAttr()"
         [multiple]="multiple()"
@@ -87,7 +87,10 @@ export class HkFileDropzone {
     }
     const picked = this.multiple() ? files : files.slice(0, 1);
     const accepted = this.accept();
-    const rejectedType = picked.find((f) => accepted.length > 0 && !accepted.includes(f.type));
+    // Un type vide (certaines sources de glisser-deposer) est laisse au service, qui lit les octets.
+    const rejectedType = picked.find(
+      (f) => accepted.length > 0 && f.type !== '' && !accepted.includes(f.type),
+    );
     if (rejectedType) {
       this.error.set(`« ${rejectedType.name} » n'est pas accepté (${describeAccepted(accepted)}).`);
       return;
