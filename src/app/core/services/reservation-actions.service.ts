@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
+import { formatCents } from '@core/models/guarantee.model';
 import { Reservation } from '@core/models/reservation.model';
 import { AssignEvent, WalkInEvent } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { conflictMessage } from '@core/utils/http-error';
@@ -70,8 +71,8 @@ export class ReservationActionsService {
   }
 
   // Correction des COUVERTS. Le back tranche (baisse libre, hausse conditionnee a une
-  // table assez grande, complement exige en `booking_fee`) ; ici on se contente de
-  // remonter son motif au personnel plutot qu'un echec muet.
+  // table assez grande, complement a regler en `booking_fee`) ; ici on se contente de
+  // remonter sa reponse au personnel plutot qu'un echec muet.
   updatePartySize(
     reservation: Reservation,
     partySize: number,
@@ -94,8 +95,15 @@ export class ReservationActionsService {
       .updatePartySize(reservation.id, partySize)
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
-        next: () => {
-          this.toast.show(`Réservation mise à jour : ${partySize} couverts`, 'success');
+        next: (updated) => {
+          // Une hausse payante ne s'applique pas tout de suite : annoncer
+          // « mise a jour » ferait croire au personnel que la table a grandi.
+          this.toast.show(
+            updated.pendingTopUp
+              ? `Complément de ${formatCents(updated.pendingTopUp.amountCents, updated.pendingTopUp.currency)} demandé au client. La réservation reste à ${updated.partySize} couverts.`
+              : `Réservation mise à jour : ${updated.partySize} couverts`,
+            'success',
+          );
           onDone?.();
         },
         error: (err) =>

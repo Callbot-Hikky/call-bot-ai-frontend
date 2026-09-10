@@ -6,6 +6,7 @@ import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkAvatar } from '@shared/components/atoms/avatar/hk-avatar';
+import { formatCents } from '@core/models/guarantee.model';
 import { Reservation } from '@core/models/reservation.model';
 import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
 import { telHref } from '@core/utils/format';
@@ -73,8 +74,8 @@ export interface PartySizeChangeEvent {
                 </span>
                 <span class="font-mono text-sm tabular-nums">{{ r.partySize }} couverts</span>
                 <!-- COUVERTS : correction sur place. Le back porte la regle (baisse
-                     libre, hausse conditionnee a une table, complement exige en droit
-                     de reservation) et renvoie son motif, affiche en toast. -->
+                     libre, hausse conditionnee a une table, complement a regler en droit
+                     de reservation) et renvoie sa reponse, affichee en toast. -->
                 <div class="ml-auto flex items-center gap-1">
                   <button
                     type="button"
@@ -95,6 +96,33 @@ export interface PartySizeChangeEvent {
                   </button>
                 </div>
               </div>
+              <!-- COMPLEMENT EN ATTENTE : la tablee au-dessus n'a pas bouge et ne
+                   bougera pas tant que le convive n'aura pas regle. Le personnel doit
+                   voir le montant et l'echeance sans avoir a les demander. -->
+              @if (r.pendingTopUp; as topUp) {
+                <div
+                  class="border-border/70 bg-muted/50 flex items-start gap-3 rounded-lg border p-3"
+                >
+                  <span class="text-text-muted flex size-8 shrink-0 items-center justify-center">
+                    <hk-icon name="lucideHourglass" [size]="16" />
+                  </span>
+                  <div class="text-sm">
+                    <p class="font-medium">
+                      Complément en attente :
+                      {{ formattedAmount(topUp.amountCents, topUp.currency) }}
+                    </p>
+                    <p class="text-muted-foreground">
+                      Passage à {{ topUp.targetPartySize }} couverts demandé.
+                      @if (topUp.expiresAt) {
+                        À régler avant {{ formattedTime(topUp.expiresAt) }}.
+                      }
+                    </p>
+                    <p class="text-muted-foreground">
+                      La table n'est pas tenue : la disponibilité sera revérifiée au règlement.
+                    </p>
+                  </div>
+                </div>
+              }
               @if (r.table) {
                 <div class="flex items-center gap-3">
                   <span
@@ -200,5 +228,14 @@ export class HkReservationDetailDrawer {
       hour: '2-digit',
       minute: '2-digit',
     });
+  }
+
+  // Echeance d'un complement : quelques dizaines de minutes, l'heure suffit.
+  protected formattedTime(iso: string): string {
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  protected formattedAmount(amountCents: number, currency: string): string {
+    return formatCents(amountCents, currency);
   }
 }

@@ -7,6 +7,7 @@ import type {
   Cancellation,
   PaymentRedirect,
   PublicReservation,
+  PublicTopUp,
 } from '@core/models/guarantee.model';
 
 /**
@@ -26,6 +27,16 @@ export class ReservationPaymentService {
   // Ouvre la page Stripe hébergée et renvoie l'URL vers laquelle rediriger.
   startCheckout(token: string): Observable<PaymentRedirect> {
     return this.http.post<PaymentRedirect>(`${this.baseUrl}/paiement/${token}/checkout`, {});
+  }
+
+  // Complement de couverts : jeton distinct de celui du paiement initial, porte par
+  // l'encaissement et non par la reservation.
+  getByTopUpToken(token: string): Observable<PublicTopUp> {
+    return this.http.get<PublicTopUp>(`${this.baseUrl}/complement/${token}`);
+  }
+
+  startTopUpCheckout(token: string): Observable<PaymentRedirect> {
+    return this.http.post<PaymentRedirect>(`${this.baseUrl}/complement/${token}/checkout`, {});
   }
 
   getByCancellationToken(token: string): Observable<PublicReservation> {

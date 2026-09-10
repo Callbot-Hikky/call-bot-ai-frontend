@@ -118,10 +118,38 @@ describe('ReservationService', () => {
     expect((put.request.body as { partySize: number }).partySize).toBe(6);
     // Le reste du corps reste celui du DTO courant (mutation idempotente).
     expect((put.request.body as { status: string }).status).toBe('confirmed');
-    put.flush(dto('1', 'confirmed'));
+    put.flush({ ...dto('1', 'confirmed'), partySize: 6 });
 
     await result;
     expect(service.reservations().find((r) => r.id === '1')?.partySize).toBe(6);
+  });
+
+  // TICKET 09 : une hausse payante n'est pas appliquee, elle est facturee. Le back
+  // repond 200 avec l'ANCIEN nombre de couverts et un complement en attente ;
+  // recopier la valeur demandee afficherait une tablee qui n'a pas bouge.
+  it('updatePartySize suit la reponse du back, pas la valeur demandee', async () => {
+    service.loadToday('2026-06-24');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([dto('1', 'confirmed')]);
+
+    const result = firstValueFrom(service.updatePartySize('1', 6));
+    httpMock
+      .expectOne((r) => r.method === 'PUT')
+      .flush({
+        ...dto('1', 'confirmed'),
+        partySize: 2,
+        pendingTopUp: {
+          targetPartySize: 6,
+          amountCents: 4500,
+          currency: 'eur',
+          expiresAt: '2026-06-24T12:30:00Z',
+        },
+      });
+
+    const updated = await result;
+    expect(updated.partySize).toBe(2);
+    expect(updated.pendingTopUp?.amountCents).toBe(4500);
+    expect(service.reservations().find((r) => r.id === '1')?.partySize).toBe(2);
+    expect(service.reservations().find((r) => r.id === '1')?.pendingTopUp?.targetPartySize).toBe(6);
   });
 
   it('updatePartySize refuse par le back laisse les couverts inchanges', async () => {
@@ -132,7 +160,7 @@ describe('ReservationService', () => {
     httpMock
       .expectOne((r) => r.method === 'PUT')
       .flush(
-        { status: 409, error: 'top_up_required', message: 'top-up owed' },
+        { status: 409, error: 'top_up_pending', message: 'one already running' },
         { status: 409, statusText: 'Conflict' },
       );
 

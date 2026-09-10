@@ -37,10 +37,12 @@ describe('conflictMessage', () => {
     );
   });
 
-  it('traduit le code top_up_required d un 409', () => {
-    const err = new HttpErrorResponse({ status: 409, error: { error: 'top_up_required' } });
+  // TICKET 09 : une hausse payante ouvre un complement au lieu d'etre refusee. Le
+  // seul refus qui reste est la seconde demande pendant qu'une est en attente.
+  it('traduit le code top_up_pending d un 409', () => {
+    const err = new HttpErrorResponse({ status: 409, error: { error: 'top_up_pending' } });
     expect(conflictMessage(err, fallback)).toBe(
-      'Le droit de réservation a été payé par couvert : le complément doit être réglé avant.',
+      'Un complément est déjà en attente de règlement sur cette réservation.',
     );
   });
 });
