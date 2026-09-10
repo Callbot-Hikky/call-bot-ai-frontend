@@ -15,6 +15,8 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
+import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
+import { RestaurantService } from '@core/services/restaurant.service';
 import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
@@ -48,6 +50,9 @@ const MODE_CARDS: ModeCard[] = [
   },
 ];
 
+// La reservation en ligne (branche F4) n'est pas encore livree : sa carte reste masquee.
+const ONLINE_BOOKING_ENABLED = false;
+
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'Enregistré',
   saving: 'Enregistrément en cours',
@@ -61,7 +66,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
 @Component({
   selector: 'app-menu',
-  imports: [HkPageHeader, HkButton, HkIcon, HkSkeleton, HkFileDropzone, HkMenuManualForm],
+  imports: [HkPageHeader, HkButton, HkIcon, HkSkeleton, HkFileDropzone, HkMenuManualForm, HkQrCard],
   template: `
     <hk-page-header
       subtitle="Choisissez comment vos clients voient votre carte : un PDF, des photos ou une saisie à la main. Un seul mode est publié à la fois."
@@ -148,6 +153,45 @@ const SAVE_LABELS: Record<SaveState, string> = {
             Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
           </p>
         }
+
+        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
+          <div class="flex flex-col gap-1">
+            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
+            <p class="text-text-subtle text-sm">
+              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
+              directement à la bonne page, sans compte ni application.
+            </p>
+          </div>
+          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
+            <hk-qr-card
+              title="Voir le menu"
+              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
+              [url]="menuUrl()"
+              [fileName]="'menu-' + slug()"
+            />
+            @if (onlineBooking) {
+              <hk-qr-card
+                title="Réserver une table"
+                description="Vos clients réservent en ligne, sans appeler."
+                [url]="bookingUrl()"
+                [fileName]="'reservation-' + slug()"
+              />
+            }
+          </div>
+          @if (menu()!.mode === 'none') {
+            <p class="text-text-subtle text-sm" data-testid="qr-hint">
+              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
+              disponible ».
+            </p>
+          }
+        </section>
+
+        <div class="flex flex-col gap-1">
+          <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
+          <p class="text-text-subtle text-sm">
+            Préparez chaque mode ici, puis choisissez lequel est publié.
+          </p>
+        </div>
 
         @switch (editing()) {
           @case ('pdf') {
@@ -344,8 +388,23 @@ export class MenuPage {
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly restaurants = inject(RestaurantService);
+
   protected readonly restaurantId = this.session.restaurantId();
   protected readonly cards = MODE_CARDS;
+  protected readonly onlineBooking = ONLINE_BOOKING_ENABLED;
+
+  // Les liens publics sont sur la meme origine que l'application.
+  protected readonly menuUrl = computed(
+    () => `${location.origin}/client/restaurants/${this.restaurantId}/menu`,
+  );
+  protected readonly bookingUrl = computed(
+    () => `${location.origin}/client/restaurants/${this.restaurantId}/schedule`,
+  );
+  // Nom de fichier lisible : « menu-le-bistrot-du-coin.png ».
+  protected readonly slug = computed(() =>
+    toSlug(this.restaurants.restaurant()?.name ?? 'restaurant'),
+  );
   protected readonly pdfMimes = [FILE_TYPE_MIME.pdf];
   protected readonly imageMimes = [FILE_TYPE_MIME.jpeg, FILE_TYPE_MIME.png, FILE_TYPE_MIME.webp];
 
@@ -376,6 +435,9 @@ export class MenuPage {
   constructor() {
     if (this.restaurantId) {
       this.service.load(this.restaurantId);
+      if (!this.restaurants.restaurant()) {
+        this.restaurants.loadRestaurant(this.restaurantId);
+      }
     }
     effect(() => {
       const menu = this.menu();
@@ -498,4 +560,17 @@ export class MenuPage {
       ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
       : `${Math.round(bytes / 1024)} Ko`;
   }
+}
+
+// « Le Bistrot du Coin » -> « le-bistrot-du-coin » : minuscules, sans accents, tirets.
+function toSlug(name: string): string {
+  return (
+    name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'restaurant'
+  );
 }
