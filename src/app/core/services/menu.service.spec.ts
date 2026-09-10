@@ -44,7 +44,9 @@ describe('MenuService', () => {
     const req = http.expectOne((r) => r.url.endsWith(`/restaurants/${RID}/menu`));
     expect(req.request.method).toBe('GET');
     expect(service.loading()).toBe(true);
-    req.flush(dto({ mode: 'manual', manual: { version: 1, sections: [{ name: 'Plats', items: [] }] } }));
+    req.flush(
+      dto({ mode: 'manual', manual: { version: 1, sections: [{ name: 'Plats', items: [] }] } }),
+    );
 
     expect(service.loading()).toBe(false);
     expect(service.menu()?.mode).toBe('manual');
@@ -83,7 +85,9 @@ describe('MenuService', () => {
     http.expectOne(() => true).flush(dto());
 
     const promise = firstValueFrom(service.setMode('pdf'));
-    http.expectOne((r) => r.method === 'PUT').flush({ error: 'mode_not_ready' }, { status: 409, statusText: 'Conflict' });
+    http
+      .expectOne((r) => r.method === 'PUT')
+      .flush({ error: 'mode_not_ready' }, { status: 409, statusText: 'Conflict' });
 
     await expect(promise).rejects.toThrow(/contenu/);
     expect(service.lastError()).toMatch(/contenu/);
@@ -93,7 +97,10 @@ describe('MenuService', () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto({ mode: 'manual' }));
 
-    const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [{ name: 'Tajine', description: '', price: '18.00' }] }] };
+    const manual = {
+      version: 1 as const,
+      sections: [{ name: 'Plats', items: [{ name: 'Tajine', description: '', price: '18.00' }] }],
+    };
     const promise = firstValueFrom(service.saveManual(manual));
     const req = http.expectOne((r) => r.method === 'PUT');
     expect(req.request.body).toEqual({ mode: 'manual', manual });
@@ -131,7 +138,9 @@ describe('MenuService', () => {
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
       service.scheduleManualSave({ version: 1, sections: [] });
       vi.advanceTimersByTime(600);
-      http.expectOne((r) => r.method === 'PUT').flush({ error: 'invalid_manual' }, { status: 400, statusText: 'Bad Request' });
+      http
+        .expectOne((r) => r.method === 'PUT')
+        .flush({ error: 'invalid_manual' }, { status: 400, statusText: 'Bad Request' });
       expect(service.saveState()).toBe('failed');
       expect(service.lastError()).toMatch(/mal forme/);
     } finally {
@@ -142,7 +151,9 @@ describe('MenuService', () => {
   it('upload : refuse un SVG cote client, sans aucun appel HTTP', async () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto());
-    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], 'x.svg', { type: 'image/svg+xml' });
+    const svg = new File(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], 'x.svg', {
+      type: 'image/svg+xml',
+    });
 
     await expect(firstValueFrom(service.upload(svg))).rejects.toThrow(/PDF, JPEG, PNG et WebP/);
     http.expectNone((r) => r.method === 'POST');
@@ -152,14 +163,21 @@ describe('MenuService', () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto());
 
-    await expect(firstValueFrom(service.upload(pngFile(5 * 1024 * 1024 + 1)))).rejects.toThrow(/volumineux/);
+    await expect(firstValueFrom(service.upload(pngFile(5 * 1024 * 1024 + 1)))).rejects.toThrow(
+      /volumineux/,
+    );
     http.expectNone((r) => r.method === 'POST');
   });
 
   it('upload : refuse une 9e image cote client', async () => {
     service.load(RID);
     const eight = Array.from({ length: 8 }, (_, i) => ({
-      id: `f${i}`, kind: 'image' as const, contentType: 'image/png', position: i, sizeBytes: 1, url: `/u/${i}`,
+      id: `f${i}`,
+      kind: 'image' as const,
+      contentType: 'image/png',
+      position: i,
+      sizeBytes: 1,
+      url: `/u/${i}`,
     }));
     http.expectOne(() => true).flush(dto({ files: eight }));
 
@@ -176,7 +194,20 @@ describe('MenuService', () => {
     expect(req.request.url).toContain(`/restaurants/${RID}/menu/files`);
     expect(req.request.body instanceof FormData).toBe(true);
     expect((req.request.body as FormData).get('file')).toBeInstanceOf(File);
-    req.flush(dto({ files: [{ id: 'f1', kind: 'image', contentType: 'image/png', position: 0, sizeBytes: 64, url: '/api/restaurants/r-1/menu/files/f1' }] }));
+    req.flush(
+      dto({
+        files: [
+          {
+            id: 'f1',
+            kind: 'image',
+            contentType: 'image/png',
+            position: 0,
+            sizeBytes: 64,
+            url: '/api/restaurants/r-1/menu/files/f1',
+          },
+        ],
+      }),
+    );
 
     await promise;
     expect(service.menu()?.files).toHaveLength(1);

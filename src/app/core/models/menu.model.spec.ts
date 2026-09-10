@@ -68,7 +68,10 @@ describe('menu.model', () => {
       // Les helpers sont bornes, mais un document stocke peut depasser : la validation le refuse.
       const tooManySections = {
         version: 1 as const,
-        sections: Array.from({ length: MANUAL_LIMITS.sections + 1 }, (_, i) => ({ name: `S${i}`, items: [] })),
+        sections: Array.from({ length: MANUAL_LIMITS.sections + 1 }, (_, i) => ({
+          name: `S${i}`,
+          items: [],
+        })),
       };
       expect(validateManual(tooManySections).some((e) => e.includes('sections'))).toBe(true);
 
@@ -116,14 +119,23 @@ describe('menu.model', () => {
       let menu = addSection(emptyManual(), 'Plats');
       menu = addItem(menu, 0);
       menu = updateItem(menu, 0, 0, { name: '  Tajine  ', price: '18,5' });
-      expect(menu.sections[0].items[0]).toEqual({ name: 'Tajine', description: '', price: '18.50' });
+      expect(menu.sections[0].items[0]).toEqual({
+        name: 'Tajine',
+        description: '',
+        price: '18.50',
+      });
     });
   });
 
   describe('isManualMenu', () => {
     it('reconnait le document du back et rejette le reste', () => {
       expect(isManualMenu({ version: 1, sections: [] })).toBe(true);
-      expect(isManualMenu({ version: 1, sections: [{ name: 'A', items: [{ name: 'x', description: '', price: '' }] }] })).toBe(true);
+      expect(
+        isManualMenu({
+          version: 1,
+          sections: [{ name: 'A', items: [{ name: 'x', description: '', price: '' }] }],
+        }),
+      ).toBe(true);
       expect(isManualMenu({})).toBe(false);
       expect(isManualMenu({ version: 2, sections: [] })).toBe(false);
       expect(isManualMenu({ version: 1, sections: 'nope' })).toBe(false);
@@ -134,8 +146,12 @@ describe('menu.model', () => {
   describe('detectFileType (memes signatures que le back)', () => {
     it('reconnait pdf, jpeg, png et webp sur les octets', () => {
       expect(detectFileType(new TextEncoder().encode('%PDF-1.7 contenu'))).toBe('pdf');
-      expect(detectFileType(bytes(0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1))).toBe('jpeg');
-      expect(detectFileType(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d))).toBe('png');
+      expect(
+        detectFileType(bytes(0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1)),
+      ).toBe('jpeg');
+      expect(
+        detectFileType(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d)),
+      ).toBe('png');
       const webp = new Uint8Array(16);
       webp.set(new TextEncoder().encode('RIFF'), 0);
       webp.set(new TextEncoder().encode('WEBP'), 8);

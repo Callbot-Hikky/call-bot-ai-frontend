@@ -159,7 +159,8 @@ export function updateItem(
           const next = { ...item, ...patch };
           if (patch.name !== undefined) next.name = patch.name.trim();
           if (patch.description !== undefined) next.description = patch.description.trim();
-          if (patch.price !== undefined) next.price = normalizePrice(patch.price) ?? patch.price.trim();
+          if (patch.price !== undefined)
+            next.price = normalizePrice(patch.price) ?? patch.price.trim();
           return next;
         }),
       };
@@ -189,7 +190,9 @@ export function validateManual(menu: ManualMenu): string[] {
     if (section.name.trim() === '') {
       errors.push(`La section ${s + 1} n'a pas de nom.`);
     } else if (section.name.length > MANUAL_LIMITS.sectionName) {
-      errors.push(`Le nom de la section « ${label} » depasse ${MANUAL_LIMITS.sectionName} caracteres.`);
+      errors.push(
+        `Le nom de la section « ${label} » depasse ${MANUAL_LIMITS.sectionName} caracteres.`,
+      );
     }
     if (section.items.length > MANUAL_LIMITS.itemsPerSection) {
       errors.push(`${MANUAL_LIMITS.itemsPerSection} plats maximum dans « ${label} ».`);
@@ -198,10 +201,14 @@ export function validateManual(menu: ManualMenu): string[] {
       if (item.name.trim() === '') {
         errors.push(`Le plat ${i + 1} de « ${label} » n'a pas de nom.`);
       } else if (item.name.length > MANUAL_LIMITS.itemName) {
-        errors.push(`Le nom du plat « ${item.name.slice(0, 20)}… » depasse ${MANUAL_LIMITS.itemName} caracteres.`);
+        errors.push(
+          `Le nom du plat « ${item.name.slice(0, 20)}… » depasse ${MANUAL_LIMITS.itemName} caracteres.`,
+        );
       }
       if (item.description.length > MANUAL_LIMITS.description) {
-        errors.push(`La description de « ${item.name || `plat ${i + 1}`} » depasse ${MANUAL_LIMITS.description} caracteres.`);
+        errors.push(
+          `La description de « ${item.name || `plat ${i + 1}`} » depasse ${MANUAL_LIMITS.description} caracteres.`,
+        );
       }
       if (item.price !== '' && normalizePrice(item.price) === null) {
         errors.push(`Le prix de « ${item.name || `plat ${i + 1}`} » n'est pas valide (ex. 12.50).`);
