@@ -57,6 +57,7 @@ import {
   lucideCreditCard,
   lucideRefreshCw,
   lucideMinus,
+  lucideFileText,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -110,6 +111,7 @@ const ICONS = {
   lucideCreditCard,
   lucideRefreshCw,
   lucideMinus,
+  lucideFileText,
 };
 
 export const appConfig: ApplicationConfig = {
