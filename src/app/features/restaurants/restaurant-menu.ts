@@ -216,10 +216,11 @@ export class RestaurantMenuPage {
     () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
   );
   // Le cadre n'accepte qu'une URL de fichier public verifiee par sa forme, jamais une valeur libre.
+  // « view=FitH » demande au lecteur d'ajuster la page a la largeur : lisible sans zoomer.
   protected readonly pdfUrl = computed<SafeResourceUrl | null>(() => {
     const file = this.pdfFile();
     return file && isSafePublicFileUrl(file.url)
-      ? this.sanitizer.bypassSecurityTrustResourceUrl(file.url)
+      ? this.sanitizer.bypassSecurityTrustResourceUrl(`${file.url}#view=FitH`)
       : null;
   });
 
