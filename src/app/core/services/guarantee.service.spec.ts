@@ -26,20 +26,25 @@ describe('GuaranteeService', () => {
         bookingFeeCentsPerGuest: 1500,
         noShowPenaltyCentsPerGuest: null,
         refundWindowHours: 48,
+        modificationWindowHours: 3,
       }),
     );
 
     const req = http.expectOne((r) => r.url.endsWith('/restaurants/r1/guarantee-settings'));
     expect(req.request.method).toBe('PUT');
     expect(req.request.body.bookingFeeCentsPerGuest).toBe(1500);
+    // Les deux fenêtres voyagent ensemble mais restent indépendantes.
+    expect(req.request.body.modificationWindowHours).toBe(3);
     req.flush({
       mode: 'booking_fee',
       bookingFeeCentsPerGuest: 1500,
       noShowPenaltyCentsPerGuest: null,
       refundWindowHours: 48,
+      modificationWindowHours: 3,
     });
 
     expect((await promise).refundWindowHours).toBe(48);
+    expect((await promise).modificationWindowHours).toBe(3);
   });
 
   it('startOnboarding : POST et renvoie le lien Stripe', async () => {

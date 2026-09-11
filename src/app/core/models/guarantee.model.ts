@@ -18,6 +18,11 @@ export interface GuaranteeSettings {
   bookingFeeCentsPerGuest: number | null;
   noShowPenaltyCentsPerGuest: number | null;
   refundWindowHours: number | null;
+  // Heures avant le service au-delà desquelles le convive ne peut plus rien changer
+  // lui-même. Zéro signifie « jusqu'au service », jamais « jamais ». Indépendante de
+  // la fenêtre de remboursement : rendre de l'argent et changer une tablée n'engagent
+  // pas la salle de la même façon.
+  modificationWindowHours: number | null;
 }
 
 // État du compte Stripe du restaurateur. Sans `chargesEnabled`, aucun mode payant
@@ -89,6 +94,50 @@ export interface PendingTopUp {
 
 export interface PaymentRedirect {
   url: string;
+}
+
+// Ce que le convive voit derrière son lien de modification. `centsPerGuest` y figure
+// pour que la page annonce ce qu'un couvert coûte — ou rend — AVANT le clic : un
+// remboursement découvert après coup se lit aussi mal qu'un remboursement absent.
+export interface PublicModification {
+  restaurantName: string;
+  startsAt: string;
+  partySize: number;
+  guaranteeMode: GuaranteeMode;
+  guaranteeStatus: GuaranteeStatus;
+  status: string;
+  centsPerGuest: number | null;
+  currency: string;
+  // `false` passé l'échéance fixée par le restaurateur : la page le dit plutôt que
+  // d'échouer, sinon le convive croirait sa réservation disparue.
+  open: boolean;
+  closesAt: string;
+}
+
+// Un créneau libre : l'heure, et la table qui pourrait le tenir.
+export interface RescheduleSlot {
+  startsAt: string;
+  endsAt: string;
+  tableId: string;
+  capacity: number;
+}
+
+export interface RescheduleDay {
+  date: string;
+  slots: RescheduleSlot[];
+}
+
+export interface RescheduleSlots {
+  days: RescheduleDay[];
+}
+
+// Ce qu'est devenue la réservation, qui n'est pas toujours ce qui a été demandé : une
+// hausse qui doit de l'argent laisse la tablée où elle était et renseigne `pendingTopUp`.
+export interface GuestModification {
+  startsAt: string;
+  partySize: number;
+  refundedAmountCents: number;
+  pendingTopUp: PendingTopUp | null;
 }
 
 export interface Cancellation {

@@ -1,13 +1,16 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { environment } from '@env/environment';
 import type {
   Cancellation,
+  GuestModification,
   PaymentRedirect,
+  PublicModification,
   PublicReservation,
   PublicTopUp,
+  RescheduleSlots,
 } from '@core/models/guarantee.model';
 
 /**
@@ -45,5 +48,38 @@ export class ReservationPaymentService {
 
   cancel(token: string): Observable<Cancellation> {
     return this.http.post<Cancellation>(`${this.baseUrl}/annulation/${token}`, {});
+  }
+
+  // Modification par le convive : couverts et horaire. Seul jeton REUTILISABLE du
+  // parcours — une tablee peut etre revue plusieurs fois, et le consommer au premier
+  // passage obligerait a en renvoyer un a chaque modification.
+  getByModificationToken(token: string): Observable<PublicModification> {
+    return this.http.get<PublicModification>(`${this.baseUrl}/modifier/${token}`);
+  }
+
+  /**
+   * Les créneaux libres, pour la tablée que le convive envisage.
+   *
+   * `partySize` est un aperçu et non un changement : une table pour huit n'est pas une
+   * table pour deux, donc la grille doit se redessiner pendant qu'il hésite.
+   */
+  getModificationSlots(
+    token: string,
+    partySize: number,
+    fromDate?: string,
+  ): Observable<RescheduleSlots> {
+    let params = new HttpParams().set('partySize', partySize);
+    if (fromDate) {
+      params = params.set('fromDate', fromDate);
+    }
+
+    return this.http.get<RescheduleSlots>(`${this.baseUrl}/modifier/${token}/creneaux`, { params });
+  }
+
+  modify(
+    token: string,
+    change: { partySize?: number; startsAt?: string },
+  ): Observable<GuestModification> {
+    return this.http.put<GuestModification>(`${this.baseUrl}/modifier/${token}`, change);
   }
 }
