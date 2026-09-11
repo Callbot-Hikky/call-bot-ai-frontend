@@ -66,6 +66,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/restaurants/restaurant-menu').then((m) => m.RestaurantMenuPage),
       },
+      {
+        path: 'restaurants/:id/schedule',
+        loadComponent: () =>
+          import('@features/reservations/reservation-schedule').then(
+            (m) => m.ReservationSchedulePage,
+          ),
+      },
     ],
   },
 ];
