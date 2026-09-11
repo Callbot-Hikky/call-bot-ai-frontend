@@ -41,7 +41,15 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     await page.getByTestId('open-new-resa').click();
     await page.getByTestId('new-resa-name').fill('Nadia Parcours');
     await page.getByTestId('new-resa-phone').fill('+33612345699');
-    await page.getByTestId('new-resa-time').fill('20:30');
+    // Le formulaire ne prend que « aujourd'hui » et refuse une heure passée : on vise dans une heure,
+    // et 23:59 si l'heure suivante est déjà demain. Le test tient à toute heure de la journée.
+    const inOneHour = new Date(Date.now() + 3_600_000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const time =
+      inOneHour.getDate() === new Date().getDate()
+        ? `${pad(inOneHour.getHours())}:${pad(inOneHour.getMinutes())}`
+        : '23:59';
+    await page.getByTestId('new-resa-time').fill(time);
     // La reponse est lue au passage (route) : le corps n'est plus garanti une fois la page passee a autre chose.
     let reservation: { id: string; restaurantId: string } | null = null;
     await page.route('**/api/reservations', async (route) => {
