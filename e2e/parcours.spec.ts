@@ -42,15 +42,23 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     await page.getByTestId('new-resa-name').fill('Nadia Parcours');
     await page.getByTestId('new-resa-phone').fill('+33612345699');
     await page.getByTestId('new-resa-time').fill('20:30');
-    const created = page.waitForResponse(
-      (r) => r.request().method() === 'POST' && r.url().endsWith('/api/reservations'),
-    );
+    // La reponse est lue au passage (route) : le corps n'est plus garanti une fois la page passee a autre chose.
+    let reservation: { id: string; restaurantId: string } | null = null;
+    await page.route('**/api/reservations', async (route) => {
+      const res = await route.fetch();
+      if (route.request().method() === 'POST') {
+        reservation = (await res.json()) as { id: string; restaurantId: string };
+      }
+      await route.fulfill({ response: res });
+    });
     await page.getByRole('button', { name: 'Créer la réservation' }).click();
-    const reservation = (await (await created).json()) as { id: string; restaurantId: string };
+    await expect.poll(() => reservation).not.toBeNull();
+    await page.unroute('**/api/reservations');
+    const { id, restaurantId } = reservation!;
     await expect(page.getByText('Nadia Parcours').first()).toBeVisible();
 
     // 4. Page client de la reservation, puis la carte (rien de publie).
-    await page.goto(`/client/reservations/${reservation.id}/reschedule`);
+    await page.goto(`/client/reservations/${id}/reschedule`);
     await expect(page.getByText('Récapitulatif de votre réservation')).toBeVisible();
     await page.getByTestId('link-menu').click();
     await page.waitForURL(/\/client\/restaurants\/.+\/menu/);
@@ -63,7 +71,7 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     await login(page, {
       ...owner,
       token: '',
-      restaurantId: reservation.restaurantId,
+      restaurantId,
       restaurantName: '',
     });
     await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
