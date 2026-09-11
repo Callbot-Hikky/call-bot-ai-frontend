@@ -57,16 +57,23 @@ jobs:
           git clone --depth 1 --branch staging https://github.com/Callbot-Hikky/call-bot-ai-backend.git ../backend
           cd ../backend
           POSTGRES_PORT=5432 docker compose up -d --build
+          ready=0
           for i in $(seq 1 60); do
-            curl -sf http://localhost:8080/api/ping && break
+            if curl -sf http://localhost:8080/api/ping > /dev/null; then ready=1; break; fi
             sleep 5
           done
+          if [ "$ready" != 1 ]; then echo "Le back ne repond pas"; docker compose logs app | tail -50; exit 1; fi
 
       # Le serveur de dev proxifie /api vers le back, comme en local (proxy.config.json).
       - name: Serve frontend
         run: |
           pnpm start --port 4200 > /tmp/ng-serve.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://localhost:4200/ > /dev/null && break; sleep 3; done
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4200/ > /dev/null; then ready=1; break; fi
+            sleep 3
+          done
+          if [ "$ready" != 1 ]; then echo "Le front ne repond pas"; tail -50 /tmp/ng-serve.log; exit 1; fi
 
       - name: End-to-end tests
         env:
