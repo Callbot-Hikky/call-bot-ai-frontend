@@ -136,11 +136,33 @@
               (input)="setRefundWindow($any($event.target).value)"
             />
             <p class="text-muted-foreground text-xs">
-              Au-delà, remboursement total ; en deçà, rien n'est remboursé. Jamais de remboursement
-              partiel.
+              Vaut pour une annulation, qui est toujours tout ou rien : au-delà du délai,
+              remboursement total ; en deçà, rien. Une baisse du nombre de couverts, elle, rend
+              toujours les couverts abandonnés.
             </p>
           </div>
         }
+
+        <!-- Hors du bloc payant : une réservation gratuite se modifie aussi. -->
+        <div class="flex flex-col gap-2 pt-2">
+          <label class="text-sm font-medium" for="modification-window">
+            Modification par le client jusqu'à (heures avant le service)
+          </label>
+          <input
+            id="modification-window"
+            type="number"
+            min="0"
+            step="1"
+            class="border-input w-40 rounded-md border px-3 py-2 text-sm"
+            [value]="current.modificationWindowHours ?? ''"
+            (input)="setModificationWindow($any($event.target).value)"
+          />
+          <p class="text-muted-foreground text-xs">
+            Le client change lui-même ses couverts et son horaire depuis le lien reçu par message,
+            jusqu'à ce délai. <strong>0 = jusqu'au service.</strong> Vous êtes prévenu à chaque
+            modification.
+          </p>
+        </div>
       </div>
 
       <div hlmCardFooter>

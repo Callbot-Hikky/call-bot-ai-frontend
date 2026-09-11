@@ -48,6 +48,13 @@ export const routes: Routes = [
       ),
   },
   {
+    path: 'client/reservations/modifier/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-modify-page').then(
+        (m) => m.ReservationModifyPage,
+      ),
+  },
+  {
     path: 'client/reservations/annuler/:token',
     loadComponent: () =>
       import('@features/client-payment/reservation-cancel-page').then(

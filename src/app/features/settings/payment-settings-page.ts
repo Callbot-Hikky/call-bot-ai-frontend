@@ -155,6 +155,30 @@ export class PaymentSettingsPage implements OnInit {
     });
   }
 
+  /**
+   * L'échéance au-delà de laquelle le client ne peut plus rien changer lui-même.
+   *
+   * <p>Indépendante de la fenêtre de remboursement : rendre de l'argent et changer une
+   * tablée n'engagent pas la salle de la même façon. Champ vidé = aucune limite, ce que
+   * zéro exprime aussi.
+   */
+  protected setModificationWindow(hours: string): void {
+    const current = this.settings();
+    if (!current) {
+      return;
+    }
+    if (hours.trim() === '') {
+      this.settings.set({ ...current, modificationWindowHours: null });
+
+      return;
+    }
+    const parsed = Number.parseInt(hours, 10);
+    this.settings.set({
+      ...current,
+      modificationWindowHours: Number.isFinite(parsed) && parsed >= 0 ? parsed : null,
+    });
+  }
+
   protected eurosOf(cents: number | null): string {
     return cents === null ? '' : (cents / 100).toFixed(2);
   }
