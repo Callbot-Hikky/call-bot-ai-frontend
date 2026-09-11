@@ -99,19 +99,22 @@ export interface PaymentRedirect {
 // Ce que le convive voit derrière son lien de modification. `centsPerGuest` y figure
 // pour que la page annonce ce qu'un couvert coûte — ou rend — AVANT le clic : un
 // remboursement découvert après coup se lit aussi mal qu'un remboursement absent.
+// Tout sauf `restaurantName`, `status` et `open` est nul quand le lien a survécu à sa
+// réservation — annulée, ou service passé. Le lien résout encore, mais il ne livre plus
+// que de quoi appeler le restaurant.
 export interface PublicModification {
   restaurantName: string;
-  startsAt: string;
-  partySize: number;
-  guaranteeMode: GuaranteeMode;
-  guaranteeStatus: GuaranteeStatus;
+  startsAt: string | null;
+  partySize: number | null;
+  guaranteeMode: GuaranteeMode | null;
+  guaranteeStatus: GuaranteeStatus | null;
   status: string;
   centsPerGuest: number | null;
-  currency: string;
+  currency: string | null;
   // `false` passé l'échéance fixée par le restaurateur : la page le dit plutôt que
   // d'échouer, sinon le convive croirait sa réservation disparue.
   open: boolean;
-  closesAt: string;
+  closesAt: string | null;
 }
 
 // Un créneau libre : l'heure, et la table qui pourrait le tenir.
@@ -138,6 +141,9 @@ export interface GuestModification {
   partySize: number;
   refundedAmountCents: number;
   pendingTopUp: PendingTopUp | null;
+  // Le lien qui règle ce complément. Porté par l'encaissement, pas par la réservation,
+  // et à usage unique : le tableau de bord ne le voit jamais.
+  topUpPaymentToken: string | null;
 }
 
 export interface Cancellation {

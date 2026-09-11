@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
+import { vi } from 'vitest';
 
 import { ReservationModifyPage } from './reservation-modify-page';
 import type { PublicModification } from '@core/models/guarantee.model';
@@ -45,10 +46,12 @@ describe('ReservationModifyPage', () => {
     fixture.autoDetectChanges();
     await fixture.whenStable();
 
-    http.expectOne((r) => r.url.endsWith('/modifier/mod-1')).flush({
-      ...paidForFour,
-      ...reservation,
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/modifier/mod-1'))
+      .flush({
+        ...paidForFour,
+        ...reservation,
+      });
     await fixture.whenStable();
 
     return fixture;
@@ -193,9 +196,10 @@ describe('ReservationModifyPage', () => {
     expect(fixture.nativeElement.querySelector('[aria-label="Retirer un couvert"]')).toBeNull();
   });
 
-  it('dit qu’un lien de paiement arrive quand la hausse doit de l’argent', async () => {
-    // La page ne peut pas fabriquer le lien du complément : son jeton est porté par
-    // l'encaissement et part par message.
+  it('emmène le convive régler le complément quand la hausse doit de l’argent', async () => {
+    // La hausse n'est pas faite tant qu'elle n'est pas payée : afficher une confirmation
+    // laisserait croire le contraire. Le jeton du complément voyage avec la réponse.
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const fixture = await open();
     await answerSlots();
     await fixture.whenStable();
@@ -208,23 +212,89 @@ describe('ReservationModifyPage', () => {
     submit(fixture);
     await fixture.whenStable();
 
-    http.expectOne((r) => r.url.endsWith('/modifier/mod-1')).flush({
-      startsAt: paidForFour.startsAt,
-      partySize: 4,
-      refundedAmountCents: 0,
-      pendingTopUp: {
-        targetPartySize: 5,
-        amountCents: 1500,
-        currency: 'eur',
-        expiresAt: '2030-07-01T18:30:00Z',
-      },
-    });
+    http
+      .expectOne((r) => r.url.endsWith('/modifier/mod-1'))
+      .flush({
+        startsAt: paidForFour.startsAt,
+        partySize: 4,
+        refundedAmountCents: 0,
+        pendingTopUp: {
+          targetPartySize: 5,
+          amountCents: 1500,
+          currency: 'eur',
+          expiresAt: '2030-07-01T18:30:00Z',
+        },
+        topUpPaymentToken: 'top-up-link',
+      });
     await fixture.whenStable();
 
-    expect(fixture.nativeElement.textContent).toContain('complément');
-    expect(fixture.nativeElement.textContent).toContain('lien de paiement');
-    // La tablée affichée reste celle qui est réellement réservée.
-    expect(fixture.nativeElement.textContent).toContain('4');
+    expect(navigate).toHaveBeenCalledWith(['/client/reservations/complement', 'top-up-link']);
+  });
+
+  it('n’annonce ni remboursement ni complément sous garantie no-show', async () => {
+    // La carte est enregistrée et jamais débitée : le montant par couvert y est une
+    // PÉNALITÉ. L'annoncer comme un remboursement promettrait le retour d'une somme
+    // qui n'est jamais entrée.
+    const fixture = await open({ guaranteeMode: 'no_show' });
+    await answerSlots();
+    await fixture.whenStable();
+
+    fixture.nativeElement.querySelector('[aria-label="Retirer un couvert"]').click();
+    await fixture.whenStable();
+    http.expectOne((r) => r.url.includes('/creneaux')).flush({ days: [] });
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).not.toContain('remboursés');
+    expect(fixture.nativeElement.textContent).not.toContain('complément de');
+  });
+
+  it('distingue une panne réseau d’une salle complète', async () => {
+    const fixture = await open();
+    http
+      .expectOne((r) => r.url.includes('/creneaux'))
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('pas pu être chargés');
+    expect(fixture.nativeElement.textContent).not.toContain("Aucun créneau n'est libre");
+  });
+
+  it('dit jusqu’à quand la modification reste ouverte', async () => {
+    const fixture = await open();
+    await answerSlots();
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('Modifiable en ligne jusqu');
+  });
+
+  it('ne compte pas comme un changement le fait de re-choisir l’horaire actuel', async () => {
+    // Sauver un non-changement enverrait une requête pour rien et préviendrait le
+    // restaurant d'une modification qui n'a pas eu lieu.
+    const fixture = await open();
+    await answerSlots(paidForFour.startsAt as string);
+    await fixture.whenStable();
+
+    slotButton(fixture, paidForFour.startsAt as string).click();
+    await fixture.whenStable();
+
+    const buttons = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    ) as HTMLButtonElement[];
+    expect(buttons.find((b) => b.textContent?.includes('Enregistrer'))?.disabled).toBe(true);
+  });
+
+  it('ne révèle rien d’une réservation à laquelle son lien a survécu', async () => {
+    // Annulée ou déjà servie : le lien résout encore mais ne livre plus que qui appeler.
+    const fixture = await open({
+      open: false,
+      startsAt: null,
+      partySize: null,
+      centsPerGuest: null,
+      status: 'cancelled',
+    });
+
+    expect(fixture.nativeElement.textContent).toContain('Appelez le restaurant');
+    expect(fixture.nativeElement.textContent).not.toContain('Couverts');
   });
 
   it('affiche un message d’erreur quand le créneau vient d’être pris', async () => {

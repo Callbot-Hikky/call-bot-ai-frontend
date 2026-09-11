@@ -159,8 +159,11 @@ export class PaymentSettingsPage implements OnInit {
    * L'échéance au-delà de laquelle le client ne peut plus rien changer lui-même.
    *
    * <p>Indépendante de la fenêtre de remboursement : rendre de l'argent et changer une
-   * tablée n'engagent pas la salle de la même façon. Champ vidé = aucune limite, ce que
-   * zéro exprime aussi.
+   * tablée n'engagent pas la salle de la même façon.
+   *
+   * <p>Zéro signifie « jusqu'au service », jamais « jamais » — la même lecture que la
+   * fenêtre de remboursement. Un champ vidé n'est pas zéro : il est absent, et le serveur
+   * laisse alors le réglage tel qu'il était.
    */
   protected setModificationWindow(hours: string): void {
     const current = this.settings();
