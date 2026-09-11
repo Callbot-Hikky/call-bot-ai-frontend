@@ -1,4 +1,4 @@
-import { APIRequestContext, expect, test } from '@playwright/test';
+import { APIRequestContext, Locator, Page, expect, test } from '@playwright/test';
 import { Owner, createOwner, login } from './helpers';
 
 const API = process.env['E2E_API_URL'] ?? 'http://localhost:8080/api';
@@ -15,6 +15,19 @@ async function ownerWithOneTable(request: APIRequestContext, label: string): Pro
   return owner;
 }
 
+// Demain est a coup sur dans les 7 jours et jamais dans le passe. Le jour peut deja etre
+// ouvert (premier jour disponible ouvert d'emblee) : on ne clique l'en-tete que s'il est replie.
+async function firstSlotOfTomorrow(page: Page): Promise<Locator> {
+  const day = page.locator('hk-reservation-slot-picker > div > div').nth(1);
+  await expect(day).toBeVisible();
+  const slots = day.getByRole('button', { name: /^\d{2}:\d{2}$/ });
+  if ((await slots.count()) === 0) {
+    await day.getByRole('button').first().click();
+  }
+  await expect(slots.first()).toBeVisible();
+  return slots.first();
+}
+
 test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du client', () => {
   test('un client sans compte reserve une table depuis le lien public', async ({
     page,
@@ -26,12 +39,7 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByRole('heading', { name: owner.restaurantName })).toBeVisible();
 
     // Demain a coup sur dans les 7 jours et jamais dans le passe : on ouvre le 2e jour.
-    const days = page.locator('hk-reservation-slot-picker > div > div');
-    await days.nth(1).getByRole('button').first().click();
-    const slot = days
-      .nth(1)
-      .getByRole('button', { name: /^\d{2}:\d{2}$/ })
-      .first();
+    const slot = await firstSlotOfTomorrow(page);
     const slotLabel = await slot.textContent();
     await slot.click();
 
@@ -93,12 +101,7 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
   }) => {
     const owner = await ownerWithOneTable(request, 'booking-race');
     await page.goto(`/client/restaurants/${owner.restaurantId}/schedule`);
-    const days = page.locator('hk-reservation-slot-picker > div > div');
-    await days.nth(1).getByRole('button').first().click();
-    const slot = days
-      .nth(1)
-      .getByRole('button', { name: /^\d{2}:\d{2}$/ })
-      .first();
+    const slot = await firstSlotOfTomorrow(page);
     await slot.click();
 
     // Pendant que le client hesite, quelqu'un d'autre prend le meme creneau (par l'API).
