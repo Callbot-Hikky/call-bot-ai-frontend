@@ -6,6 +6,8 @@ import { delay, map, switchMap, tap } from 'rxjs/operators';
 import { environment } from '@env/environment';
 import { SessionService } from './session.service';
 import {
+  PublicReservation,
+  PublicReservationInput,
   RescheduleSlotsResponse,
   Reservation,
   ReservationStatus,
@@ -14,8 +16,10 @@ import {
 } from '@core/models/reservation.model';
 import {
   BackCustomerFull,
+  PublicReservationDto,
   ReservationDto,
   ReservationRequestDto,
+  mapPublicReservation,
   mapReservation,
   toRequest,
 } from '@core/models/reservation-dto.model';
@@ -30,6 +34,7 @@ export class ReservationService {
   private readonly http = inject(HttpClient);
   private readonly session = inject(SessionService);
   private readonly baseUrl = `${environment.apiUrl}/reservations`;
+  private readonly publicUrl = `${environment.apiUrl}/public`;
 
   private readonly _reservations = signal<Reservation[]>([]);
   private readonly _loading = signal(false);
@@ -283,6 +288,37 @@ export class ReservationService {
           return created;
         }),
       );
+  }
+
+  // --- Reservation en ligne, sans session : le client vient du lien ou du QR du restaurateur.
+
+  // Creneaux libres du restaurant sur 7 jours, pour `partySize` couverts.
+  getPublicSlots(
+    restaurantId: string,
+    partySize: number,
+    fromDate?: string,
+  ): Observable<RescheduleSlotsResponse> {
+    const params = [`partySize=${partySize}`];
+    if (fromDate) params.push(`fromDate=${fromDate}`);
+    return this.http.get<RescheduleSlotsResponse>(
+      `${this.publicUrl}/restaurants/${restaurantId}/slots?${params.join('&')}`,
+    );
+  }
+
+  // Le navigateur n'envoie ni table ni heure de fin : le back les deduit du creneau propose.
+  createPublic(restaurantId: string, input: PublicReservationInput): Observable<PublicReservation> {
+    return this.http
+      .post<PublicReservationDto>(
+        `${this.publicUrl}/restaurants/${restaurantId}/reservations`,
+        input,
+      )
+      .pipe(map(mapPublicReservation));
+  }
+
+  getPublicReservation(id: string): Observable<PublicReservation> {
+    return this.http
+      .get<PublicReservationDto>(`${this.publicUrl}/reservations/${id}`)
+      .pipe(map(mapPublicReservation));
   }
 
   getReservationById(id: string): Observable<Reservation> {
