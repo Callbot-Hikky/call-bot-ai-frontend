@@ -315,6 +315,23 @@ export class ReservationService {
       .pipe(map(mapPublicReservation));
   }
 
+  // Creneaux pour deplacer une reservation existante, depuis le lien du message (sans session).
+  getPublicRescheduleSlots(id: string, partySize?: number): Observable<RescheduleSlotsResponse> {
+    const query = partySize != null ? `?partySize=${partySize}` : '';
+    return this.http.get<RescheduleSlotsResponse>(
+      `${this.publicUrl}/reservations/${id}/slots${query}`,
+    );
+  }
+
+  reschedulePublic(
+    id: string,
+    changes: { startsAt: string; partySize: number; notes?: string },
+  ): Observable<PublicReservation> {
+    return this.http
+      .put<PublicReservationDto>(`${this.publicUrl}/reservations/${id}`, changes)
+      .pipe(map(mapPublicReservation));
+  }
+
   getPublicReservation(id: string): Observable<PublicReservation> {
     return this.http
       .get<PublicReservationDto>(`${this.publicUrl}/reservations/${id}`)
