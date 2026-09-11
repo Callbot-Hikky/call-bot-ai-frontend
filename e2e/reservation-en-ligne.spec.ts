@@ -123,6 +123,42 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByTestId('booking-error')).toContainText("vient d'être pris");
   });
 
+  test('le client deplace sa reservation depuis le lien du message, sans session', async ({
+    page,
+    request,
+  }) => {
+    const owner = await ownerWithOneTable(request, 'booking-move');
+    const slots = await request.get(
+      `${API}/public/restaurants/${owner.restaurantId}/slots?partySize=2`,
+    );
+    const tomorrow = (await slots.json()).days[1].slots as { startsAt: string }[];
+    const created = await request.post(
+      `${API}/public/restaurants/${owner.restaurantId}/reservations`,
+      {
+        data: {
+          startsAt: tomorrow[0].startsAt,
+          partySize: 2,
+          customer: { firstName: 'Nadia', phone: '0612345678' },
+        },
+      },
+    );
+    const id = (await created.json()).id as string;
+
+    // Le lien du message : recapitulatif, puis un autre creneau, puis confirmation.
+    await page.goto(`/client/reservations/${id}/reschedule`);
+    await expect(page.getByText('Nadia')).toBeVisible();
+    const slot = await firstSlotOfTomorrow(page);
+    const label = (await slot.textContent())!.trim();
+    await slot.click();
+    await page.getByRole('button', { name: 'Confirmer' }).click();
+    await page.waitForURL(/\/confirmed/);
+    await expect(page.getByText(label)).toBeVisible();
+
+    // Un lien inconnu ne montre pas une page vide.
+    await page.goto('/client/reservations/00000000-0000-0000-0000-000000000000/reschedule');
+    await expect(page.getByText('Réservation introuvable')).toBeVisible();
+  });
+
   test('le restaurateur a un QR « Reserver une table » qui pointe sur la page publique', async ({
     page,
     request,
