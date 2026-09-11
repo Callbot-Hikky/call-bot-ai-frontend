@@ -269,12 +269,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
             <section class="flex flex-col gap-4" aria-label="Carte en PDF">
               @if (pdfFile() && menu()!.mode !== 'pdf') {
                 <div
-                  class="bg-st-confirmed-bg text-st-confirmed-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
                   data-testid="publish-inline"
                   role="status"
                 >
                   <span class="flex items-center gap-2">
-                    <hk-icon name="lucideCheck" [size]="16" />
+                    <hk-icon name="lucideTriangleAlert" [size]="16" />
                     Votre PDF est prêt. Il n'est pas encore visible par vos clients.
                   </span>
                   <hk-button size="sm" [disabled]="service.saving()" (click)="choose('pdf')">
@@ -355,12 +355,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
             <section class="flex flex-col gap-4" aria-label="Carte en photos">
               @if (images().length > 0 && menu()!.mode !== 'images') {
                 <div
-                  class="bg-st-confirmed-bg text-st-confirmed-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
                   data-testid="publish-inline"
                   role="status"
                 >
                   <span class="flex items-center gap-2">
-                    <hk-icon name="lucideCheck" [size]="16" />
+                    <hk-icon name="lucideTriangleAlert" [size]="16" />
                     Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.
                   </span>
                   <hk-button size="sm" [disabled]="service.saving()" (click)="choose('images')">
