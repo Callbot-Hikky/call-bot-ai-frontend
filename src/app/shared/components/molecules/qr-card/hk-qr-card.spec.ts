@@ -33,7 +33,9 @@ describe('HkQrCard', () => {
   it('genere un QR code SVG qui encode exactement le lien', () => {
     const svg: string = fixture.componentInstance['svg']();
     expect(svg.startsWith('<svg')).toBe(true);
-    expect(fixture.componentInstance['encoded']()).toBe(url);
+    expect(fixture.nativeElement.querySelector('[data-testid="qr-url"]').textContent.trim()).toBe(
+      url,
+    );
   });
 
   it('propose les telechargements PNG et SVG avec un nom de fichier parlant', () => {
