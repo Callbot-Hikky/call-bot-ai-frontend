@@ -185,21 +185,23 @@ export class ReservationPage {
   // Message d'erreur affiché au user si la confirmation échoue (créneau pris entre-temps par ex.).
   submitError = signal<string | null>(null);
 
-  private partySizeInitialized = false;
+  // Signal, pas un simple champ : l'effet des creneaux doit se relancer quand la reservation
+  // arrive, meme si le nombre de personnes ne change pas.
+  private readonly partySizeInitialized = signal(false);
 
   constructor() {
     effect(() => {
       const r = this.reservation();
-      if (r && !this.partySizeInitialized) {
+      if (r && !this.partySizeInitialized()) {
         this.partySize.set(r.partySize);
-        this.partySizeInitialized = true;
+        this.partySizeInitialized.set(true);
       }
     });
 
     effect(() => {
       const id = this.id();
       const size = this.partySize();
-      if (!id || !this.partySizeInitialized) {
+      if (!id || !this.partySizeInitialized()) {
         return;
       }
       this.service.getPublicRescheduleSlots(id, size).subscribe({
