@@ -28,7 +28,7 @@ const INITIAL_SLOTS_VISIBLE = 6;
               size="sm"
               name="lucideChevronDown"
               class="transition-transform"
-              [class.rotate-180]="!isExpanded(day.date)"
+              [class.rotate-180]="isExpanded(day.date)"
             />
           </button>
 
