@@ -45,3 +45,15 @@ export function isoToEmoji(code: string): string {
     .map((n) => String.fromCodePoint(n))
     .join('');
 }
+
+// Taille lisible : « 3 Mo », « 2.5 Mo », « 120 Ko », « 512 octets ».
+export function humanSize(bytes: number): string {
+  if (!Number.isFinite(bytes)) return 'illimité';
+  const mib = 1024 * 1024;
+  if (bytes >= mib) {
+    const mo = bytes / mib;
+    return `${Number.isInteger(mo) ? mo : mo.toFixed(1)} Mo`;
+  }
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${bytes} octets`;
+}

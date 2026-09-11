@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
+import { humanSize } from '@core/utils/format';
 
 // Zone de depose de fichiers (glisser-deposer ou clic). Refuse AVANT d'emettre un
 // type interdit ou une taille excessive, avec un message en francais. Le type est
@@ -19,8 +20,9 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
       [class.cursor-not-allowed]="disabled()"
       [class.border-primary]="dragging()"
       [class.bg-muted]="dragging()"
+      (dragenter)="onDragEnter($event)"
       (dragover)="onDragOver($event)"
-      (dragleave)="dragging.set(false)"
+      (dragleave)="onDragLeave()"
       (drop)="onDrop($event)"
     >
       <hk-icon name="lucideUpload" [size]="28" class="text-text-subtle" />
@@ -59,17 +61,33 @@ export class HkFileDropzone {
   protected readonly error = signal<string | null>(null);
   protected readonly acceptAttr = computed(() => this.accept().join(','));
 
+  // dragleave part aussi quand le curseur passe sur un enfant : on compte les
+  // entrees et les sorties, l'etat ne retombe qu'a la vraie sortie de la zone.
+  private dragDepth = 0;
+
+  protected onDragEnter(event: DragEvent): void {
+    event.preventDefault();
+    if (this.disabled()) return;
+    this.dragDepth++;
+    this.dragging.set(true);
+    // Nouvelle tentative : l'ancien refus n'a plus de raison de rester affiché.
+    this.error.set(null);
+  }
+
   protected onDragOver(event: DragEvent): void {
     event.preventDefault();
-    if (!this.disabled()) {
-      this.dragging.set(true);
-      // Nouvelle tentative : l'ancien refus n'a plus de raison de rester affiché.
-      this.error.set(null);
+  }
+
+  protected onDragLeave(): void {
+    this.dragDepth = Math.max(0, this.dragDepth - 1);
+    if (this.dragDepth === 0) {
+      this.dragging.set(false);
     }
   }
 
   protected onDrop(event: DragEvent): void {
     event.preventDefault();
+    this.dragDepth = 0;
     this.dragging.set(false);
     this.handleFiles(Array.from(event.dataTransfer?.files ?? []));
   }
@@ -114,11 +132,4 @@ const MIME_LABELS: Record<string, string> = {
 
 function describeAccepted(accepted: string[]): string {
   return accepted.map((m) => MIME_LABELS[m] ?? m).join(', ');
-}
-
-function humanSize(bytes: number): string {
-  if (!Number.isFinite(bytes)) return 'illimité';
-  if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} Mo`;
-  if (bytes >= 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${bytes} octets`;
 }
