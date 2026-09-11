@@ -51,6 +51,7 @@ test.describe('Menu : page restaurateur', () => {
 
     // Dépublier.
     await page.getByTestId('unpublish').click();
+    await page.getByTestId('confirm-unpublish').click();
     await expect(page.getByTestId('nothing-published')).toBeVisible();
   });
 
