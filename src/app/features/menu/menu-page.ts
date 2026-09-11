@@ -59,8 +59,6 @@ const MODE_CARDS: ModeCard[] = [
   },
 ];
 
-// La reservation en ligne (branche F4) n'est pas encore livree : sa carte reste masquee.
-
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'Enregistré',
   saving: 'Enregistrement en cours',

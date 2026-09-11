@@ -8,12 +8,18 @@ import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { ReservationService } from '@core/services/reservation.service';
-import { RescheduleDay, RescheduleSlot, Reservation } from '@core/models/reservation.model';
+import {
+  BOOKING_MAX_PARTY_SIZE,
+  RescheduleDay,
+  RescheduleSlot,
+  Reservation,
+} from '@core/models/reservation.model';
 import { HkReservationSlotPicker } from '@shared/components/organisms/reservation-slot-picker/hk-reservation-slot-picker';
 import { HkCounter } from '@shared/components/molecules/counter/hk-counter';
 
 const MIN_PARTY_SIZE = 1;
-const MAX_PARTY_SIZE = 20;
+// Aligne sur le back (BookingPolicy.MAX_PARTY_SIZE) : au-dela, l'API refuse.
+const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
 
 @Component({
   selector: 'app-reservation',

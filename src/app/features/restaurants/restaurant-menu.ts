@@ -15,11 +15,6 @@ import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages'
 import { MenuService } from '@core/services/menu.service';
 import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.model';
 
-// La reservation en ligne (branche F4) n'est pas encore livree : le lien reste masque
-// jusque-la. Une constante, un seul endroit a changer.
-// La carte du restaurant, vue par le client, sur son telephone : un lien, un QR.
-// Aucune session, aucune donnee personnelle. Trois rendus selon ce que le
-// restaurateur a publie : PDF, photos, ou la carte saisie avec ses prix.
 @Component({
   selector: 'app-restaurant-menu',
   imports: [RouterLink, HkIcon, HkSkeleton, HkPdfPages],
