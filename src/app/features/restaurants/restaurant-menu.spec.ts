@@ -109,7 +109,14 @@ describe('RestaurantMenuPage', () => {
         ],
       }),
     );
-    expect(fixture.nativeElement.querySelector('iframe[data-testid="menu-pdf"]')).not.toBeNull();
+    const frame: HTMLIFrameElement = fixture.nativeElement.querySelector(
+      'iframe[data-testid="menu-pdf"]',
+    );
+    expect(frame).not.toBeNull();
+    // Ajuste a la largeur : la carte se lit sans zoomer, sur telephone aussi.
+    expect(frame.getAttribute('src')).toBe(
+      `/api/public/restaurants/${RID}/menu/files/${FILE}#view=FitH`,
+    );
     const link: HTMLAnchorElement = fixture.nativeElement.querySelector(
       'a[data-testid="open-pdf"]',
     );
