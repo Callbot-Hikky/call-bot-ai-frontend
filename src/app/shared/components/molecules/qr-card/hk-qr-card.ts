@@ -120,7 +120,6 @@ export class HkQrCard {
   protected readonly copied = signal(false);
   protected readonly copyFailed = signal(false);
   // Ce que le QR encode : exactement le lien, rien d'autre.
-  protected readonly encoded = computed(() => this.url());
 
   // Le SVG et le PNG sortent de la bibliotheque qrcode a partir de NOTRE lien :
   // ils sont surs par construction, d'ou le contournement explicite de la
