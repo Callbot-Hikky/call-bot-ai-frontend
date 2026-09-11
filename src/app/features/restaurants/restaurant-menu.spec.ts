@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { PDF_LOADER } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -22,6 +24,7 @@ describe('RestaurantMenuPage', () => {
     await TestBed.configureTestingModule({
       imports: [RestaurantMenuPage],
       providers: [
+        { provide: PDF_LOADER, useValue: () => new Promise(() => undefined) },
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -109,14 +112,11 @@ describe('RestaurantMenuPage', () => {
         ],
       }),
     );
-    const frame: HTMLIFrameElement = fixture.nativeElement.querySelector(
-      'iframe[data-testid="menu-pdf"]',
-    );
-    expect(frame).not.toBeNull();
-    // Ajuste a la largeur : la carte se lit sans zoomer, sur telephone aussi.
-    expect(frame.getAttribute('src')).toBe(
-      `/api/public/restaurants/${RID}/menu/files/${FILE}#view=FitH`,
-    );
+    // Rendu en images page par page, jamais un lecteur PDF avec sa barre d'outils.
+    const pages = fixture.debugElement.query(By.css('hk-pdf-pages[data-testid="menu-pdf"]'));
+    expect(pages).not.toBeNull();
+    expect(pages.componentInstance.url()).toBe(`/api/public/restaurants/${RID}/menu/files/${FILE}`);
+    expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
     const link: HTMLAnchorElement = fixture.nativeElement.querySelector(
       'a[data-testid="open-pdf"]',
     );

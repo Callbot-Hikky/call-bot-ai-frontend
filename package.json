@@ -41,6 +41,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "konva": "^10.3.0",
+    "pdfjs-dist": "5.4.149",
     "qrcode": "1.5.4",
     "rxjs": "~7.8.0",
     "tailwind-merge": "^3.5.0",
