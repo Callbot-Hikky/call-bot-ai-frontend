@@ -6,6 +6,7 @@ import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 
 import { ReservationPaymentService } from '@core/services/reservation-payment.service';
+import { formatDateTime } from './format';
 import { formatCents } from '@core/models/guarantee.model';
 import type { Cancellation, PublicReservation } from '@core/models/guarantee.model';
 
@@ -75,15 +76,7 @@ export class ReservationCancelPage implements OnInit {
     });
   }
 
-  protected formatDateTime(iso: string): string {
-    return new Intl.DateTimeFormat('fr-FR', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  }
+  protected readonly formatDateTime = formatDateTime;
 
   protected formatRefund(cents: number | null): string {
     const current = this.reservation();
