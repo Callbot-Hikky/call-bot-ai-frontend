@@ -126,7 +126,6 @@ type PendingRemoval =
                     [value]="item.price"
                     (valueChange)="setPriceRaw(s, i, $event)"
                     (focusout)="normalizePriceAt(s, i)"
-                    (blur)="normalizePriceAt(s, i)"
                     placeholder="12.50"
                     [disabled]="disabled()"
                     [error]="hasInvalidPrice(item)"
@@ -290,21 +289,24 @@ export class HkMenuManualForm {
     });
   }
 
+  // A la sortie du champ. Un modele identique n'est pas reemis : pas d'enregistrement pour rien.
   protected normalizePriceAt(s: number, i: number): void {
     const item = this.menu().sections[s]?.items[i];
-    if (item) {
+    if (item && normalizePrice(item.price) !== null && normalizePrice(item.price) !== item.price) {
       this.setItem(s, i, { price: item.price });
     }
   }
 
-  // A la sortie du champ : espaces rognes, une seule fois.
   protected trimAt(s: number, i: number): void {
-    this.menu.set(trimItem(this.menu(), s, i));
+    const item = this.menu().sections[s]?.items[i];
+    if (item && (item.name !== item.name.trim() || item.description !== item.description.trim())) {
+      this.menu.set(trimItem(this.menu(), s, i));
+    }
   }
 
   protected trimSectionAt(s: number): void {
     const section = this.menu().sections[s];
-    if (section) {
+    if (section && section.name !== section.name.trim()) {
       this.setSectionName(s, section.name.trim());
     }
   }

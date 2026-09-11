@@ -116,7 +116,8 @@ describe('HkMenuManualForm', () => {
     );
     input.value = '18,5';
     input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    // focusout remonte jusqu'au composant, blur non : c'est l'evenement reel de sortie de champ.
+    input.dispatchEvent(new Event('focusout', { bubbles: true }));
     await fixture.whenStable();
     expect(component.menu().sections[0].items[0].price).toBe('18.50');
   });
