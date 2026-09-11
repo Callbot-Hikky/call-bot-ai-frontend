@@ -54,6 +54,66 @@ describe('ReservationService', () => {
 
   afterEach(() => httpMock.verify());
 
+  describe('reservation en ligne (endpoints publics)', () => {
+    it('getPublicSlots interroge les creneaux du restaurant, sans session', async () => {
+      const promise = firstValueFrom(service.getPublicSlots('rest-1', 4, '2026-09-12'));
+      const req = httpMock.expectOne(
+        '/api/public/restaurants/rest-1/slots?partySize=4&fromDate=2026-09-12',
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ days: [] });
+      expect((await promise).days).toEqual([]);
+    });
+
+    it('createPublic envoie seulement le debut, les couverts et le client : ni table ni fin', async () => {
+      const promise = firstValueFrom(
+        service.createPublic('rest-1', {
+          startsAt: '2026-09-12T19:30:00+02:00',
+          partySize: 2,
+          customer: { firstName: 'Nadia', phone: '06 12 34 56 78' },
+          notes: 'Terrasse',
+        }),
+      );
+      const req = httpMock.expectOne('/api/public/restaurants/rest-1/reservations');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        startsAt: '2026-09-12T19:30:00+02:00',
+        partySize: 2,
+        customer: { firstName: 'Nadia', phone: '06 12 34 56 78' },
+        notes: 'Terrasse',
+      });
+      req.flush({
+        id: 'r-9',
+        restaurantId: 'rest-1',
+        restaurantName: 'Chez Test',
+        startsAt: '2026-09-12T19:30:00+02:00',
+        endsAt: '2026-09-12T21:00:00+02:00',
+        partySize: 2,
+        status: 'pending',
+        customerFirstName: 'Nadia',
+      });
+      const created = await promise;
+      expect(created.id).toBe('r-9');
+      expect(created.dateTime).toBe('2026-09-12T19:30:00+02:00');
+      expect(created.customerFirstName).toBe('Nadia');
+    });
+
+    it('getPublicReservation lit la vue publique et tolere un prenom absent', async () => {
+      const promise = firstValueFrom(service.getPublicReservation('r-9'));
+      httpMock.expectOne('/api/public/reservations/r-9').flush({
+        id: 'r-9',
+        restaurantId: 'rest-1',
+        restaurantName: 'Chez Test',
+        startsAt: '2026-09-12T19:30:00+02:00',
+        endsAt: '2026-09-12T21:00:00+02:00',
+        partySize: 2,
+        status: 'pending',
+        customerFirstName: null,
+      });
+      expect((await promise).customerFirstName).toBe('');
+    });
+  });
+
   it('charge, filtre par jour et mappe le DTO backend', () => {
     service.loadToday('2026-06-24');
     expect(service.loading()).toBe(true);
