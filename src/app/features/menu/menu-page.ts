@@ -546,6 +546,7 @@ export class MenuPage {
   // Les fichiers partent un par un, dans l'ordre : un refus n'arrete pas les suivants,
   // et un seul bilan est affiche a la fin.
   protected onFiles(files: File[]): void {
+    const hadPdf = this.pdfFile() !== null;
     from(files)
       .pipe(
         concatMap((file) =>
@@ -562,7 +563,8 @@ export class MenuPage {
         );
         const sent = results.length - failures.length;
         if (failures.length === 0) {
-          const single = files[0].type === FILE_TYPE_MIME.pdf ? 'PDF ajouté.' : 'Photo ajoutée.';
+          const pdfLabel = hadPdf ? 'PDF remplacé.' : 'PDF ajouté.';
+          const single = files[0].type === FILE_TYPE_MIME.pdf ? pdfLabel : 'Photo ajoutée.';
           this.toast.show(sent === 1 ? single : `${sent} photos ajoutées.`, 'success');
         } else if (sent === 0) {
           this.toast.show(failures[0].reason, 'error');
