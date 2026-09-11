@@ -19,6 +19,7 @@ import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-fi
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
 import { RestaurantService } from '@core/services/restaurant.service';
+import { humanSize } from '@core/utils/format';
 import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
@@ -172,15 +173,38 @@ const SAVE_LABELS: Record<SaveState, string> = {
               </span>
               Vos clients voient {{ publishedLabel(menu()!.mode) }}.
             </p>
-            <hk-button
-              variant="ghost"
-              size="sm"
-              data-testid="unpublish"
-              [disabled]="service.saving()"
-              (click)="choose('none')"
-            >
-              Ne rien publier pour l'instant
-            </hk-button>
+            @if (pendingUnpublish()) {
+              <div class="flex flex-wrap items-center gap-2 text-sm" role="alert">
+                <span>Vos clients verront « menu bientôt disponible ». Confirmer ?</span>
+                <hk-button
+                  variant="danger"
+                  size="sm"
+                  data-testid="confirm-unpublish"
+                  [disabled]="service.saving()"
+                  (click)="confirmUnpublish()"
+                >
+                  Oui, ne rien publier
+                </hk-button>
+                <hk-button
+                  variant="ghost"
+                  size="sm"
+                  data-testid="cancel-unpublish"
+                  (click)="pendingUnpublish.set(false)"
+                >
+                  Annuler
+                </hk-button>
+              </div>
+            } @else {
+              <hk-button
+                variant="ghost"
+                size="sm"
+                data-testid="unpublish"
+                [disabled]="service.saving()"
+                (click)="pendingUnpublish.set(true)"
+              >
+                Ne rien publier pour l'instant
+              </hk-button>
+            }
           } @else {
             <p class="text-text-subtle text-sm" data-testid="nothing-published">
               Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
@@ -456,6 +480,7 @@ export class MenuPage {
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
   protected readonly editing = signal<MenuMode>('pdf');
   protected readonly pendingFile = signal<string | null>(null);
+  protected readonly pendingUnpublish = signal(false);
   protected readonly draft = signal<ManualMenu>(emptyManual());
   private draftInitialized = false;
 
@@ -498,6 +523,8 @@ export class MenuPage {
         this.draftInitialized = true;
       }
     });
+    // Une saisie encore en attente part avant de quitter la page.
+    this.destroyRef.onDestroy(() => this.service.flushManualSave());
   }
 
   protected retry(): void {
@@ -521,6 +548,11 @@ export class MenuPage {
       default:
         return '';
     }
+  }
+
+  protected confirmUnpublish(): void {
+    this.pendingUnpublish.set(false);
+    this.choose('none');
   }
 
   protected choose(mode: MenuMode): void {
@@ -640,11 +672,7 @@ export class MenuPage {
     }
   }
 
-  protected humanSize(bytes: number): string {
-    return bytes >= 1024 * 1024
-      ? `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
-      : `${Math.round(bytes / 1024)} Ko`;
-  }
+  protected readonly humanSize = humanSize;
 }
 
 // « Le Bistrot du Coin » -> « le-bistrot-du-coin » : minuscules, sans accents, tirets.
