@@ -8,10 +8,10 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
+import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { MenuService } from '@core/services/menu.service';
 import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.model';
 
@@ -24,7 +24,7 @@ const ONLINE_BOOKING_ENABLED = false;
 // restaurateur a publie : PDF, photos, ou la carte saisie avec ses prix.
 @Component({
   selector: 'app-restaurant-menu',
-  imports: [RouterLink, HkIcon, HkSkeleton],
+  imports: [RouterLink, HkIcon, HkSkeleton, HkPdfPages],
   template: `
     <article class="mx-auto flex w-full max-w-2xl flex-col gap-10 py-6">
       @if (loading()) {
@@ -121,13 +121,12 @@ const ONLINE_BOOKING_ENABLED = false;
               </p>
             }
             <div class="reveal flex flex-col gap-3" [style.animation-delay.ms]="80">
-              @if (pdfUrl(); as safe) {
-                <iframe
+              @if (pdfUrl(); as url) {
+                <hk-pdf-pages
                   data-testid="menu-pdf"
-                  [src]="safe"
+                  [url]="url"
                   title="La carte de {{ m.restaurantName }}"
-                  class="border-border/70 h-[75vh] w-full rounded-lg border bg-white"
-                ></iframe>
+                />
               }
               @if (pdfFile(); as pdf) {
                 <a
@@ -201,7 +200,6 @@ const ONLINE_BOOKING_ENABLED = false;
 })
 export class RestaurantMenuPage {
   private readonly service = inject(MenuService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   // Parametre de route et parametre de requete, lies par withComponentInputBinding.
   readonly id = input<string>();
@@ -215,13 +213,10 @@ export class RestaurantMenuPage {
   protected readonly pdfFile = computed(
     () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
   );
-  // Le cadre n'accepte qu'une URL de fichier public verifiee par sa forme, jamais une valeur libre.
-  // « view=FitH » demande au lecteur d'ajuster la page a la largeur : lisible sans zoomer.
-  protected readonly pdfUrl = computed<SafeResourceUrl | null>(() => {
+  // Seule une URL de fichier public verifiee par sa forme est rendue, jamais une valeur libre.
+  protected readonly pdfUrl = computed<string | null>(() => {
     const file = this.pdfFile();
-    return file && isSafePublicFileUrl(file.url)
-      ? this.sanitizer.bypassSecurityTrustResourceUrl(`${file.url}#view=FitH`)
-      : null;
+    return file && isSafePublicFileUrl(file.url) ? file.url : null;
   });
 
   constructor() {

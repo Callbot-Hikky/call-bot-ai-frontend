@@ -120,9 +120,12 @@ test.describe('Menu : page client', () => {
     expect((await apiPut(request, owner, { mode: 'pdf' })).ok()).toBeTruthy();
 
     await page.goto(`/client/restaurants/${owner.restaurantId}/menu`);
-    const frame = page.getByTestId('menu-pdf');
-    await expect(frame).toBeVisible();
-    const res = await request.get(`http://localhost:8080${await frame.getAttribute('src')}`);
+    // La carte est rendue en images : au moins une page dessinee, aucun lecteur PDF incruste.
+    await expect(page.locator('[data-testid="menu-pdf"] canvas').first()).toBeVisible();
+    await expect(page.locator('iframe')).toHaveCount(0);
+    const res = await request.get(
+      `http://localhost:8080${await page.getByTestId('open-pdf').getAttribute('href')}`,
+    );
     expect(res.status()).toBe(200);
     expect(res.headers()['x-frame-options']).toBe('SAMEORIGIN');
     expect(res.headers()['content-type']).toContain('application/pdf');
