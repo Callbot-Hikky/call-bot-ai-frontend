@@ -11,14 +11,23 @@ import { PublicReservation } from '@core/models/reservation.model';
   imports: [DatePipe, HlmIcon, NgIcon, RouterLink],
   template: `
     <div class="flex flex-col items-center gap-8 py-10 text-center">
-      <div class="bg-primary/10 text-primary flex size-20 items-center justify-center rounded-full">
-        <ng-icon hlm size="xl" name="lucideCircleCheck" />
-      </div>
+      @if (error()) {
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold">Réservation introuvable</h1>
+          <p class="text-muted-foreground">Ce lien ne correspond à aucune réservation.</p>
+        </div>
+      } @else {
+        <div
+          class="bg-primary/10 text-primary flex size-20 items-center justify-center rounded-full"
+        >
+          <ng-icon hlm size="xl" name="lucideCircleCheck" />
+        </div>
 
-      <div class="flex flex-col gap-2">
-        <h1 class="text-2xl font-bold">Réservation confirmée !</h1>
-        <p class="text-muted-foreground">Nous vous avons envoyé un message de confirmation.</p>
-      </div>
+        <div class="flex flex-col gap-2">
+          <h1 class="text-2xl font-bold">Réservation confirmée !</h1>
+          <p class="text-muted-foreground">Nous vous avons envoyé un message de confirmation.</p>
+        </div>
+      }
 
       @if (reservation(); as r) {
         <div
@@ -35,7 +44,7 @@ import { PublicReservation } from '@core/models/reservation.model';
             <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Date
             </span>
-            <span class="font-semibold">
+            <span class="font-semibold first-letter:uppercase">
               {{ r.dateTime | date: 'EEEE d MMMM à HH:mm' }}
             </span>
           </div>
@@ -53,7 +62,7 @@ import { PublicReservation } from '@core/models/reservation.model';
             <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Au nom de
             </span>
-            <span class="font-semibold">{{ r.customerFirstName }}</span>
+            <span class="font-semibold">{{ r.customerFirstName || 'Client' }}</span>
           </div>
         </div>
         @if (r.restaurantId; as restaurantId) {
@@ -75,9 +84,13 @@ export class ReservationConfirmedPage implements OnInit {
 
   id = input.required<string>();
   reservation = signal<PublicReservation | null>(null);
+  error = signal(false);
 
   // Lecture publique : la page sert au client qui vient de reserver ou de replanifier, sans session.
   ngOnInit() {
-    this.service.getPublicReservation(this.id()).subscribe((r) => this.reservation.set(r));
+    this.service.getPublicReservation(this.id()).subscribe({
+      next: (r) => this.reservation.set(r),
+      error: () => this.error.set(true),
+    });
   }
 }
