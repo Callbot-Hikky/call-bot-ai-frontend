@@ -150,6 +150,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   >
                     Publié
                   </span>
+                } @else if (editing() === card.mode) {
+                  <span
+                    class="bg-muted text-text-subtle rounded-full px-2 py-0.5 text-xs font-medium"
+                  >
+                    En préparation
+                  </span>
                 }
               </div>
               <span class="text-text-strong font-semibold">{{ card.title }}</span>
@@ -175,7 +181,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
             </p>
             @if (pendingUnpublish()) {
               <div class="flex flex-wrap items-center gap-2 text-sm" role="alert">
-                <span>Vos clients verront « menu bientôt disponible ». Confirmer ?</span>
+                <span>Vos clients verront « La carte arrive bientôt ». Confirmer ?</span>
                 <hk-button
                   variant="danger"
                   size="sm"
@@ -207,7 +213,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
             }
           } @else {
             <p class="text-text-subtle text-sm" data-testid="nothing-published">
-              Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
+              Rien n'est publié pour l'instant : vos clients voient « La carte arrive bientôt ».
               @if (!isReady(editing())) {
                 Préparez un format ci-dessous, puis publiez-le.
               }
@@ -251,8 +257,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
           </div>
           @if (menu()!.mode === 'none') {
             <p class="text-text-subtle text-sm" data-testid="qr-hint">
-              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
-              disponible ».
+              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
+              bientôt ».
             </p>
           }
         </section>
@@ -430,16 +436,16 @@ const SAVE_LABELS: Record<SaveState, string> = {
                           class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs"
                           role="alert"
                         >
-                          <span>Supprimer ?</span>
+                          <span>Supprimer cette photo ?</span>
                           <hk-button
                             variant="danger"
                             size="sm"
                             data-testid="confirm-remove-file"
                             (click)="confirmRemove()"
-                            >Oui</hk-button
+                            >Supprimer</hk-button
                           >
                           <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
-                            >Non</hk-button
+                            >Annuler</hk-button
                           >
                         </div>
                       }
@@ -457,13 +463,28 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 [multiple]="true"
                 [disabled]="service.saving() || !canAddImage()"
                 [label]="canAddImage() ? 'Glissez vos photos ici' : 'Limite de photos atteinte'"
-                hint="JPEG, PNG ou WebP, 5 Mo max chacune"
+                hint="ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, 5 Mo max chacune."
                 (filesPicked)="onFiles($event)"
               />
             </section>
           }
           @case ('manual') {
             <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
+              @if (draft().sections.length > 0 && menu()!.mode !== 'manual') {
+                <div
+                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+                  data-testid="publish-inline"
+                  role="status"
+                >
+                  <span class="flex items-center gap-2">
+                    <hk-icon name="lucideTriangleAlert" [size]="16" />
+                    Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
+                  </span>
+                  <hk-button size="sm" [disabled]="service.saving()" (click)="choose('manual')">
+                    Publier la saisie
+                  </hk-button>
+                </div>
+              }
               <hk-menu-manual-form
                 [menu]="draft()"
                 (menuChange)="onManualChange($event)"
@@ -597,11 +618,13 @@ export class MenuPage {
     this.choose('none');
   }
 
+  // Une carte sans contenu s'ouvre simplement : on prepare d'abord, on publie ensuite.
+  // Le back garde son refus (409) comme garde-fou, mais on ne le provoque pas pour rien.
   protected choose(mode: MenuMode): void {
     if (mode !== 'none') {
       this.editing.set(mode);
     }
-    if (this.menu()?.mode === mode) {
+    if (this.menu()?.mode === mode || (mode !== 'none' && !this.isReady(mode))) {
       return;
     }
     this.service

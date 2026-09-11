@@ -96,8 +96,17 @@ describe('MenuPage', () => {
     ).toContain('Publié');
   });
 
-  it('choisir un mode envoie PUT et un refus du back devient un toast en francais', async () => {
+  it('choisir une carte vide ouvre sa preparation sans rien envoyer ni signaler', async () => {
     await render(dto());
+    (fixture.nativeElement.querySelector('[data-testid="mode-images"]') as HTMLElement).click();
+    await fixture.whenStable();
+    http.expectNone((r) => r.method === 'PUT');
+    expect(toast.show).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('[aria-label="Carte en photos"]')).not.toBeNull();
+  });
+
+  it('choisir un mode pret envoie PUT et un refus du back devient un toast en francais', async () => {
+    await render(dto({ files: IMAGES }));
     (fixture.nativeElement.querySelector('[data-testid="mode-images"]') as HTMLElement).click();
     await fixture.whenStable();
     const req = http.expectOne((r) => r.method === 'PUT');

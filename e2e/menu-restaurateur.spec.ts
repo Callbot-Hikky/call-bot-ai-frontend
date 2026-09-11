@@ -13,10 +13,11 @@ test.describe('Menu : page restaurateur', () => {
     await expect(page.getByRole('heading', { name: 'Contenu' })).toBeVisible();
     await expect(page.getByTestId('nothing-published')).toContainText("Rien n'est publié");
 
-    // Publier la saisie sans contenu est refusé, avec un message clair, et la zone reste ouverte.
+    // Une carte vide s'ouvre sans erreur : le bandeau dit quoi faire, la zone de saisie apparaît.
     await page.getByTestId('mode-manual').click();
-    await expect(page.getByText("Ajoutez d'abord du contenu")).toBeVisible();
+    await expect(page.getByTestId('nothing-published')).toContainText('Préparez un format');
     await expect(page.getByTestId('add-section')).toBeVisible();
+    await expect(page.getByTestId('mode-manual')).toContainText('En préparation');
 
     // Saisir une carte : section, plat, prix avec virgule, description.
     await page.getByTestId('add-section').click();

@@ -79,7 +79,19 @@ type PendingRemoval =
               class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
               role="alert"
             >
-              <span>Supprimer cette section et ses {{ section.items.length }} plat(s) ?</span>
+              <span>
+                @if (section.items.length === 0) {
+                  Supprimer cette section ?
+                } @else {
+                  Supprimer cette section et
+                  {{
+                    section.items.length === 1
+                      ? 'son plat'
+                      : 'ses ' + section.items.length + ' plats'
+                  }}
+                  ?
+                }
+              </span>
               <hk-button
                 variant="danger"
                 size="sm"
