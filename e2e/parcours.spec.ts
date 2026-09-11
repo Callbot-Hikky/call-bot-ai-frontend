@@ -1,0 +1,71 @@
+import { expect, test } from '@playwright/test';
+import { login } from './helpers';
+
+// Parcours de bout en bout, tout par l'interface : inscription, onboarding, premiere
+// reservation, page client, reconnexion. C'est le filet contre les regressions qui
+// touchent les pages hors menu (coquilles, defilement, session).
+test.describe('Parcours restaurateur : du compte neuf a la premiere reservation', () => {
+  test('inscription, onboarding, reservation, page client, reconnexion', async ({ page }) => {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const owner = { email: `e2e-parcours-${stamp}@example.com`, password: 'password123' };
+    const phone = `+331${stamp.replace(/\D/g, '').slice(-8).padStart(8, '0')}`;
+
+    // 1. Inscription.
+    await page.goto('/register');
+    await page.getByRole('textbox', { name: /e-mail/i }).fill(owner.email);
+    await page.getByRole('textbox', { name: /mot de passe/i }).fill(owner.password);
+    await page.getByRole('button', { name: /créer mon compte/i }).click();
+
+    // 2. Onboarding, etape 1 : le restaurant.
+    await expect(page.getByRole('heading', { name: 'Votre restaurant' })).toBeVisible();
+    await page.locator('input[name="name"]').fill(`Chez Parcours ${stamp.slice(-5)}`);
+    await page.locator('input[name="phone"]').fill(phone);
+    await page.getByRole('button', { name: 'Continuer' }).click();
+
+    // Etape 2 : les horaires depassent l'ecran, la page doit pouvoir defiler jusqu'au bouton.
+    await expect(page.getByRole('heading', { name: "Horaires d'ouverture" })).toBeVisible();
+    await page.mouse.wheel(0, 4000);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Continuer' }).click();
+
+    // Etapes 3 et 4.
+    await expect(page.getByRole('heading', { name: 'Votre établissement' })).toBeVisible();
+    await page.getByRole('button', { name: 'Passer' }).click();
+    await expect(page.getByRole('heading', { name: 'Vos tables' })).toBeVisible();
+    await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+    await page.waitForURL(/\/dashboard/);
+    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+
+    // 3. Premiere reservation depuis la liste du jour.
+    await page.goto('/reservations');
+    await page.getByTestId('open-new-resa').click();
+    await page.getByTestId('new-resa-name').fill('Nadia Parcours');
+    await page.getByTestId('new-resa-phone').fill('+33612345699');
+    await page.getByTestId('new-resa-time').fill('20:30');
+    const created = page.waitForResponse(
+      (r) => r.request().method() === 'POST' && r.url().endsWith('/api/reservations'),
+    );
+    await page.getByRole('button', { name: 'Créer la réservation' }).click();
+    const reservation = (await (await created).json()) as { id: string; restaurantId: string };
+    await expect(page.getByText('Nadia Parcours').first()).toBeVisible();
+
+    // 4. Page client de la reservation, puis la carte (rien de publie).
+    await page.goto(`/client/reservations/${reservation.id}/reschedule`);
+    await expect(page.getByText('Récapitulatif de votre réservation')).toBeVisible();
+    await page.getByTestId('link-menu').click();
+    await page.waitForURL(/\/client\/restaurants\/.+\/menu/);
+    await expect(page.getByText(/arrive bientôt/)).toBeVisible();
+
+    // 5. Deconnexion puis reconnexion.
+    await page.goto('/dashboard');
+    await page.getByRole('button', { name: /se déconnecter/i }).click();
+    await page.waitForURL(/\/login/);
+    await login(page, {
+      ...owner,
+      token: '',
+      restaurantId: reservation.restaurantId,
+      restaurantName: '',
+    });
+    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
+  });
+});
