@@ -58,6 +58,9 @@ import {
   lucideRefreshCw,
   lucideMinus,
   lucideFileText,
+  lucideImage,
+  lucideExternalLink,
+  lucideTriangleAlert,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -112,6 +115,9 @@ const ICONS = {
   lucideRefreshCw,
   lucideMinus,
   lucideFileText,
+  lucideImage,
+  lucideExternalLink,
+  lucideTriangleAlert,
 };
 
 export const appConfig: ApplicationConfig = {
