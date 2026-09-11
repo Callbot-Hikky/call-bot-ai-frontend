@@ -107,6 +107,39 @@ describe('MenuPage', () => {
     expect(toast.show).toHaveBeenCalledWith(expect.stringMatching(/contenu/), 'error');
   });
 
+  it('rien de publie mais un PDF pret : le bandeau propose « Publier le PDF » et le publie', async () => {
+    const pdf = {
+      id: 'p',
+      kind: 'pdf' as const,
+      contentType: 'application/pdf',
+      position: 0,
+      sizeBytes: 10,
+      url: '/api/restaurants/r-1/menu/files/p',
+    };
+    await render(dto({ mode: 'none', files: [pdf] }));
+    const button: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-current"] button',
+    );
+    expect(button.textContent).toContain('Publier le PDF');
+    button.click();
+    await fixture.whenStable();
+    expect(http.expectOne((r) => r.method === 'PUT').request.body).toEqual({ mode: 'pdf' });
+  });
+
+  it('rien de publie et rien de pret : pas de bouton, le bandeau explique quoi faire', async () => {
+    await render(dto());
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Préparez un format ci-dessous');
+  });
+
+  it('le bloc QR est place avant le contenu, pour rester visible sans defiler', async () => {
+    await render(dto());
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html.indexOf('Liens et QR codes')).toBeLessThan(
+      html.indexOf('Préparez chaque format ici'),
+    );
+  });
+
   it('une erreur de chargement propose de reessayer, et reessayer relance le GET', async () => {
     await render(null, 500);
     const retry: HTMLElement = fixture.nativeElement.querySelector('[data-testid="menu-retry"]');

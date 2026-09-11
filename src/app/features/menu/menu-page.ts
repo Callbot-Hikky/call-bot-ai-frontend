@@ -208,10 +208,54 @@ const SAVE_LABELS: Record<SaveState, string> = {
           } @else {
             <p class="text-text-subtle text-sm" data-testid="nothing-published">
               Rien n'est publié pour l'instant : vos clients voient « menu bientôt disponible ».
-              Cliquez un format ci-dessus pour le publier.
+              @if (!isReady(editing())) {
+                Préparez un format ci-dessous, puis publiez-le.
+              }
             </p>
+            @if (isReady(editing())) {
+              <hk-button
+                size="sm"
+                data-testid="publish-current"
+                [disabled]="service.saving()"
+                (click)="choose(editing())"
+              >
+                {{ publishAction(editing()) }}
+              </hk-button>
+            }
           }
         </div>
+
+        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
+          <div class="flex flex-col gap-1">
+            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
+            <p class="text-text-subtle text-sm">
+              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
+              directement à la bonne page, sans compte ni application.
+            </p>
+          </div>
+          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
+            <hk-qr-card
+              title="Voir le menu"
+              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
+              [url]="menuUrl()"
+              [fileName]="'menu-' + slug()"
+            />
+            @if (onlineBooking) {
+              <hk-qr-card
+                title="Réserver une table"
+                description="Vos clients réservent en ligne, sans appeler."
+                [url]="bookingUrl()"
+                [fileName]="'reservation-' + slug()"
+              />
+            }
+          </div>
+          @if (menu()!.mode === 'none') {
+            <p class="text-text-subtle text-sm" data-testid="qr-hint">
+              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
+              disponible ».
+            </p>
+          }
+        </section>
 
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
@@ -412,38 +456,6 @@ const SAVE_LABELS: Record<SaveState, string> = {
             </section>
           }
         }
-
-        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
-          <div class="flex flex-col gap-1">
-            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
-            <p class="text-text-subtle text-sm">
-              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
-              directement à la bonne page, sans compte ni application.
-            </p>
-          </div>
-          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
-            <hk-qr-card
-              title="Voir le menu"
-              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
-              [url]="menuUrl()"
-              [fileName]="'menu-' + slug()"
-            />
-            @if (onlineBooking) {
-              <hk-qr-card
-                title="Réserver une table"
-                description="Vos clients réservent en ligne, sans appeler."
-                [url]="bookingUrl()"
-                [fileName]="'reservation-' + slug()"
-              />
-            }
-          </div>
-          @if (menu()!.mode === 'none') {
-            <p class="text-text-subtle text-sm" data-testid="qr-hint">
-              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « menu bientôt
-              disponible ».
-            </p>
-          }
-        </section>
       </div>
     }
   `,
@@ -657,6 +669,33 @@ export class MenuPage {
         next: () => this.toast.show('Menu enregistré.', 'success'),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
+  }
+
+  // Un format se publie des qu'il a du contenu : le bandeau propose alors le bouton.
+  protected isReady(mode: MenuMode): boolean {
+    switch (mode) {
+      case 'pdf':
+        return this.pdfFile() !== null;
+      case 'images':
+        return this.images().length > 0;
+      case 'manual':
+        return this.draft().sections.length > 0;
+      default:
+        return false;
+    }
+  }
+
+  protected publishAction(mode: MenuMode): string {
+    switch (mode) {
+      case 'pdf':
+        return 'Publier le PDF';
+      case 'images':
+        return 'Publier les photos';
+      case 'manual':
+        return 'Publier la saisie';
+      default:
+        return '';
+    }
   }
 
   protected publishedLabel(mode: MenuMode): string {
