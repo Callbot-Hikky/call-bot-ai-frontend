@@ -53,6 +53,8 @@ describe('HkMenuManualForm', () => {
   });
 
   it('la touche Entree dans le nom d un plat ajoute un plat suivant', async () => {
+    // Le focus ne se mesure que sur un element attache au document.
+    document.body.appendChild(fixture.nativeElement);
     await setMenu(addItem(addSection(emptyManual(), 'Plats'), 0));
     const input: HTMLInputElement = fixture.nativeElement.querySelector(
       '[data-testid="item-name-0-0"] input',
@@ -60,6 +62,16 @@ describe('HkMenuManualForm', () => {
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     await fixture.whenStable();
     expect(component.menu().sections[0].items).toHaveLength(2);
+    // Le focus suit : on tape le plat suivant sans reprendre la souris.
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    expect(document.activeElement?.id).toBe('item-name-0-1');
+    fixture.nativeElement.remove();
+  });
+
+  it('le compteur de section dit ce qu il compte : des plats, pas des caracteres', async () => {
+    await setMenu(addItem(addSection(emptyManual(), 'Plats'), 0));
+    expect(fixture.nativeElement.textContent).toContain('1/50 plats');
   });
 
   it('affiche les erreurs de validation en francais', async () => {

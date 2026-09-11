@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, input, model, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  model,
+  signal,
+} from '@angular/core';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
@@ -50,8 +59,8 @@ type PendingRemoval =
                 [error]="section.name.trim() === ''"
               />
             </div>
-            <span class="text-text-subtle text-xs tabular-nums">
-              {{ section.items.length }}/{{ limits.itemsPerSection }}
+            <span class="text-text-subtle text-xs whitespace-nowrap tabular-nums">
+              {{ section.items.length }}/{{ limits.itemsPerSection }} plats
             </span>
             <hk-button
               variant="ghost"
@@ -232,12 +241,24 @@ export class HkMenuManualForm {
     () => this.menu().sections.length < MANUAL_LIMITS.sections,
   );
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
   protected addSectionToMenu(): void {
     this.menu.set(addSection(this.menu(), ''));
+    this.focusAfterRender(`section-name-${this.menu().sections.length - 1}`);
   }
 
   protected addItemTo(s: number): void {
     this.menu.set(addItem(this.menu(), s));
+    this.focusAfterRender(`item-name-${s}-${this.menu().sections[s].items.length - 1}`);
+  }
+
+  // Le champ qui vient d'apparaitre recoit le focus : on enchaine la saisie sans reprendre la souris.
+  // Les identifiants sont construits ici (lettres, chiffres, tirets) : pas d'echappement a prevoir.
+  private focusAfterRender(id: string): void {
+    setTimeout(() => {
+      this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus();
+    });
   }
 
   protected setSectionName(s: number, name: string): void {
