@@ -6,9 +6,4 @@ export const environment = {
   apiUrl: '/api',
   useMock: false,
   restaurantId: '22b60047-3341-4b71-bed8-e22bc08c3603',
-  // Auto-login de dev : récupère un token JWT au démarrage (auth réelle gérée ailleurs).
-  devAuth: { email: 'hassan@callbot.local', password: 'password123' } as {
-    email: string;
-    password: string;
-  } | null,
 };
