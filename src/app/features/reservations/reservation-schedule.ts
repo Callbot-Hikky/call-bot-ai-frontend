@@ -11,6 +11,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
@@ -245,6 +246,7 @@ export class ReservationSchedulePage {
   private readonly menuService = inject(MenuService);
   private readonly reservations = inject(ReservationService);
   private readonly router = inject(Router);
+  private readonly title = inject(Title);
 
   readonly MIN_PARTY_SIZE = MIN_PARTY_SIZE;
   readonly MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
@@ -299,6 +301,7 @@ export class ReservationSchedulePage {
     this.menuService.getPublic(id).subscribe({
       next: (menu) => {
         this.restaurantName.set(menu.restaurantName);
+        this.title.setTitle(`Réserver chez ${menu.restaurantName}`);
         this.hasMenu.set(menu.mode !== 'none');
         this.loading.set(false);
       },
