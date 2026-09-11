@@ -48,7 +48,10 @@ describe('ReservationSchedulePage', () => {
     if (menuStatus === 200) {
       menu.flush({ restaurantName: "La Table d'Ines", mode: 'pdf', manual: null, files: [] });
     } else {
-      menu.flush('nope', { status: menuStatus, statusText: 'Not Found' });
+      menu.flush('nope', {
+        status: menuStatus,
+        statusText: menuStatus === 404 ? 'Not Found' : 'Error',
+      });
     }
     http
       .expectOne(
@@ -134,8 +137,60 @@ describe('ReservationSchedulePage', () => {
       .expectOne((r) => r.method === 'POST')
       .flush({ error: 'no_table' }, { status: 409, statusText: 'Conflict' });
     await fixture.whenStable();
-    expect(fixture.componentInstance['submitError']()).toContain("vient d'être pris");
+    // La feuille se referme, le message s'affiche au-dessus de la liste, le creneau est oublie.
+    expect(fixture.componentInstance['sheetState']()).toBe('closed');
+    expect(fixture.componentInstance['pickedSlot']()).toBeNull();
+    expect(fixture.componentInstance['pageError']()).toContain("vient d'être pris");
     http.expectOne((r) => r.url.includes('/slots')).flush({ days: [] });
+    await fixture.whenStable();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="booking-error"]')?.textContent,
+    ).toContain("vient d'être pris");
+    expect(fixture.nativeElement.querySelector('[data-testid="no-slots"]')).not.toBeNull();
     expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('un numero deja reserve ce jour-la (409 already_booked) garde la feuille ouverte avec l explication', async () => {
+    await render();
+    fixture.componentInstance['onSlotPicked'](SLOT);
+    fixture.componentInstance['firstName'].set('Nadia');
+    fixture.componentInstance['phone'].set('0612345678');
+    fixture.componentInstance['confirm']();
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.method === 'POST')
+      .flush({ error: 'already_booked' }, { status: 409, statusText: 'Conflict' });
+    await fixture.whenStable();
+    expect(fixture.componentInstance['sheetState']()).toBe('open');
+    expect(fixture.componentInstance['submitError']()).toContain('déjà une réservation');
+    http.expectNone((r) => r.url.includes('/slots'));
+  });
+
+  it('une reponse de creneaux en retard ne remplace pas la plus recente', async () => {
+    await render();
+    fixture.componentInstance['partySize'].set(3);
+    await fixture.whenStable();
+    const forThree = http.expectOne((r) => r.url.includes('partySize=3'));
+    fixture.componentInstance['partySize'].set(4);
+    await fixture.whenStable();
+    const forFour = http.expectOne((r) => r.url.includes('partySize=4'));
+    forFour.flush({ days: [{ date: '2026-09-12', slots: [SLOT] }] });
+    forThree.flush({ days: [{ date: '2026-09-12', slots: [] }] });
+    await fixture.whenStable();
+    expect(fixture.componentInstance['days']()?.[0].slots).toHaveLength(1);
+    expect(fixture.componentInstance['slotsLoading']()).toBe(false);
+  });
+
+  it('une panne du serveur au chargement propose de reessayer, sans laisser reserver', async () => {
+    await render(500);
+    expect(fixture.nativeElement.textContent).toContain('Impossible de charger la page');
+    expect(fixture.nativeElement.querySelector('hk-counter')).toBeNull();
+    (fixture.nativeElement.querySelector('button') as HTMLElement).click();
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`))
+      .flush({ restaurantName: "La Table d'Ines", mode: 'none', manual: null, files: [] });
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain("La Table d'Ines");
   });
 });
