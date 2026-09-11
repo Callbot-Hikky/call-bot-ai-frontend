@@ -17,8 +17,6 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
 
 // La reservation en ligne (branche F4) n'est pas encore livree : le lien reste masque
 // jusque-la. Une constante, un seul endroit a changer.
-const ONLINE_BOOKING_ENABLED = false;
-
 // La carte du restaurant, vue par le client, sur son telephone : un lien, un QR.
 // Aucune session, aucune donnee personnelle. Trois rendus selon ce que le
 // restaurateur a publie : PDF, photos, ou la carte saisie avec ses prix.
@@ -149,30 +147,28 @@ const ONLINE_BOOKING_ENABLED = false;
           }
         }
 
-        @if (reservation() || onlineBooking) {
-          <footer
-            class="border-border reveal flex flex-col gap-3 border-t pt-6"
-            [style.animation-delay.ms]="200"
-          >
-            @if (reservation(); as reservationId) {
-              <a
-                data-testid="link-reschedule"
-                [routerLink]="['/client/reservations', reservationId, 'reschedule']"
-                class="text-primary inline-flex items-center gap-2 text-sm underline"
-              >
-                Vous voulez modifier votre réservation ?
-              </a>
-            } @else if (onlineBooking) {
-              <a
-                data-testid="link-schedule"
-                [routerLink]="['/client/restaurants', id(), 'schedule']"
-                class="bg-primary text-primary-foreground inline-flex items-center gap-2 self-start rounded-md px-4 py-2 text-sm font-medium"
-              >
-                Réserver une table
-              </a>
-            }
-          </footer>
-        }
+        <footer
+          class="border-border reveal flex flex-col gap-3 border-t pt-6"
+          [style.animation-delay.ms]="200"
+        >
+          @if (reservation(); as reservationId) {
+            <a
+              data-testid="link-reschedule"
+              [routerLink]="['/client/reservations', reservationId, 'reschedule']"
+              class="text-primary inline-flex items-center gap-2 text-sm underline"
+            >
+              Vous voulez modifier votre réservation ?
+            </a>
+          } @else {
+            <a
+              data-testid="link-schedule"
+              [routerLink]="['/client/restaurants', id(), 'schedule']"
+              class="bg-primary text-primary-foreground inline-flex items-center gap-2 self-start rounded-md px-4 py-2 text-sm font-medium"
+            >
+              Réserver une table
+            </a>
+          }
+        </footer>
       }
     </article>
   `,
@@ -205,7 +201,6 @@ export class RestaurantMenuPage {
   readonly id = input<string>();
   readonly reservation = input<string>();
 
-  protected readonly onlineBooking = ONLINE_BOOKING_ENABLED;
   protected readonly menu = signal<PublicMenu | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<'not_found' | 'failed' | null>(null);

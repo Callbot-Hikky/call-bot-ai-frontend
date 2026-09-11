@@ -4,7 +4,7 @@ import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon } from '@ng-icons/core';
 import { RouterLink } from '@angular/router';
 import { ReservationService } from '@core/services/reservation.service';
-import { Reservation } from '@core/models/reservation.model';
+import { PublicReservation } from '@core/models/reservation.model';
 
 @Component({
   selector: 'app-reservation-confirmed',
@@ -28,7 +28,7 @@ import { Reservation } from '@core/models/reservation.model';
             <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Restaurant
             </span>
-            <span class="font-semibold">{{ r.restaurant?.name }}</span>
+            <span class="font-semibold">{{ r.restaurantName }}</span>
           </div>
 
           <div class="flex flex-col gap-1">
@@ -53,10 +53,10 @@ import { Reservation } from '@core/models/reservation.model';
             <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Au nom de
             </span>
-            <span class="font-semibold">{{ r.customerName }}</span>
+            <span class="font-semibold">{{ r.customerFirstName }}</span>
           </div>
         </div>
-        @if (r.restaurant?.id; as restaurantId) {
+        @if (r.restaurantId; as restaurantId) {
           <a
             class="text-primary text-sm underline"
             data-testid="link-menu"
@@ -74,9 +74,10 @@ export class ReservationConfirmedPage implements OnInit {
   private service = inject(ReservationService);
 
   id = input.required<string>();
-  reservation = signal<Reservation | null>(null);
+  reservation = signal<PublicReservation | null>(null);
 
+  // Lecture publique : la page sert au client qui vient de reserver ou de replanifier, sans session.
   ngOnInit() {
-    this.service.getReservationById(this.id()).subscribe((r) => this.reservation.set(r));
+    this.service.getPublicReservation(this.id()).subscribe((r) => this.reservation.set(r));
   }
 }

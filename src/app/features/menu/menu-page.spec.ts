@@ -225,7 +225,17 @@ describe('MenuPage', () => {
         'menu-le-bistrot-du-coin.svg',
       ),
     );
-    expect(fixture.nativeElement.querySelectorAll('hk-qr-card')).toHaveLength(1);
+    // Deux QR, deux usages : voir la carte, reserver une table.
+    const cards = fixture.nativeElement.querySelectorAll('hk-qr-card');
+    expect(cards).toHaveLength(2);
+    expect(cards[1].querySelector('[data-testid="qr-url"]')?.textContent).toContain(
+      `/client/restaurants/${RID}/schedule`,
+    );
+    await vi.waitFor(() =>
+      expect(cards[1].querySelector('[data-testid="download-svg"]')?.getAttribute('download')).toBe(
+        'reservation-le-bistrot-du-coin.svg',
+      ),
+    );
   });
 
   it('sans restaurant dans la session, explique quoi faire et propose la configuration', async () => {

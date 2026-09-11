@@ -60,7 +60,6 @@ const MODE_CARDS: ModeCard[] = [
 ];
 
 // La reservation en ligne (branche F4) n'est pas encore livree : sa carte reste masquee.
-const ONLINE_BOOKING_ENABLED = false;
 
 const SAVE_LABELS: Record<SaveState, string> = {
   saved: 'Enregistré',
@@ -239,21 +238,19 @@ const SAVE_LABELS: Record<SaveState, string> = {
               directement à la bonne page, sans compte ni application.
             </p>
           </div>
-          <div class="grid gap-4" [class.lg:grid-cols-2]="onlineBooking">
+          <div class="grid gap-4 lg:grid-cols-2">
             <hk-qr-card
               title="Voir le menu"
               description="Vos clients découvrent votre carte telle que vous l'avez publiée."
               [url]="menuUrl()"
               [fileName]="'menu-' + slug()"
             />
-            @if (onlineBooking) {
-              <hk-qr-card
-                title="Réserver une table"
-                description="Vos clients réservent en ligne, sans appeler."
-                [url]="bookingUrl()"
-                [fileName]="'reservation-' + slug()"
-              />
-            }
+            <hk-qr-card
+              title="Réserver une table"
+              description="Vos clients choisissent un créneau et réservent en ligne, sans appeler."
+              [url]="bookingUrl()"
+              [fileName]="'reservation-' + slug()"
+            />
           </div>
           @if (menu()!.mode === 'none') {
             <p class="text-text-subtle text-sm" data-testid="qr-hint">
@@ -523,7 +520,6 @@ export class MenuPage {
 
   protected readonly restaurantId = this.session.restaurantId();
   protected readonly cards = MODE_CARDS;
-  protected readonly onlineBooking = ONLINE_BOOKING_ENABLED;
 
   // Les liens publics sont sur la meme origine que l'application.
   protected readonly menuUrl = computed(

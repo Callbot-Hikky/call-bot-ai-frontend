@@ -138,10 +138,14 @@ describe('RestaurantMenuPage', () => {
     expect(link.getAttribute('href')).toBe('/client/reservations/resa-1/reschedule');
   });
 
-  it('sans réservation, ne propose pas encore la réservation en ligne', async () => {
+  it('sans réservation (flyer, QR), propose de réserver une table en ligne', async () => {
     await render(dto({ mode: 'none' }));
     expect(fixture.nativeElement.querySelector('a[data-testid="link-reschedule"]')).toBeNull();
-    expect(fixture.nativeElement.querySelector('a[data-testid="link-schedule"]')).toBeNull();
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector(
+      'a[data-testid="link-schedule"]',
+    );
+    expect(link.textContent).toContain('Réserver une table');
+    expect(link.getAttribute('href')).toBe(`/client/restaurants/${RID}/schedule`);
   });
 
   it('un restaurant inconnu affiche un message clair', async () => {

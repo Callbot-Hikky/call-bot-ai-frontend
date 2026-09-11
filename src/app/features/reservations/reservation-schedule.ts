@@ -130,7 +130,9 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
 
             <div class="flex flex-col gap-2">
               <p class="font-bold"><span class="text-primary">2. </span>Créneau</p>
-              <p class="capitalize">{{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}</p>
+              <p class="first-letter:uppercase">
+                {{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}
+              </p>
             </div>
 
             <div class="flex flex-col gap-4">
