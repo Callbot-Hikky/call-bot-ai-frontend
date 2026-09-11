@@ -138,7 +138,7 @@ test.describe('Menu : page restaurateur', () => {
 
     // Un second PDF remplace le premier : toujours un seul.
     await input.setInputFiles(fixture('carte.pdf'));
-    await expect(page.getByText('PDF ajouté.').last()).toBeVisible();
+    await expect(page.getByText('PDF remplacé.')).toBeVisible();
     await expect(page.getByTestId('pdf-preview')).toHaveCount(1);
 
     await page.getByTestId('mode-pdf').click();
