@@ -53,10 +53,19 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
         <hk-skeleton height="1rem" width="10rem" />
         <hk-skeleton height="12rem" />
       </div>
-    } @else if (notFound()) {
+    } @else if (loadError(); as err) {
       <div class="flex flex-col items-center gap-3 py-16 text-center">
-        <p class="text-text-strong text-lg font-semibold">Ce restaurant est introuvable.</p>
-        <p class="text-text-muted text-sm">Vérifiez le lien ou le QR code que l'on vous a donné.</p>
+        @if (err === 'not_found') {
+          <p class="text-text-strong text-lg font-semibold">Ce restaurant est introuvable.</p>
+          <p class="text-text-muted text-sm">
+            Vérifiez le lien ou le QR code que l'on vous a donné.
+          </p>
+        } @else {
+          <p class="text-text-strong text-lg font-semibold">Impossible de charger la page.</p>
+          <button type="button" class="text-primary text-sm underline" (click)="loadRestaurant()">
+            Réessayer
+          </button>
+        }
       </div>
     } @else {
       <div class="flex flex-col gap-10">
@@ -88,7 +97,16 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
 
         <div class="flex flex-col gap-4">
           <p class="font-bold"><span class="text-primary">2. </span>Choisissez un créneau</p>
-          @if (slotsLoading()) {
+          @if (pageError(); as err) {
+            <p
+              class="bg-st-pending-bg text-st-pending-fg rounded-md px-3 py-2 text-sm"
+              role="alert"
+              data-testid="booking-error"
+            >
+              {{ err }}
+            </p>
+          }
+          @if (days() === null && slotsLoading()) {
             <div class="flex flex-col gap-3" aria-busy="true" aria-label="Chargement des créneaux">
               <hk-skeleton height="3rem" />
               <hk-skeleton height="3rem" />
@@ -106,11 +124,19 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
               personnes, ou appelez le restaurant.
             </p>
           } @else {
-            <hk-reservation-slot-picker
-              [days]="days()"
-              [initialSelectedStartsAt]="pickedSlot()?.startsAt ?? null"
-              (slotPicked)="onSlotPicked($event)"
-            />
+            <!-- Le selecteur reste monte pendant un rechargement : les jours ouverts ne se referment pas. -->
+            <div
+              [class.opacity-60]="slotsLoading()"
+              [class.pointer-events-none]="slotsLoading()"
+              [attr.aria-busy]="slotsLoading()"
+            >
+              <hk-reservation-slot-picker
+                [days]="days() ?? []"
+                [initialSelectedStartsAt]="pickedSlot()?.startsAt ?? null"
+                [expandFirstAvailable]="true"
+                (slotPicked)="onSlotPicked($event)"
+              />
+            </div>
           }
         </div>
       </div>
@@ -193,7 +219,7 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
             </div>
 
             @if (submitError(); as err) {
-              <p class="text-destructive text-sm" role="alert" data-testid="booking-error">
+              <p class="text-destructive text-sm" role="alert" data-testid="booking-submit-error">
                 {{ err }}
               </p>
             }
@@ -229,15 +255,20 @@ export class ReservationSchedulePage {
   protected readonly restaurantName = signal('');
   protected readonly hasMenu = signal(false);
   protected readonly loading = signal(true);
-  protected readonly notFound = signal(false);
+  protected readonly loadError = signal<'not_found' | 'failed' | null>(null);
 
   protected readonly partySize = signal(2);
-  protected readonly days = signal<RescheduleDay[]>([]);
+  // null tant que rien n'est charge : distingue « pas encore la » de « aucun jour renvoye ».
+  protected readonly days = signal<RescheduleDay[] | null>(null);
   protected readonly slotsLoading = signal(false);
   protected readonly slotsError = signal(false);
-  protected readonly noSlotAtAll = computed(
-    () => this.days().length > 0 && this.days().every((d) => d.slots.length === 0),
-  );
+  protected readonly pageError = signal<string | null>(null);
+  protected readonly noSlotAtAll = computed(() => {
+    const days = this.days();
+    return days !== null && days.every((d) => d.slots.length === 0);
+  });
+  // Chaque chargement a un numero : une reponse en retard ne remplace jamais la plus recente.
+  private slotsRun = 0;
 
   protected readonly sheetState = signal<BrnDialogState>('closed');
   protected readonly pickedSlot = signal<RescheduleSlot | null>(null);
@@ -261,9 +292,10 @@ export class ReservationSchedulePage {
     });
   }
 
-  private loadRestaurant(id: string): void {
+  protected loadRestaurant(id = this.id()): void {
+    if (!id) return;
     this.loading.set(true);
-    this.notFound.set(false);
+    this.loadError.set(null);
     this.menuService.getPublic(id).subscribe({
       next: (menu) => {
         this.restaurantName.set(menu.restaurantName);
@@ -271,7 +303,8 @@ export class ReservationSchedulePage {
         this.loading.set(false);
       },
       error: (err: unknown) => {
-        this.notFound.set(err instanceof HttpErrorResponse && err.status === 404);
+        const notFound = err instanceof HttpErrorResponse && err.status === 404;
+        this.loadError.set(notFound ? 'not_found' : 'failed');
         this.loading.set(false);
       },
     });
@@ -279,14 +312,17 @@ export class ReservationSchedulePage {
 
   protected loadSlots(id = this.id(), size = this.partySize()): void {
     if (!id) return;
+    const run = ++this.slotsRun;
     this.slotsLoading.set(true);
     this.slotsError.set(false);
     this.reservations.getPublicSlots(id, size).subscribe({
       next: (r) => {
+        if (run !== this.slotsRun) return;
         this.days.set(r.days);
         this.slotsLoading.set(false);
       },
       error: () => {
+        if (run !== this.slotsRun) return;
         this.slotsError.set(true);
         this.slotsLoading.set(false);
       },
@@ -295,6 +331,7 @@ export class ReservationSchedulePage {
 
   protected onSlotPicked(slot: RescheduleSlot): void {
     this.pickedSlot.set(slot);
+    this.pageError.set(null);
     this.submitError.set(null);
     this.fieldErrors.set({});
     this.sheetState.set('open');
@@ -315,6 +352,12 @@ export class ReservationSchedulePage {
     }
     this.fieldErrors.set(errors);
     return Object.keys(errors).length === 0;
+  }
+
+  private errorCode(err: unknown): string | null {
+    if (!(err instanceof HttpErrorResponse)) return null;
+    const body = err.error as { error?: unknown } | null;
+    return typeof body?.error === 'string' ? body.error : null;
   }
 
   protected confirm(): void {
@@ -340,10 +383,16 @@ export class ReservationSchedulePage {
         error: (err: unknown) => {
           this.submitting.set(false);
           const status = err instanceof HttpErrorResponse ? err.status : 0;
-          if (status === 409) {
-            // Pris entre l'affichage et le clic : on le dit, et on remet la liste a jour.
-            this.submitError.set("Ce créneau vient d'être pris. Merci d'en choisir un autre.");
+          if (status === 409 && this.errorCode(err) === 'already_booked') {
+            this.submitError.set(
+              'Ce numéro a déjà une réservation ce jour-là. Pour la modifier, utilisez le lien reçu par message.',
+            );
+          } else if (status === 409) {
+            // Pris entre l'affichage et le clic : on referme la feuille, on le dit au-dessus de la
+            // liste, et on remet les creneaux a jour pour choisir a nouveau.
+            this.sheetState.set('closed');
             this.pickedSlot.set(null);
+            this.pageError.set("Ce créneau vient d'être pris. Merci d'en choisir un autre.");
             this.loadSlots();
           } else if (status === 400) {
             this.submitError.set(
