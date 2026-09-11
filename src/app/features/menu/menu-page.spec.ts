@@ -126,6 +126,27 @@ describe('MenuPage', () => {
     expect(http.expectOne((r) => r.method === 'PUT').request.body).toEqual({ mode: 'pdf' });
   });
 
+  it('un PDF depose mais pas publie : encart de succes avec le bouton Publier, qui disparait une fois publie', async () => {
+    const pdf = {
+      id: 'p',
+      kind: 'pdf' as const,
+      contentType: 'application/pdf',
+      position: 0,
+      sizeBytes: 10,
+      url: '/api/restaurants/r-1/menu/files/p',
+    };
+    await render(dto({ mode: 'none', files: [pdf] }));
+    const inline: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-inline"]',
+    );
+    expect(inline.textContent).toContain('pas encore visible');
+    (inline.querySelector('button') as HTMLElement).click();
+    await fixture.whenStable();
+    http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [pdf] }));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+  });
+
   it('rien de publie et rien de pret : pas de bouton, le bandeau explique quoi faire', async () => {
     await render(dto());
     expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
