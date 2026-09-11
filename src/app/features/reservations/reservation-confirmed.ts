@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon } from '@ng-icons/core';
 import { RouterLink } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { ReservationService } from '@core/services/reservation.service';
 import { PublicReservation } from '@core/models/reservation.model';
 
@@ -81,6 +82,7 @@ import { PublicReservation } from '@core/models/reservation.model';
 })
 export class ReservationConfirmedPage implements OnInit {
   private service = inject(ReservationService);
+  private title = inject(Title);
 
   id = input.required<string>();
   reservation = signal<PublicReservation | null>(null);
@@ -89,7 +91,10 @@ export class ReservationConfirmedPage implements OnInit {
   // Lecture publique : la page sert au client qui vient de reserver ou de replanifier, sans session.
   ngOnInit() {
     this.service.getPublicReservation(this.id()).subscribe({
-      next: (r) => this.reservation.set(r),
+      next: (r) => {
+        this.reservation.set(r);
+        this.title.setTitle(`Réservation confirmée · ${r.restaurantName}`);
+      },
       error: () => this.error.set(true),
     });
   }

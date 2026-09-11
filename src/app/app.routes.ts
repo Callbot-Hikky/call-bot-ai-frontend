@@ -16,29 +16,61 @@ export const routes: Routes = [
   // Page de validation du design system (hors shell), temporaire.
   { path: '_tokens', component: TokensDemo },
 
-  { path: 'login', component: LoginPage },
-  { path: 'register', component: RegisterPage },
-  { path: 'onboarding', component: OnboardingPage, canActivate: [authGuard] },
+  { path: 'login', component: LoginPage, title: 'Connexion' },
+  { path: 'register', component: RegisterPage, title: 'Créer un compte' },
+  {
+    path: 'onboarding',
+    component: OnboardingPage,
+    canActivate: [authGuard],
+    title: 'Configuration',
+  },
 
   {
     path: '',
     component: AppShell,
     canActivate: [authGuard],
     children: [
-      { path: 'dashboard', component: DashboardPage, data: { title: 'Tableau de bord' } },
-      { path: 'reservations', component: ReservationsPage, data: { title: 'Réservations' } },
-      { path: 'plan', component: FloorPlanPage, data: { title: 'Plan de salle' } },
-      { path: 'appels', component: ComingSoonPage, data: { title: 'Appels', icon: 'lucidePhone' } },
+      {
+        path: 'dashboard',
+        component: DashboardPage,
+        title: 'Tableau de bord',
+        data: { title: 'Tableau de bord' },
+      },
+      {
+        path: 'reservations',
+        component: ReservationsPage,
+        title: 'Réservations',
+        data: { title: 'Réservations' },
+      },
+      {
+        path: 'plan',
+        component: FloorPlanPage,
+        title: 'Plan de salle',
+        data: { title: 'Plan de salle' },
+      },
+      {
+        path: 'appels',
+        component: ComingSoonPage,
+        title: 'Appels',
+        data: { title: 'Appels', icon: 'lucidePhone' },
+      },
       {
         path: 'parametres',
         component: ComingSoonPage,
+        title: 'Paramètres',
         data: { title: 'Paramètres', icon: 'lucideSettings' },
       },
-      { path: 'mon-restaurant', component: MyRestaurantPage, data: { title: 'Mon restaurant' } },
+      {
+        path: 'mon-restaurant',
+        component: MyRestaurantPage,
+        title: 'Mon restaurant',
+        data: { title: 'Mon restaurant' },
+      },
       // Charge a la demande : garde le bundle initial sous le budget.
       {
         path: 'menu',
         loadComponent: () => import('./features/menu/menu-page').then((m) => m.MenuPage),
+        title: 'Menu et QR code',
         data: { title: 'Menu et QR code' },
       },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },

@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
@@ -191,6 +192,7 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
 })
 export class RestaurantMenuPage {
   private readonly service = inject(MenuService);
+  private readonly title = inject(Title);
 
   // Parametre de route et parametre de requete, lies par withComponentInputBinding.
   readonly id = input<string>();
@@ -225,6 +227,7 @@ export class RestaurantMenuPage {
     this.service.getPublic(restaurantId).subscribe({
       next: (menu) => {
         this.menu.set(menu);
+        this.title.setTitle(`La carte de ${menu.restaurantName}`);
         this.loading.set(false);
       },
       error: (err: unknown) => {
