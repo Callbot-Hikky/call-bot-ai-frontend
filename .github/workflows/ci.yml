@@ -52,9 +52,13 @@ jobs:
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Start backend (staging branch)
+      # La branche du back vient de e2e/backend-branch (staging par defaut) : une PR front qui
+      # depend d'une PR back non fusionnee la nomme, puis la remet a staging avant sa fusion.
+      - name: Start backend
         run: |
-          git clone --depth 1 --branch staging https://github.com/Callbot-Hikky/call-bot-ai-backend.git ../backend
+          BACKEND_BRANCH=$(tr -d '[:space:]' < e2e/backend-branch)
+          echo "Back : branche ${BACKEND_BRANCH}"
+          git clone --depth 1 --branch "$BACKEND_BRANCH" https://github.com/Callbot-Hikky/call-bot-ai-backend.git ../backend
           cd ../backend
           POSTGRES_PORT=5432 docker compose up -d --build
           ready=0
