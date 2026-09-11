@@ -21,6 +21,7 @@ import {
   ManualMenu,
   Menu,
   MenuFile,
+  MenuFileType,
   MenuMode,
   PublicMenu,
   detectFileType,
@@ -61,10 +62,13 @@ export class MenuService {
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingManual: ManualMenu | null = null;
   private mockState: Menu | null = null;
 
   load(restaurantId: string): void {
     this.restaurantId = restaurantId;
+    // Chaque visite repart du serveur : pas de brouillon seme depuis une visite precedente.
+    this._menu.set(null);
     this._loading.set(true);
     this._error.set(false);
     this.fetch(restaurantId).subscribe({
@@ -83,22 +87,41 @@ export class MenuService {
   // Le mode seul : le back conserve la saisie quand `manual` est absent.
   // Un refus ici ne concerne pas la saisie : l'étiquette d'état de la saisie ne bouge pas.
   setMode(mode: MenuMode): Observable<Menu> {
-    return this.put({ mode }, false);
+    // Une saisie en attente part avec le mode : deux envois croises ne peuvent pas se defaire.
+    const pending = this.takePendingManual();
+    return pending ? this.put({ mode, manual: pending }, true) : this.put({ mode }, false);
   }
 
-  saveManual(manual: ManualMenu): Observable<Menu> {
-    // Un enregistrement explicite remplace l'autosave en attente : pas de double envoi.
+  private takePendingManual(): ManualMenu | null {
     if (this.autosaveTimer) {
       clearTimeout(this.autosaveTimer);
       this.autosaveTimer = null;
     }
+    const pending = this.pendingManual;
+    this.pendingManual = null;
+    return pending;
+  }
+
+  // Appele en quittant la page : la saisie en attente part tout de suite.
+  flushManualSave(): void {
+    const pending = this.takePendingManual();
+    if (pending) {
+      this.saveManual(pending).subscribe({ next: () => undefined, error: () => undefined });
+    }
+  }
+
+  saveManual(manual: ManualMenu): Observable<Menu> {
+    // Un enregistrement explicite remplace l'autosave en attente : pas de double envoi.
+    this.takePendingManual();
     const errors = validateManual(manual);
     if (errors.length > 0) {
       this._saveState.set('failed');
       this._lastError.set(errors[0]);
       return throwError(() => new Error(errors[0]));
     }
-    const mode = this._menu()?.mode ?? 'none';
+    // Une carte saisie videe ne peut plus etre publiee : on depublie au lieu d'echouer en boucle.
+    const current = this._menu()?.mode ?? 'none';
+    const mode = current === 'manual' && manual.sections.length === 0 ? 'none' : current;
     return this.put({ mode, manual }, true);
   }
 
@@ -106,21 +129,23 @@ export class MenuService {
   // « a enregistrer » tant que l'envoi n'est pas parti, puis « en cours », puis le resultat.
   scheduleManualSave(manual: ManualMenu): void {
     this._saveState.set('dirty');
+    this.pendingManual = manual;
     if (this.autosaveTimer) {
       clearTimeout(this.autosaveTimer);
     }
     this.autosaveTimer = setTimeout(() => {
       this.autosaveTimer = null;
+      this.pendingManual = null;
       this.saveManual(manual).subscribe({ next: () => undefined, error: () => undefined });
     }, AUTOSAVE_MS);
   }
 
   upload(file: File): Observable<Menu> {
     return defer(() => from(this.precheck(file))).pipe(
-      switchMap(() => {
+      switchMap((type) => {
         this._saving.set(true);
         if (environment.useMock) {
-          return this.mockUpload(file);
+          return this.mockUpload(file, type);
         }
         const form = new FormData();
         form.append('file', file);
@@ -226,7 +251,7 @@ export class MenuService {
 
   // Verifications cote client, memes regles que le back : type sur les octets de
   // tete (jamais sur l'extension), taille par type, nombre d'images.
-  private async precheck(file: File): Promise<void> {
+  private async precheck(file: File): Promise<MenuFileType> {
     const limits = this._menu()?.limits ?? DEFAULT_LIMITS;
     const type = detectFileType(await readHead(file));
     if (!type) {
@@ -242,6 +267,7 @@ export class MenuService {
         throw new Error(MENU_ERROR_MESSAGES['too_many_files']);
       }
     }
+    return type;
   }
 
   // --- mode mock : memes regles que le back, en memoire --------------------------
@@ -279,15 +305,16 @@ export class MenuService {
     return of(structuredClone(this.mockState)).pipe(delay(200));
   }
 
-  private mockUpload(file: File): Observable<Menu> {
+  // Le type vient des octets (precheck), jamais du Content-Type annonce par le navigateur.
+  private mockUpload(file: File, type: MenuFileType): Observable<Menu> {
     const state = this.mockMenu(this.restaurantId ?? '');
-    const isPdf = file.type === FILE_TYPE_MIME.pdf;
+    const isPdf = type === 'pdf';
     const kept = isPdf ? state.files.filter((f) => f.kind !== 'pdf') : state.files;
     const images = kept.filter((f) => f.kind === 'image');
     const created: MenuFile = {
       id: `mock-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       kind: isPdf ? 'pdf' : 'image',
-      contentType: file.type,
+      contentType: FILE_TYPE_MIME[type],
       position: isPdf ? 0 : (images.at(-1)?.position ?? -1) + 1,
       sizeBytes: file.size,
       url: objectUrl(file),
@@ -299,6 +326,9 @@ export class MenuService {
   private mockRemove(fileId: string): Observable<Menu> {
     const state = this.mockMenu(this.restaurantId ?? '');
     const removed = state.files.find((f) => f.id === fileId);
+    if (removed?.url.startsWith('blob:')) {
+      URL.revokeObjectURL(removed.url);
+    }
     const files = state.files.filter((f) => f.id !== fileId);
     let position = 0;
     const renumbered = files.map((f) => (f.kind === 'image' ? { ...f, position: position++ } : f));

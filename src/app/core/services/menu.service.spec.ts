@@ -149,6 +149,56 @@ describe('MenuService', () => {
     }
   });
 
+  it('setMode avec une saisie en attente : un seul PUT qui porte le mode et le document', async () => {
+    vi.useFakeTimers();
+    try {
+      service.load(RID);
+      http.expectOne(() => true).flush(dto({ mode: 'none' }));
+      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      service.scheduleManualSave(manual);
+
+      const promise = firstValueFrom(service.setMode('manual'));
+      const req = http.expectOne((r) => r.method === 'PUT');
+      expect(req.request.body).toEqual({ mode: 'manual', manual });
+      req.flush(dto({ mode: 'manual', manual }));
+      await promise;
+      vi.advanceTimersByTime(1000);
+      http.expectNone((r) => r.method === 'PUT');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('saveManual : une saisie videe alors qu elle est publiee depublie au lieu d echouer', async () => {
+    service.load(RID);
+    http.expectOne(() => true).flush(dto({ mode: 'manual' }));
+    const empty = { version: 1 as const, sections: [] };
+
+    const promise = firstValueFrom(service.saveManual(empty));
+    const req = http.expectOne((r) => r.method === 'PUT');
+    expect(req.request.body).toEqual({ mode: 'none', manual: empty });
+    req.flush(dto({ mode: 'none' }));
+    await promise;
+  });
+
+  it('flushManualSave : la saisie en attente part tout de suite', () => {
+    vi.useFakeTimers();
+    try {
+      service.load(RID);
+      http.expectOne(() => true).flush(dto({ mode: 'manual' }));
+      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      service.scheduleManualSave(manual);
+      http.expectNone((r) => r.method === 'PUT');
+
+      service.flushManualSave();
+      http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'manual', manual }));
+      vi.advanceTimersByTime(1000);
+      http.expectNone((r) => r.method === 'PUT');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('scheduleManualSave : une erreur passe en failed avec un message', () => {
     vi.useFakeTimers();
     try {
