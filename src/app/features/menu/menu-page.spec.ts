@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { PDF_LOADER } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -53,6 +55,7 @@ describe('MenuPage', () => {
     await TestBed.configureTestingModule({
       imports: [MenuPage],
       providers: [
+        { provide: PDF_LOADER, useValue: () => new Promise(() => undefined) },
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -257,11 +260,11 @@ describe('MenuPage', () => {
       url: '/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/06a7fb1d-3c23-4632-a7d0-a6754249c2a4',
     };
     await render(dto({ mode: 'pdf', files: [pdf] }));
-    const frame: HTMLIFrameElement = fixture.nativeElement.querySelector(
-      'iframe[data-testid="pdf-preview"]',
-    );
-    expect(frame).not.toBeNull();
-    expect(frame.getAttribute('src')).toBe(pdf.url);
+    // Meme rendu que la page client : pages en images, jamais un lecteur incruste.
+    const pages = fixture.debugElement.query(By.css('hk-pdf-pages[data-testid="pdf-preview"]'));
+    expect(pages).not.toBeNull();
+    expect(pages.componentInstance.url()).toBe(pdf.url);
+    expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
   });
 
   it('un lot de photos continue apres un refus et donne un seul bilan', async () => {

@@ -8,7 +8,6 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, concatMap, from, of, toArray } from 'rxjs';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
@@ -17,6 +16,7 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
+import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { humanSize } from '@core/utils/format';
@@ -79,6 +79,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkSkeleton,
     HkFileDropzone,
     HkMenuManualForm,
+    HkPdfPages,
     HkQrCard,
     RouterLink,
   ],
@@ -339,21 +340,26 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     >
                   </div>
                 }
-                @if (pdfPreview(); as safe) {
-                  <iframe
-                    data-testid="pdf-preview"
-                    [src]="safe"
-                    title="Aperçu de votre carte en PDF"
-                    class="border-border/70 h-[32rem] w-full rounded-lg border bg-white"
-                  ></iframe>
+                @if (pdfPreviewUrl(); as url) {
+                  <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
+                  <div class="mx-auto w-full max-w-2xl">
+                    <hk-pdf-pages
+                      data-testid="pdf-preview"
+                      [url]="url"
+                      title="Aperçu de votre carte en PDF"
+                    />
+                  </div>
                 }
-                <p class="text-text-subtle text-xs">Déposer un nouveau PDF remplace celui-ci.</p>
               }
               <hk-file-dropzone
                 [accept]="pdfMimes"
                 [maxBytes]="menu()!.limits.pdfMaxBytes"
                 [disabled]="service.saving()"
-                label="Glissez votre carte en PDF ici"
+                [label]="
+                  pdfFile()
+                    ? 'Glissez un nouveau PDF pour remplacer celui-ci'
+                    : 'Glissez votre carte en PDF ici'
+                "
                 hint="ou cliquez pour la choisir. PDF, 10 Mo maximum."
                 (filesPicked)="onFiles($event)"
               />
@@ -521,7 +527,6 @@ export class MenuPage {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly restaurants = inject(RestaurantService);
-  private readonly sanitizer = inject(DomSanitizer);
 
   protected readonly restaurantId = this.session.restaurantId();
   protected readonly cards = MODE_CARDS;
@@ -551,12 +556,10 @@ export class MenuPage {
   protected readonly pdfFile = computed(
     () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
   );
-  // Le cadre n'accepte que l'URL admin de NOTRE fichier, verifiee par sa forme.
-  protected readonly pdfPreview = computed<SafeResourceUrl | null>(() => {
+  // Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue.
+  protected readonly pdfPreviewUrl = computed<string | null>(() => {
     const file = this.pdfFile();
-    return file && isSafeAdminFileUrl(file.url)
-      ? this.sanitizer.bypassSecurityTrustResourceUrl(file.url)
-      : null;
+    return file && isSafeAdminFileUrl(file.url) ? file.url : null;
   });
   protected readonly images = computed(() =>
     (this.menu()?.files ?? [])
