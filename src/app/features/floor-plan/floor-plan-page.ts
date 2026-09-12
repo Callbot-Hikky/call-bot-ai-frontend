@@ -28,7 +28,6 @@ import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
-import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { formatTime } from '@core/utils/format';
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
@@ -37,7 +36,7 @@ import { formatTime } from '@core/utils/format';
 // services (signals) - une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
-  imports: [HkPageHeader, HkIcon, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
+  imports: [HkPageHeader, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
   template: `
     @if (serviceMode()) {
       <hk-service-overlay
