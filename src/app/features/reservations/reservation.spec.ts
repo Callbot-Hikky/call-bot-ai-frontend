@@ -115,6 +115,40 @@ describe('ReservationPage (replanification publique)', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/client/reservations', 'r-1', 'confirmed']);
   });
 
+  it('une reponse de creneaux en retard ne remplace pas la plus recente', async () => {
+    await render();
+    fixture.componentInstance.partySize.set(3);
+    await fixture.whenStable();
+    fixture.componentInstance.partySize.set(4);
+    await fixture.whenStable();
+    const pending = http.match((r) => r.url.includes('/slots'));
+    const forThree = pending.find((r) => r.request.url.includes('partySize=3'));
+    const forFour = pending.find((r) => r.request.url.includes('partySize=4'));
+    expect(forThree).toBeTruthy();
+    expect(forFour).toBeTruthy();
+    forFour!.flush({ days: [{ date: '2026-09-13', slots: [SLOT] }] });
+    forThree!.flush({ days: [] });
+    await fixture.whenStable();
+    expect(fixture.componentInstance.days()).toEqual([{ date: '2026-09-13', slots: [SLOT] }]);
+  });
+
+  it('une panne du chargement des creneaux propose de reessayer, sans passer pour complet', async () => {
+    await render();
+    fixture.componentInstance.partySize.set(3);
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.url.includes('partySize=3'))
+      .flush('boom', { status: 500, statusText: 'Error' });
+    await fixture.whenStable();
+    expect(fixture.componentInstance.slotsError()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('Réessayer');
+    fixture.componentInstance.reloadSlots();
+    await fixture.whenStable();
+    http.expectOne((r) => r.url.includes('partySize=3')).flush({ days: [] });
+    await fixture.whenStable();
+    expect(fixture.componentInstance.slotsError()).toBe(false);
+  });
+
   it('un creneau pris entre-temps (409) est explique et les creneaux rechargés', async () => {
     await render();
     fixture.componentInstance.onSlotPicked(SLOT);
