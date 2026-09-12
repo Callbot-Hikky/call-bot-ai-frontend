@@ -12,13 +12,14 @@ import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
+import { HkClientHeader } from '@shared/components/molecules/client-header/hk-client-header';
 import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { MenuService } from '@core/services/menu.service';
 import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.model';
 
 @Component({
   selector: 'app-restaurant-menu',
-  imports: [RouterLink, HkIcon, HkSkeleton, HkPdfPages],
+  imports: [RouterLink, HkIcon, HkSkeleton, HkPdfPages, HkClientHeader],
   template: `
     <article class="mx-auto flex w-full max-w-2xl flex-col gap-10 py-6">
       @if (loading()) {
@@ -44,15 +45,7 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
           }
         </div>
       } @else if (menu(); as m) {
-        <header class="reveal flex flex-col gap-3">
-          <p class="text-primary text-xs font-medium tracking-[0.18em] uppercase">La carte</p>
-          <h1
-            class="text-text-strong text-3xl font-semibold tracking-tight text-balance sm:text-4xl"
-          >
-            {{ m.restaurantName }}
-          </h1>
-          <div class="bg-primary h-0.5 w-12"></div>
-        </header>
+        <hk-client-header eyebrow="La carte" [title]="m.restaurantName" />
 
         @switch (m.mode) {
           @case ('manual') {

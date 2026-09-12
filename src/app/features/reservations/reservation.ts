@@ -17,6 +17,7 @@ import {
 } from '@core/models/reservation.model';
 import { HkReservationSlotPicker } from '@shared/components/organisms/reservation-slot-picker/hk-reservation-slot-picker';
 import { HkCounter } from '@shared/components/molecules/counter/hk-counter';
+import { HkClientHeader } from '@shared/components/molecules/client-header/hk-client-header';
 
 const MIN_PARTY_SIZE = 1;
 // Aligne sur le back (BookingPolicy.MAX_PARTY_SIZE) : au-dela, l'API refuse.
@@ -29,6 +30,7 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
     FormsModule,
     HkReservationSlotPicker,
     HkCounter,
+    HkClientHeader,
     ...HlmSheetImports,
     BrnSheetContent,
     HlmButton,
@@ -47,11 +49,11 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
         </p>
       </div>
     } @else {
-      <div class="flex flex-col gap-10">
-        <div class="flex flex-col gap-2">
-          <h1 class="text-xl font-bold">
-            {{ reservation()?.restaurantName || 'Votre réservation' }}
-          </h1>
+      <article class="mx-auto flex w-full max-w-2xl flex-col gap-10 py-6">
+        <hk-client-header
+          eyebrow="Votre réservation"
+          [title]="reservation()?.restaurantName || 'Votre réservation'"
+        >
           @if (reservation()?.restaurantId; as restaurantId) {
             <a
               class="text-primary text-sm underline"
@@ -62,7 +64,7 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
               Vous voulez voir le menu ?
             </a>
           }
-        </div>
+        </hk-client-header>
 
         <div class="flex flex-col gap-4">
           <p class="font-bold">
@@ -96,7 +98,7 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
             (slotPicked)="onSlotPicked($event)"
           />
         </div>
-      </div>
+      </article>
 
       <hlm-sheet side="bottom" [state]="sheetState()" (stateChanged)="sheetState.set($event)">
         <hlm-sheet-content
