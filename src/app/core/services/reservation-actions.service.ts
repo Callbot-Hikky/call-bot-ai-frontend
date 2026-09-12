@@ -130,12 +130,15 @@ export class ReservationActionsService {
     }
     const who = reservation.customerName?.trim() || 'ce client';
     this.confirmDialog
-      .ask({
-        title: `Annuler la réservation de ${who} ?`,
-        message:
-          'Le client sera prévenu et la table redeviendra libre. Cette action ne peut pas être annulée.',
-        confirmLabel: 'Annuler la réservation',
-      })
+      .ask(
+        {
+          title: `Annuler la réservation de ${who} ?`,
+          message:
+            'Le client sera prévenu et la table redeviendra libre. Cette action ne peut pas être annulée.',
+          confirmLabel: 'Annuler la réservation',
+        },
+        destroyRef,
+      )
       .pipe(
         filter(Boolean),
         switchMap(() => this.service.cancel(reservation.id)),

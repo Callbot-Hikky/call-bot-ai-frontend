@@ -55,6 +55,20 @@ describe('HkReservationSlotPicker', () => {
     );
   });
 
+  it('un rechargement des creneaux ne rouvre pas un jour que le client a replie', async () => {
+    await render(true);
+    expect(slotButtons().length).toBeGreaterThan(0);
+    fixture.componentInstance.toggleDay(DAYS[1].date);
+    await fixture.whenStable();
+    expect(slotButtons()).toHaveLength(0);
+    fixture.componentRef.setInput(
+      'days',
+      DAYS.map((d) => ({ ...d, slots: [...d.slots] })),
+    );
+    await fixture.whenStable();
+    expect(slotButtons()).toHaveLength(0);
+  });
+
   it('choisir un creneau l emet et le marque selectionne', async () => {
     await render(true);
     const picked: unknown[] = [];

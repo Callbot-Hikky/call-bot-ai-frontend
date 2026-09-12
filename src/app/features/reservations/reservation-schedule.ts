@@ -6,7 +6,9 @@ import {
   inject,
   input,
   signal,
+  DestroyRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -253,6 +255,7 @@ export class ReservationSchedulePage {
   private readonly reservations = inject(ReservationService);
   private readonly router = inject(Router);
   private readonly title = inject(Title);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly MIN_PARTY_SIZE = MIN_PARTY_SIZE;
   readonly MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
@@ -304,19 +307,22 @@ export class ReservationSchedulePage {
     if (!id) return;
     this.loading.set(true);
     this.loadError.set(null);
-    this.menuService.getPublic(id).subscribe({
-      next: (menu) => {
-        this.restaurantName.set(menu.restaurantName);
-        this.title.setTitle(`Réserver chez ${menu.restaurantName}`);
-        this.hasMenu.set(menu.mode !== 'none');
-        this.loading.set(false);
-      },
-      error: (err: unknown) => {
-        const notFound = err instanceof HttpErrorResponse && err.status === 404;
-        this.loadError.set(notFound ? 'not_found' : 'failed');
-        this.loading.set(false);
-      },
-    });
+    this.menuService
+      .getPublic(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (menu) => {
+          this.restaurantName.set(menu.restaurantName);
+          this.title.setTitle(`Réserver chez ${menu.restaurantName}`);
+          this.hasMenu.set(menu.mode !== 'none');
+          this.loading.set(false);
+        },
+        error: (err: unknown) => {
+          const notFound = err instanceof HttpErrorResponse && err.status === 404;
+          this.loadError.set(notFound ? 'not_found' : 'failed');
+          this.loading.set(false);
+        },
+      });
   }
 
   protected loadSlots(id = this.id(), size = this.partySize()): void {
@@ -324,18 +330,21 @@ export class ReservationSchedulePage {
     const run = ++this.slotsRun;
     this.slotsLoading.set(true);
     this.slotsError.set(false);
-    this.reservations.getPublicSlots(id, size).subscribe({
-      next: (r) => {
-        if (run !== this.slotsRun) return;
-        this.days.set(r.days);
-        this.slotsLoading.set(false);
-      },
-      error: () => {
-        if (run !== this.slotsRun) return;
-        this.slotsError.set(true);
-        this.slotsLoading.set(false);
-      },
-    });
+    this.reservations
+      .getPublicSlots(id, size)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          if (run !== this.slotsRun) return;
+          this.days.set(r.days);
+          this.slotsLoading.set(false);
+        },
+        error: () => {
+          if (run !== this.slotsRun) return;
+          this.slotsError.set(true);
+          this.slotsLoading.set(false);
+        },
+      });
   }
 
   protected onSlotPicked(slot: RescheduleSlot): void {
@@ -383,6 +392,7 @@ export class ReservationSchedulePage {
         customer: { firstName: this.firstName().trim(), phone: this.phone().trim() },
         notes: this.notes().trim() || undefined,
       })
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (created) => {
           this.submitting.set(false);

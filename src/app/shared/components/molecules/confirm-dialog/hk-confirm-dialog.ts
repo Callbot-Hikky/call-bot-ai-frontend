@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { HlmDialogService } from '@spartan-ng/helm/dialog';
 import { Injectable } from '@angular/core';
@@ -46,8 +46,10 @@ export class HkConfirmDialog {
 export class ConfirmService {
   private readonly dialogs = inject(HlmDialogService);
 
-  ask(context: ConfirmDialogContext): Observable<boolean> {
+  // Si l'ecran appelant disparait pendant que la boite est ouverte, elle se ferme avec lui.
+  ask(context: ConfirmDialogContext, destroyRef?: DestroyRef): Observable<boolean> {
     const ref = this.dialogs.open(HkConfirmDialog, { context, contentClass: 'max-w-md' });
+    destroyRef?.onDestroy(() => ref.close(false));
     return (ref.closed$ as Observable<boolean | undefined>).pipe(map((r) => r === true));
   }
 }

@@ -1,11 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { login } from './helpers';
 
+const API = process.env['E2E_API_URL'] ?? 'http://localhost:8080/api';
+
 // Parcours de bout en bout, tout par l'interface : inscription, onboarding, premiere
 // reservation, page client, reconnexion. C'est le filet contre les regressions qui
 // touchent les pages hors menu (coquilles, defilement, session).
 test.describe('Parcours restaurateur : du compte neuf a la premiere reservation', () => {
-  test('inscription, onboarding, reservation, page client, reconnexion', async ({ page }) => {
+  test('inscription, onboarding, reservation, page client, reconnexion', async ({
+    page,
+    request,
+  }) => {
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const owner = { email: `e2e-parcours-${stamp}@example.com`, password: 'password123' };
     const phone = `+331${stamp.replace(/\D/g, '').slice(-8).padStart(8, '0')}`;
@@ -70,8 +75,25 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     const { id, restaurantId } = reservation!;
     await expect(page.getByText('Nadia Parcours').first()).toBeVisible();
 
-    // 4. Page client de la reservation, puis la carte (rien de publie).
-    await page.goto(`/client/reservations/${id}/reschedule`);
+    // 4. Page client : le lien du message porte un jeton public, pas l'identifiant interne.
+    // On cree donc une reservation par la route publique, comme le ferait un client.
+    const slots = (await (
+      await request.get(`${API}/public/restaurants/${restaurantId}/slots?partySize=2`)
+    ).json()) as { days: { slots: { startsAt: string }[] }[] };
+    // Les horaires saisis a l'onboarding peuvent fermer demain : premier creneau ouvert, quel que soit le jour.
+    const firstSlot = slots.days.flatMap((d) => d.slots)[0];
+    expect(firstSlot).toBeTruthy();
+    const created = await request.post(`${API}/public/restaurants/${restaurantId}/reservations`, {
+      data: {
+        startsAt: firstSlot.startsAt,
+        partySize: 2,
+        customer: { firstName: 'Client Parcours', phone: '06 11 22 33 44' },
+      },
+    });
+    expect(created.status()).toBe(201);
+    const publicToken = (await created.json()).id as string;
+    expect(publicToken).not.toBe(id);
+    await page.goto(`/client/reservations/${publicToken}/reschedule`);
     await expect(page.getByText('Récapitulatif de votre réservation')).toBeVisible();
     await page.getByTestId('link-menu').click();
     await page.waitForURL(/\/client\/restaurants\/.+\/menu/);
