@@ -10,7 +10,7 @@ test.describe('Menu : page restaurateur', () => {
     await login(page, owner);
     await page.goto('/menu');
 
-    await expect(page.getByRole('heading', { name: 'Contenu' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Votre carte' })).toBeVisible();
     await expect(page.getByTestId('nothing-published')).toContainText("Rien n'est publié");
 
     // Une carte vide s'ouvre sans erreur : le bandeau dit quoi faire, la zone de saisie apparaît.
@@ -233,6 +233,6 @@ test.describe('Menu : page restaurateur', () => {
     );
     expect(res.status()).toBe(403);
     await page.goto('/menu');
-    await expect(page.getByRole('heading', { name: 'Contenu' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Votre carte' })).toBeVisible();
   });
 });

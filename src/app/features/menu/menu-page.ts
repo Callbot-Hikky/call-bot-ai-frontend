@@ -66,7 +66,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
   failed: "Échec de l'enregistrement",
 };
 
-// Page « Menu et QR code » du restaurateur : choisir ce qui est publié (PDF,
+// Page « Carte et QR codes » du restaurateur : choisir ce qui est publié (PDF,
 // photos ou saisie), preparer le contenu de chaque mode, voir l'etat.
 // Cliquer une carte publie ce mode ; si son contenu manque, le back refuse et
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
@@ -84,7 +84,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
   ],
   template: `
     <hk-page-header
-      subtitle="Choisissez comment vos clients voient votre carte : un PDF, des photos ou une saisie à la main. Un seul mode est publié à la fois."
+      subtitle="Les liens à partager avec vos clients, et la carte qu'ils découvrent en les suivant."
     >
       <span class="text-text-subtle text-xs" data-testid="save-state" aria-live="polite">
         {{ saveLabel() }}
@@ -124,6 +124,43 @@ const SAVE_LABELS: Record<SaveState, string> = {
       </div>
     } @else {
       <div class="flex flex-col gap-8">
+        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
+          <div class="flex flex-col gap-1">
+            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
+            <p class="text-text-subtle text-sm">
+              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
+              directement à la bonne page, sans compte ni application.
+            </p>
+          </div>
+          <div class="grid gap-4 lg:grid-cols-2">
+            <hk-qr-card
+              title="Voir le menu"
+              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
+              [url]="menuUrl()"
+              [fileName]="'menu-' + slug()"
+            />
+            <hk-qr-card
+              title="Réserver une table"
+              description="Vos clients choisissent un créneau et réservent en ligne, sans appeler."
+              [url]="bookingUrl()"
+              [fileName]="'reservation-' + slug()"
+            />
+          </div>
+          @if (menu()!.mode === 'none') {
+            <p class="text-text-subtle text-sm" data-testid="qr-hint">
+              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
+              bientôt ».
+            </p>
+          }
+        </section>
+
+        <div class="flex flex-col gap-1">
+          <h2 class="text-text-strong text-lg font-semibold">Votre carte</h2>
+          <p class="text-text-subtle text-sm">
+            Choisissez comment vos clients la voient : un PDF, des photos ou une saisie à la main.
+            Un seul format est publié à la fois.
+          </p>
+        </div>
         <div class="grid gap-4 sm:grid-cols-3" role="group" aria-label="Mode de publication">
           @for (card of cards; track card.mode) {
             <button
@@ -228,38 +265,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
           }
         </div>
 
-        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
-          <div class="flex flex-col gap-1">
-            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
-            <p class="text-text-subtle text-sm">
-              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
-              directement à la bonne page, sans compte ni application.
-            </p>
-          </div>
-          <div class="grid gap-4 lg:grid-cols-2">
-            <hk-qr-card
-              title="Voir le menu"
-              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
-              [url]="menuUrl()"
-              [fileName]="'menu-' + slug()"
-            />
-            <hk-qr-card
-              title="Réserver une table"
-              description="Vos clients choisissent un créneau et réservent en ligne, sans appeler."
-              [url]="bookingUrl()"
-              [fileName]="'reservation-' + slug()"
-            />
-          </div>
-          @if (menu()!.mode === 'none') {
-            <p class="text-text-subtle text-sm" data-testid="qr-hint">
-              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
-              bientôt ».
-            </p>
-          }
-        </section>
-
         <div class="flex flex-col gap-1">
-          <h2 class="text-text-strong text-lg font-semibold">Contenu</h2>
+          <h3 class="text-text-strong text-base font-semibold">Préparation</h3>
           <p class="text-text-subtle text-sm">
             Préparez chaque format ici, puis choisissez celui que vos clients verront.
           </p>
