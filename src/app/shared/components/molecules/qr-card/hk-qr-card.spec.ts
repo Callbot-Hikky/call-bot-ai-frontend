@@ -33,6 +33,8 @@ describe('HkQrCard', () => {
   it('genere un QR code SVG qui encode exactement le lien', () => {
     const svg: string = fixture.componentInstance['svg']();
     expect(svg.startsWith('<svg')).toBe(true);
+    // Le SVG ne contient que des formes : jamais de script, de lien ni de contenu etranger.
+    expect(svg).not.toMatch(/<script|<foreignObject|<a\b|javascript:/i);
     expect(fixture.nativeElement.querySelector('[data-testid="qr-url"]').textContent.trim()).toBe(
       url,
     );

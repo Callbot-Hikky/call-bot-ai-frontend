@@ -345,10 +345,12 @@ export class MenuService {
     return of(structuredClone(this.mockState)).pipe(delay(200));
   }
 
+  // Comme le back : l'ordre porte sur un seul genre, celui du premier identifiant.
   private mockReorder(fileIds: string[]): Observable<Menu> {
     const state = this.mockMenu(this.restaurantId ?? '');
+    const kind = state.files.find((f) => f.id === fileIds[0])?.kind;
     const files = state.files.map((f) =>
-      f.kind === 'image' ? { ...f, position: fileIds.indexOf(f.id) } : f,
+      f.kind === kind ? { ...f, position: fileIds.indexOf(f.id) } : f,
     );
     files.sort((a, b) => a.position - b.position);
     this.mockState = { ...state, files };

@@ -1,4 +1,5 @@
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { HlmIcon } from '@spartan-ng/helm/icon';
 import { NgIcon } from '@ng-icons/core';
@@ -116,6 +117,7 @@ import { PublicReservation } from '@core/models/reservation.model';
 export class ReservationConfirmedPage implements OnInit {
   private service = inject(ReservationService);
   private title = inject(Title);
+  private destroyRef = inject(DestroyRef);
 
   id = input.required<string>();
   reservation = signal<PublicReservation | null>(null);
@@ -125,14 +127,17 @@ export class ReservationConfirmedPage implements OnInit {
 
   // Lecture publique : la page sert au client qui vient de reserver ou de replanifier, sans session.
   ngOnInit() {
-    this.service.getPublicReservation(this.id()).subscribe({
-      next: (r) => {
-        this.reservation.set(r);
-        this.title.setTitle(
-          `${r.status === 'cancelled' ? 'Réservation annulée' : 'Réservation confirmée'} · ${r.restaurantName}`,
-        );
-      },
-      error: () => this.error.set(true),
-    });
+    this.service
+      .getPublicReservation(this.id())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          this.reservation.set(r);
+          this.title.setTitle(
+            `${r.status === 'cancelled' ? 'Réservation annulée' : 'Réservation confirmée'} · ${r.restaurantName}`,
+          );
+        },
+        error: () => this.error.set(true),
+      });
   }
 }

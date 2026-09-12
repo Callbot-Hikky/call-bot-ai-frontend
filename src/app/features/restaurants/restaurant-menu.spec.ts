@@ -96,6 +96,77 @@ describe('RestaurantMenuPage', () => {
     expect(img.getAttribute('loading')).toBe('lazy');
   });
 
+  it('les photos suivent l ordre du restaurateur et ignorent les autres genres et URL', async () => {
+    const second = '2f1f6a0e-4a9d-4b57-9a5f-1c7b8b7e6d21';
+    await render(
+      dto({
+        mode: 'images',
+        files: [
+          {
+            id: second,
+            kind: 'image',
+            contentType: 'image/png',
+            position: 1,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${second}`,
+          },
+          {
+            id: 'x',
+            kind: 'image',
+            contentType: 'image/png',
+            position: 2,
+            sizeBytes: 1,
+            url: 'https://evil.example/pixel.png',
+          },
+          {
+            id: 'p',
+            kind: 'pdf',
+            contentType: 'application/pdf',
+            position: 0,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+          },
+          {
+            id: FILE,
+            kind: 'image',
+            contentType: 'image/png',
+            position: 0,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+          },
+        ],
+      }),
+    );
+    const srcs = [...fixture.nativeElement.querySelectorAll('img[data-testid="menu-image"]')].map(
+      (img: HTMLImageElement) => img.getAttribute('src'),
+    );
+    expect(srcs).toEqual([
+      `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+      `/api/public/restaurants/${RID}/menu/files/${second}`,
+    ]);
+  });
+
+  it('un PDF publie dont l URL n a pas la bonne forme est signale, pas presente comme absent', async () => {
+    await render(
+      dto({
+        mode: 'pdf',
+        files: [
+          {
+            id: 'p',
+            kind: 'pdf',
+            contentType: 'application/pdf',
+            position: 0,
+            sizeBytes: 1,
+            url: 'https://evil.example/carte.pdf',
+          },
+        ],
+      }),
+    );
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain("n'a pas pu être chargée");
+    expect(text).not.toContain('arrive bientôt');
+  });
+
   it('affiche le PDF dans un cadre et un lien pour l ouvrir', async () => {
     await render(
       dto({

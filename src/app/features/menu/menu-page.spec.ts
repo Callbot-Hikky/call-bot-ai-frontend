@@ -37,7 +37,7 @@ const IMAGES = [
     contentType: 'image/png',
     position: 0,
     sizeBytes: 10,
-    url: '/api/restaurants/r-1/menu/files/a',
+    url: '/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/aaaaaaaa-0000-4000-8000-000000000001',
   },
   {
     id: 'b',
@@ -45,7 +45,7 @@ const IMAGES = [
     contentType: 'image/png',
     position: 1,
     sizeBytes: 10,
-    url: '/api/restaurants/r-1/menu/files/b',
+    url: '/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/bbbbbbbb-0000-4000-8000-000000000002',
   },
 ];
 
@@ -210,7 +210,9 @@ describe('MenuPage', () => {
       fixture.nativeElement.querySelectorAll('[data-testid="image-thumb"]'),
     );
     expect(imgs).toHaveLength(2);
-    expect(imgs[0].getAttribute('src')).toBe('/api/restaurants/r-1/menu/files/a');
+    expect(imgs[0].getAttribute('src')).toBe(
+      '/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/aaaaaaaa-0000-4000-8000-000000000001',
+    );
 
     (fixture.nativeElement.querySelector('[data-testid="remove-file-a"]') as HTMLElement).click();
     await fixture.whenStable();

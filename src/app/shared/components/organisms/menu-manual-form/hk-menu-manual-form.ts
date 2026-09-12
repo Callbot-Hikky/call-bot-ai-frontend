@@ -12,6 +12,7 @@ import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkInput } from '@shared/components/atoms/input/hk-input';
+import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import {
   MANUAL_LIMITS,
   ManualItem,
@@ -38,7 +39,7 @@ type PendingRemoval =
 // confirmation inline : jamais de dialogue bloquant.
 @Component({
   selector: 'hk-menu-manual-form',
-  imports: [HkInput, HkButton, HkIcon, HlmTextarea],
+  imports: [HkInput, HkButton, HkIcon, HlmTextarea, HkFocusOnInit],
   template: `
     <div class="flex flex-col gap-6" [class.opacity-60]="disabled()">
       @for (section of menu().sections; track $index; let s = $index) {
@@ -78,6 +79,8 @@ type PendingRemoval =
             <div
               class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
               role="alert"
+              hkFocusOnInit
+              (keydown.escape)="pending.set(null)"
             >
               <span>
                 @if (section.items.length === 0) {
@@ -158,6 +161,8 @@ type PendingRemoval =
                 <div
                   class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-sm"
                   role="alert"
+                  hkFocusOnInit
+                  (keydown.escape)="pending.set(null)"
                 >
                   <span>Supprimer ce plat ?</span>
                   <hk-button
