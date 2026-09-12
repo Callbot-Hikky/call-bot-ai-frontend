@@ -16,6 +16,11 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     await page.getByRole('textbox', { name: /mot de passe/i }).fill(owner.password);
     await page.getByRole('button', { name: /créer mon compte/i }).click();
 
+    // L'inscription mene a l'offre (paiement Stripe), impossible a jouer ici : on passe
+    // directement a l'onboarding, qui ne demande qu'une session.
+    await page.waitForURL(/\/offre/);
+    await page.goto('/onboarding');
+
     // 2. Onboarding, etape 1 : le restaurant.
     await expect(page.getByRole('heading', { name: 'Votre restaurant' })).toBeVisible();
     await page.locator('input[name="name"]').fill(`Chez Parcours ${stamp.slice(-5)}`);
