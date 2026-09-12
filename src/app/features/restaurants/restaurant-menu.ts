@@ -102,30 +102,35 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
             </div>
           }
           @case ('pdf') {
-            @if (!pdfFile()) {
+            @if (pdfs().length === 0) {
               <p class="text-text-muted reveal text-base" [style.animation-delay.ms]="80">
                 La carte de {{ m.restaurantName }} arrive bientôt.
               </p>
             }
-            <div class="reveal flex flex-col gap-3" [style.animation-delay.ms]="80">
-              @if (pdfUrl(); as url) {
-                <hk-pdf-pages
-                  data-testid="menu-pdf"
-                  [url]="url"
-                  title="La carte de {{ m.restaurantName }}"
-                />
-              }
-              @if (pdfFile(); as pdf) {
-                <a
-                  data-testid="open-pdf"
-                  [href]="pdf.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="text-primary inline-flex items-center gap-2 self-start text-sm underline"
-                >
-                  <hk-icon name="lucideExternalLink" [size]="14" />
-                  Ouvrir la carte en plein écran
-                </a>
+            <!-- Plusieurs cartes (plats, vins, desserts) s'enchainent dans l'ordre du restaurateur. -->
+            <div class="reveal flex flex-col gap-8" [style.animation-delay.ms]="80">
+              @for (pdf of pdfs(); track pdf.id; let i = $index) {
+                <div class="flex flex-col gap-3" data-testid="menu-pdf-block">
+                  <hk-pdf-pages
+                    data-testid="menu-pdf"
+                    [url]="pdf.url"
+                    [title]="pdfTitle(m.restaurantName, i)"
+                  />
+                  <a
+                    data-testid="open-pdf"
+                    [href]="pdf.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary inline-flex items-center gap-2 self-start text-sm underline"
+                  >
+                    <hk-icon name="lucideExternalLink" [size]="14" />
+                    {{
+                      pdfs().length > 1
+                        ? 'Ouvrir cette carte en plein écran'
+                        : 'Ouvrir la carte en plein écran'
+                    }}
+                  </a>
+                </div>
               }
             </div>
           }
@@ -195,14 +200,19 @@ export class RestaurantMenuPage {
   protected readonly loading = signal(true);
   protected readonly error = signal<'not_found' | 'failed' | null>(null);
 
-  protected readonly pdfFile = computed(
-    () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
+  // Seules les URL de fichiers publics verifiees par leur forme sont rendues, jamais une valeur libre.
+  protected readonly pdfs = computed(() =>
+    (this.menu()?.files ?? [])
+      .filter((f) => f.kind === 'pdf' && isSafePublicFileUrl(f.url))
+      .sort((a, b) => a.position - b.position),
   );
-  // Seule une URL de fichier public verifiee par sa forme est rendue, jamais une valeur libre.
-  protected readonly pdfUrl = computed<string | null>(() => {
-    const file = this.pdfFile();
-    return file && isSafePublicFileUrl(file.url) ? file.url : null;
-  });
+
+  protected pdfTitle(restaurantName: string, index: number): string {
+    const n = this.pdfs().length;
+    return n > 1
+      ? `Carte ${index + 1} sur ${n} de ${restaurantName}`
+      : `La carte de ${restaurantName}`;
+  }
 
   constructor() {
     effect(() => {

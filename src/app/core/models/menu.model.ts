@@ -19,6 +19,7 @@ export interface MenuFile {
 
 export interface MenuLimits {
   pdfMaxBytes: number;
+  pdfMaxCount: number;
   imageMaxBytes: number;
   imageMaxCount: number;
 }
@@ -52,6 +53,7 @@ export interface Menu {
 // dans chaque reponse admin et elles font foi.
 export const DEFAULT_LIMITS: MenuLimits = {
   pdfMaxBytes: 10 * 1024 * 1024,
+  pdfMaxCount: 5,
   imageMaxBytes: 5 * 1024 * 1024,
   imageMaxCount: 8,
 };

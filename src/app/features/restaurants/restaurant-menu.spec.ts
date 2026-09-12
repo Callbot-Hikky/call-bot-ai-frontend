@@ -124,6 +124,39 @@ describe('RestaurantMenuPage', () => {
     expect(link.getAttribute('rel')).toContain('noopener');
   });
 
+  it('plusieurs PDF s enchainent dans l ordre des positions, chacun avec son lien', async () => {
+    const wines = '2f1f6a0e-4a9d-4b57-9a5f-1c7b8b7e6d21';
+    await render(
+      dto({
+        mode: 'pdf',
+        files: [
+          {
+            id: wines,
+            kind: 'pdf',
+            contentType: 'application/pdf',
+            position: 1,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${wines}`,
+          },
+          {
+            id: FILE,
+            kind: 'pdf',
+            contentType: 'application/pdf',
+            position: 0,
+            sizeBytes: 1,
+            url: `/api/public/restaurants/${RID}/menu/files/${FILE}`,
+          },
+        ],
+      }),
+    );
+    const pages = fixture.debugElement.queryAll(By.css('hk-pdf-pages[data-testid="menu-pdf"]'));
+    expect(pages.length).toBe(2);
+    expect(pages[0].componentInstance.url()).toContain(FILE);
+    expect(pages[1].componentInstance.url()).toContain(wines);
+    expect(fixture.nativeElement.querySelectorAll('a[data-testid="open-pdf"]').length).toBe(2);
+    expect(fixture.nativeElement.textContent).not.toContain('arrive bientôt');
+  });
+
   it('dit que la carte arrive quand rien n est publie', async () => {
     await render(dto({ mode: 'none' }));
     expect(fixture.nativeElement.textContent).toContain('bientôt');

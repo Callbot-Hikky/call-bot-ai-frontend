@@ -20,7 +20,12 @@ function dto(partial: Partial<MenuDto> = {}): MenuDto {
     mode: 'none',
     manual: { version: 1, sections: [] },
     files: [],
-    limits: { pdfMaxBytes: 10 * 1024 * 1024, imageMaxBytes: 5 * 1024 * 1024, imageMaxCount: 8 },
+    limits: {
+      pdfMaxBytes: 10 * 1024 * 1024,
+      pdfMaxCount: 5,
+      imageMaxBytes: 5 * 1024 * 1024,
+      imageMaxCount: 8,
+    },
     ...partial,
   };
 }
@@ -277,6 +282,47 @@ describe('MenuPage', () => {
     expect(pages).not.toBeNull();
     expect(pages.componentInstance.url()).toBe(pdf.url);
     expect(fixture.nativeElement.querySelector('iframe')).toBeNull();
+  });
+
+  it('plusieurs PDF : une rangee par fichier dans l ordre, l ajout en tete, la limite respectee', async () => {
+    const pdf = (id: string, position: number) => ({
+      id,
+      kind: 'pdf' as const,
+      contentType: 'application/pdf',
+      position,
+      sizeBytes: 10,
+      url: `/api/restaurants/40de0820-8f77-408a-aad4-847c889f7ffa/menu/files/${id}`,
+    });
+    await render(
+      dto({
+        mode: 'pdf',
+        files: [
+          pdf('bbbbbbbb-0000-4000-8000-000000000002', 1),
+          pdf('aaaaaaaa-0000-4000-8000-000000000001', 0),
+        ],
+      }),
+    );
+    const rows: NodeListOf<HTMLElement> =
+      fixture.nativeElement.querySelectorAll('[data-testid="pdf-row"]');
+    expect(rows.length).toBe(2);
+    expect(
+      rows[0].querySelector('[data-testid^="move-up-"]')?.getAttribute('data-testid'),
+    ).toContain('aaaaaaaa');
+    expect(fixture.nativeElement.querySelector('[data-testid="pdf-count"]').textContent).toContain(
+      '2/5 PDF',
+    );
+    const html: string = fixture.nativeElement.innerHTML;
+    expect(html.indexOf('Ajouter un PDF')).toBeLessThan(html.indexOf('data-testid="pdf-row"'));
+    expect(fixture.nativeElement.querySelector('label.border-dashed')).toBeNull();
+
+    await render(
+      dto({
+        mode: 'pdf',
+        files: [1, 2, 3, 4, 5].map((n) => pdf(`cccccccc-0000-4000-8000-00000000000${n}`, n)),
+      }),
+    );
+    expect(fixture.nativeElement.textContent).toContain('Limite de PDF atteinte');
+    expect(fixture.nativeElement.textContent).not.toContain('Ajouter un PDF');
   });
 
   it('un lot de photos continue apres un refus et donne un seul bilan', async () => {
