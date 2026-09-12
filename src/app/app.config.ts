@@ -6,7 +6,7 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { TitleStrategy, provideRouter, withComponentInputBinding } from '@angular/router';
-import { HikkyTitleStrategy } from '@core/layout/hikky-title.strategy';
+import { AppTitleStrategy } from '@core/layout/app-title.strategy';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
 import { registerLocaleData } from '@angular/common';
@@ -128,7 +128,7 @@ export const appConfig: ApplicationConfig = {
     { provide: LOCALE_ID, useValue: 'fr' },
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
-    { provide: TitleStrategy, useClass: HikkyTitleStrategy },
+    { provide: TitleStrategy, useClass: AppTitleStrategy },
     provideHttpClient(withFetch()),
     provideIcons(ICONS),
     provideAppInitializer(() => inject(SessionService).refresh()),
