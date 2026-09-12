@@ -2,11 +2,6 @@ import { Routes } from '@angular/router';
 import { AppShell } from './core/layout/app-shell';
 import { ClientShell } from '@core/layout/client-shell';
 import { TokensDemo } from './features/tokens-demo/tokens-demo';
-import { DashboardPage } from './features/dashboard/dashboard';
-import { ReservationsPage } from './features/reservations/reservations';
-import { FloorPlanPage } from './features/floor-plan/floor-plan-page';
-import { ComingSoonPage } from './features/coming-soon/coming-soon';
-import { MyRestaurantPage } from './features/my-restaurant/my-restaurant';
 import { LoginPage } from './features/auth/login-page';
 import { RegisterPage } from './features/auth/register-page';
 import { OnboardingPage } from './features/auth/onboarding-page';
@@ -41,44 +36,49 @@ export const routes: Routes = [
     path: '',
     component: AppShell,
     canActivate: [authGuard],
+    // Pages chargees a la demande : le bundle initial ne porte que la coquille et l'auth.
     children: [
       {
         path: 'dashboard',
-        component: DashboardPage,
+        loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.DashboardPage),
         title: 'Tableau de bord',
         data: { title: 'Tableau de bord' },
       },
       {
         path: 'reservations',
-        component: ReservationsPage,
+        loadComponent: () =>
+          import('./features/reservations/reservations').then((m) => m.ReservationsPage),
         title: 'Réservations',
         data: { title: 'Réservations' },
       },
       {
         path: 'plan',
-        component: FloorPlanPage,
+        loadComponent: () =>
+          import('./features/floor-plan/floor-plan-page').then((m) => m.FloorPlanPage),
         title: 'Plan de salle',
         data: { title: 'Plan de salle' },
       },
       {
         path: 'appels',
-        component: ComingSoonPage,
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon').then((m) => m.ComingSoonPage),
         title: 'Appels',
         data: { title: 'Appels', icon: 'lucidePhone' },
       },
       {
         path: 'parametres',
-        component: ComingSoonPage,
+        loadComponent: () =>
+          import('./features/coming-soon/coming-soon').then((m) => m.ComingSoonPage),
         title: 'Paramètres',
         data: { title: 'Paramètres', icon: 'lucideSettings' },
       },
       {
         path: 'mon-restaurant',
-        component: MyRestaurantPage,
+        loadComponent: () =>
+          import('./features/my-restaurant/my-restaurant').then((m) => m.MyRestaurantPage),
         title: 'Mon restaurant',
         data: { title: 'Mon restaurant' },
       },
-      // Charge a la demande : garde le bundle initial sous le budget.
       {
         path: 'menu',
         loadComponent: () => import('./features/menu/menu-page').then((m) => m.MenuPage),

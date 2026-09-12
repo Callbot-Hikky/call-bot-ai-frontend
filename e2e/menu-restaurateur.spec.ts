@@ -141,7 +141,7 @@ test.describe('Menu : page restaurateur', () => {
     await page
       .locator('section[aria-label="Carte en PDF"] input[type=file]')
       .setInputFiles(fixture('carte.pdf'));
-    await expect(page.getByText('PDF ajouté.')).toBeVisible();
+    await expect(page.getByText('PDF ajouté.').last()).toBeVisible();
     await expect(page.getByTestId('pdf-preview')).toHaveCount(2);
     await expect(page.getByTestId('pdf-count')).toContainText('2/5 PDF');
 

@@ -9,7 +9,6 @@ import {
   signal,
 } from '@angular/core';
 import { DomSanitizer, SafeHtml, SafeUrl } from '@angular/platform-browser';
-import * as QRCode from 'qrcode';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 
@@ -153,6 +152,8 @@ export class HkQrCard {
   private async generate(url: string): Promise<void> {
     const run = ++this.generation;
     const options = { margin: 1, errorCorrectionLevel: 'M' as const };
+    // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
+    const QRCode = await import('qrcode');
     const svg = await QRCode.toString(url, { ...options, type: 'svg' });
     if (run !== this.generation) return;
     this.svg.set(svg);
