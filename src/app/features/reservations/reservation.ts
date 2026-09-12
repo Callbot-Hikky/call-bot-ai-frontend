@@ -1,4 +1,5 @@
-import { Component, effect, input, inject, signal } from '@angular/core';
+import { Component, DestroyRef, effect, input, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -108,11 +109,18 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
         <div class="flex flex-col gap-4">
           <p class="font-bold"><span class="text-primary">3. </span>Choisissez un autre créneau</p>
 
-          <hk-reservation-slot-picker
-            [days]="days() ?? []"
-            [initialSelectedStartsAt]="reservation()?.dateTime ?? null"
-            (slotPicked)="onSlotPicked($event)"
-          />
+          @if (slotsError()) {
+            <p class="text-destructive text-sm" role="alert">
+              Impossible de charger les créneaux.
+              <button type="button" class="underline" (click)="reloadSlots()">Réessayer</button>
+            </p>
+          } @else {
+            <hk-reservation-slot-picker
+              [days]="days() ?? []"
+              [initialSelectedStartsAt]="reservation()?.dateTime ?? null"
+              (slotPicked)="onSlotPicked($event)"
+            />
+          }
         </div>
       </article>
 
@@ -183,6 +191,7 @@ export class ReservationPage {
   private service = inject(ReservationService);
   private router = inject(Router);
   private title = inject(Title);
+  private destroyRef = inject(DestroyRef);
 
   readonly MIN_PARTY_SIZE = MIN_PARTY_SIZE;
   readonly MAX_PARTY_SIZE = MAX_PARTY_SIZE;
@@ -193,6 +202,7 @@ export class ReservationPage {
   // Lien inconnu ou reservation qui ne se deplace plus : on le dit, sans page vide.
   loadError = signal<'not_found' | 'failed' | null>(null);
   days = signal<RescheduleDay[] | null>(null);
+  slotsError = signal(false);
   partySize = signal<number>(1);
 
   // État de la sheet de confirmation. Bindé à hlm-sheet via [state] / (stateChanged).
@@ -225,10 +235,7 @@ export class ReservationPage {
       if (!id || !this.partySizeInitialized()) {
         return;
       }
-      this.service.getPublicRescheduleSlots(id, size).subscribe({
-        next: (r) => this.days.set(r.days),
-        error: () => this.days.set([]),
-      });
+      this.loadSlots(id, size);
     });
     effect(() => {
       const id = this.id();
@@ -236,18 +243,46 @@ export class ReservationPage {
     });
   }
 
+  // Chaque chargement a un numero : une reponse en retard ne remplace jamais la plus recente.
+  private slotsRun = 0;
+
+  private loadSlots(id: string, size: number): void {
+    const run = ++this.slotsRun;
+    this.slotsError.set(false);
+    this.service
+      .getPublicRescheduleSlots(id, size)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          if (run === this.slotsRun) this.days.set(r.days);
+        },
+        // Une panne n'est pas « complet » : le client doit pouvoir reessayer.
+        error: () => {
+          if (run === this.slotsRun) this.slotsError.set(true);
+        },
+      });
+  }
+
+  reloadSlots(): void {
+    const id = this.id();
+    if (id) this.loadSlots(id, this.partySize());
+  }
+
   private load(id: string): void {
     this.loadError.set(null);
-    this.service.getPublicReservation(id).subscribe({
-      next: (r) => {
-        this.reservation.set(r);
-        this.title.setTitle(`Modifier ma réservation · ${r.restaurantName}`);
-      },
-      error: (err: unknown) => {
-        const notFound = err instanceof HttpErrorResponse && err.status === 404;
-        this.loadError.set(notFound ? 'not_found' : 'failed');
-      },
-    });
+    this.service
+      .getPublicReservation(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (r) => {
+          this.reservation.set(r);
+          this.title.setTitle(`Modifier ma réservation · ${r.restaurantName}`);
+        },
+        error: (err: unknown) => {
+          const notFound = err instanceof HttpErrorResponse && err.status === 404;
+          this.loadError.set(notFound ? 'not_found' : 'failed');
+        },
+      });
   }
 
   onSlotPicked(slot: RescheduleSlot): void {
@@ -281,9 +316,7 @@ export class ReservationPage {
           const status = err instanceof HttpErrorResponse ? err.status : 0;
           if (status === 409) {
             this.submitError.set("Ce créneau vient d'être pris. Merci d'en choisir un autre.");
-            this.service.getPublicRescheduleSlots(id, this.partySize()).subscribe({
-              next: (r) => this.days.set(r.days),
-            });
+            this.loadSlots(id, this.partySize());
           } else {
             this.submitError.set(
               'Une erreur est survenue. Merci de réessayer dans quelques instants.',
