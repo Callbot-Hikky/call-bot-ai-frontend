@@ -1,12 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
-import { filter, firstValueFrom, map } from 'rxjs';
+import { filter, map } from 'rxjs';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkMobileNav } from '@shared/components/organisms/mobile-nav/hk-mobile-nav';
 import { HkCommandPalette } from '@shared/components/organisms/command-palette/hk-command-palette';
 import { AuthService } from '@core/services/auth.service';
-import { SessionService } from '@core/services/session.service';
 
 // Header sticky : drawer mobile (< lg), titre dérivé de la route, notifications.
 @Component({
@@ -36,12 +35,9 @@ export class HkHeader {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthService);
-  private readonly session = inject(SessionService);
 
-  protected async logout(): Promise<void> {
-    await firstValueFrom(this.auth.logout()).catch(() => undefined);
-    this.session.clear();
-    await this.router.navigateByUrl('/login');
+  protected logout(): Promise<void> {
+    return this.auth.signOut();
   }
 
   protected readonly title = toSignal(

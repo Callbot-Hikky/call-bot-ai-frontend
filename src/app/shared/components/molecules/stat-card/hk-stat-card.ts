@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 
 // Carte KPI : un seul grand chiffre, pastille d'icône colorée, delta optionnel.
-// Variante `highlight` (vert dégradé) pour mettre en avant la métrique phare.
+// Variante `highlight` : surface « flamme » (.hk-flame, cf. styles.scss) reprise
+// du hero de la landing, pour mettre en avant la métrique phare.
 @Component({
   selector: 'hk-stat-card',
   imports: [HkIcon],
@@ -45,16 +46,16 @@ export class HkStatCard {
 
   protected readonly cardClasses = computed(() =>
     this.highlight()
-      ? 'flex h-full flex-col rounded-lg border border-green-800 bg-gradient-to-br from-green-700 to-green-800 p-6 shadow-md'
+      ? 'hk-flame flex h-full flex-col rounded-lg border p-6 shadow-md'
       : 'bg-card border-border/70 flex h-full flex-col rounded-lg border p-6 shadow-md',
   );
 
   protected readonly labelClasses = computed(() =>
-    this.highlight() ? 'text-green-100' : 'text-muted-foreground',
+    this.highlight() ? 'text-white/85' : 'text-muted-foreground',
   );
 
   protected readonly chipClasses = computed(() =>
-    this.highlight() ? 'bg-white/15 text-white' : 'bg-green-100 text-green-700',
+    this.highlight() ? 'bg-white/20 text-white' : 'bg-warm-100 text-warm-700',
   );
 
   protected readonly valueClasses = computed(() =>
@@ -63,7 +64,7 @@ export class HkStatCard {
 
   protected readonly deltaClasses = computed(() => {
     if (this.highlight()) {
-      return 'text-green-100';
+      return 'text-white/85';
     }
     switch (this.trend()) {
       case 'up':

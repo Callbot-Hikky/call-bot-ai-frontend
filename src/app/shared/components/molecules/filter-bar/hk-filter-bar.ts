@@ -25,7 +25,7 @@ const OPTIONS: { value: StatusFilter; label: string }[] = [
             class="cursor-pointer rounded-[6px] px-3 py-1 text-sm font-medium transition-colors duration-150"
             [class]="
               status() === opt.value
-                ? 'bg-green-100 text-green-700'
+                ? 'bg-brand-100 text-brand-700'
                 : 'text-muted-foreground hover:text-foreground'
             "
             (click)="status.set(opt.value)"

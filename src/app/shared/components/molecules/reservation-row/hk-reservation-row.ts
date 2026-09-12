@@ -31,7 +31,7 @@ import { formatTime } from '@core/utils/format';
             </span>
             @if (reservation().source === 'callbot') {
               <span
-                class="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700"
+                class="bg-brand-100 text-brand-700 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
               >
                 Bot
               </span>
