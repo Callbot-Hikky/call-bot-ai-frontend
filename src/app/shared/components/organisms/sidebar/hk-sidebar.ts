@@ -83,7 +83,7 @@ export class HkSidebar {
   constructor() {
     effect(() => {
       const id = this.session.restaurantId();
-      if (id && !this.restaurants.restaurant()) {
+      if (id) {
         this.restaurants.loadRestaurant(id);
       }
     });

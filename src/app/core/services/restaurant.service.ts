@@ -38,15 +38,24 @@ export class RestaurantService {
     return this.http.post<RestaurantDto>(this.baseUrl, body);
   }
 
+  // Barre laterale et pages appellent ceci en meme temps : un seul GET par restaurant.
+  private inFlightId: string | null = null;
+
   loadRestaurant(id: string): void {
+    if (this._restaurant()?.id === id || this.inFlightId === id) {
+      return;
+    }
+    this.inFlightId = id;
     this._loading.set(true);
     this._error.set(false);
     this.http.get<RestaurantDto>(`${this.baseUrl}/${id}`).subscribe({
       next: (restaurant) => {
+        this.inFlightId = null;
         this._restaurant.set(restaurant);
         this._loading.set(false);
       },
       error: () => {
+        this.inFlightId = null;
         this._error.set(true);
         this._loading.set(false);
       },
