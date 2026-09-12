@@ -3,6 +3,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
+import { ConfirmService } from '@shared/components/molecules/confirm-dialog/hk-confirm-dialog';
+import { filter, switchMap } from 'rxjs';
 import { Reservation } from '@core/models/reservation.model';
 import { AssignEvent, WalkInEvent } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { conflictMessage } from '@core/utils/http-error';
@@ -19,6 +21,7 @@ const TERMINAL_STATUSES: readonly Reservation['status'][] = ['cancelled', 'compl
 export class ReservationActionsService {
   private readonly service = inject(ReservationService);
   private readonly toast = inject(ToastService);
+  private readonly confirmDialog = inject(ConfirmService);
 
   // Vrai si la resa est dans un etat terminal -> on bloque et on explique.
   private isTerminal(reservation: Reservation): boolean {
@@ -120,13 +123,24 @@ export class ReservationActionsService {
       .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
   }
 
+  // Annuler est irreversible : on demande confirmation avant tout appel reseau.
   cancel(reservation: Reservation, destroyRef: DestroyRef): void {
     if (this.isTerminal(reservation)) {
       return;
     }
-    this.service
-      .cancel(reservation.id)
-      .pipe(takeUntilDestroyed(destroyRef))
+    const who = reservation.customerName?.trim() || 'ce client';
+    this.confirmDialog
+      .ask({
+        title: `Annuler la réservation de ${who} ?`,
+        message:
+          'Le client sera prévenu et la table redeviendra libre. Cette action ne peut pas être annulée.',
+        confirmLabel: 'Annuler la réservation',
+      })
+      .pipe(
+        filter(Boolean),
+        switchMap(() => this.service.cancel(reservation.id)),
+        takeUntilDestroyed(destroyRef),
+      )
       .subscribe(() => this.toast.show('Réservation annulée'));
   }
 
