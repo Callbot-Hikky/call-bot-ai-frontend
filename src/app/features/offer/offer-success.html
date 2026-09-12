@@ -1,0 +1,27 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-8">
+  <section hlmCard class="w-full max-w-md text-center">
+    <div hlmCardHeader class="items-center">
+      <ng-icon name="lucideCircleCheckBig" class="text-primary mb-2" size="40" />
+      <h3 hlmCardTitle>Paiement confirmé</h3>
+      <p hlmCardDescription>Merci ! Votre offre Pro est en cours d'activation.</p>
+    </div>
+
+    <div hlmCardContent class="flex flex-col gap-4">
+      @if (summary(); as currentSummary) {
+        <div class="bg-muted flex items-center justify-between rounded-md px-4 py-3">
+          <span class="text-sm font-medium">Offre {{ currentSummary.offerCode }}</span>
+          <span class="text-sm font-semibold">{{ formatPrice(currentSummary) }} / mois</span>
+        </div>
+      }
+
+      <p class="text-muted-foreground text-sm">
+        Vous recevrez un email de confirmation. L'activation de votre abonnement peut prendre
+        quelques instants.
+      </p>
+    </div>
+
+    <div hlmCardFooter>
+      <button hlmBtn class="w-full" (click)="continueToApp()">Continuer la configuration</button>
+    </div>
+  </section>
+</main>

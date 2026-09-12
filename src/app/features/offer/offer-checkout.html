@@ -1,0 +1,42 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-8">
+  <section hlmCard class="w-full max-w-md">
+    <div hlmCardHeader>
+      <div class="text-primary mb-2 flex items-center gap-2">
+        <ng-icon name="lucidePhoneCall" size="24" />
+        <span class="text-sm font-medium">Call Bot AI</span>
+      </div>
+      <h3 hlmCardTitle>{{ offer()?.label ?? 'Offre Pro' }}</h3>
+      <p hlmCardDescription>Votre standard téléphonique intelligent, sans engagement.</p>
+    </div>
+
+    <div hlmCardContent class="flex flex-col gap-6">
+      <div class="flex items-end gap-1">
+        @if (offer(); as currentOffer) {
+          <span class="text-4xl font-bold">{{ formatPrice(currentOffer) }}</span>
+          <span class="text-muted-foreground pb-1 text-sm">/ mois</span>
+        } @else {
+          <span class="text-muted-foreground text-sm">Chargement de l'offre…</span>
+        }
+      </div>
+
+      <ul class="flex flex-col gap-2">
+        @for (feature of features; track feature) {
+          <li class="flex items-center gap-2 text-sm">
+            <ng-icon name="lucideCheck" class="text-primary" size="16" />
+            {{ feature }}
+          </li>
+        }
+      </ul>
+
+      @if (errorMessage()) {
+        <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+      }
+    </div>
+
+    <div hlmCardFooter>
+      <button hlmBtn class="w-full" [disabled]="loading() || !offer()" (click)="checkout()">
+        {{ loading() ? 'Redirection…' : 'Prendre l’offre' }}
+      </button>
+    </div>
+  </section>
+</main>
