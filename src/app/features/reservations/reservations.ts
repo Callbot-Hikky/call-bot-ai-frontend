@@ -85,6 +85,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         [loading]="service.loading()"
         [error]="service.error()"
         [sort]="sort()"
+        [filtered]="statusFilter() !== 'all' || search().trim() !== ''"
         (sortChange)="sort.set($event)"
         (open)="openDetail($event)"
         (place)="onPlace($event)"
