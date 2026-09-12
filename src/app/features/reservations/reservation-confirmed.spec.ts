@@ -70,6 +70,30 @@ describe('ReservationConfirmedPage', () => {
     expect(fixture.nativeElement.textContent).not.toContain('confirmée');
   });
 
+  it('une reservation annulee le dit, sans coche verte ni lien de replanification', async () => {
+    fixture = TestBed.createComponent(ReservationConfirmedPage);
+    fixture.componentRef.setInput('id', 'r-1');
+    await fixture.whenStable();
+    http.expectOne('/api/public/reservations/r-1').flush({
+      id: 'r-1',
+      restaurantId: 'rest-1',
+      restaurantName: "La Table d'Ines",
+      startsAt: '2026-09-12T19:30:00+02:00',
+      endsAt: '2026-09-12T21:00:00+02:00',
+      partySize: 2,
+      status: 'cancelled',
+      customerFirstName: 'Nadia',
+    });
+    await fixture.whenStable();
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('Réservation annulée');
+    expect(text).not.toContain('confirmée !');
+    expect(fixture.nativeElement.querySelector('[data-testid="link-reschedule"]')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="link-book-again"]').getAttribute('href'),
+    ).toBe('/client/restaurants/rest-1/schedule');
+  });
+
   it('sans prenom connu, affiche « Client » plutot qu un vide', async () => {
     fixture = TestBed.createComponent(ReservationConfirmedPage);
     fixture.componentRef.setInput('id', 'r-2');
