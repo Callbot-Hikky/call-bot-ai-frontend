@@ -164,12 +164,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
             que celui-là.
           </p>
         </div>
-        <div class="grid gap-4 sm:grid-cols-3" role="group" aria-label="Mode de publication">
+        <!-- Mobile : trois tuiles compactes sur une ligne, comme des onglets. Grand ecran : trois cartes. -->
+        <div class="grid grid-cols-3 gap-2 sm:gap-4" role="group" aria-label="Mode de publication">
           @for (card of cards; track card.mode) {
             <button
               type="button"
               [attr.data-testid]="'mode-' + card.mode"
-              class="bg-card hover:border-primary flex flex-col gap-2 rounded-lg border p-4 text-left shadow-sm transition-colors focus-visible:ring-2"
+              class="bg-card hover:border-primary flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center shadow-sm transition-colors focus-visible:ring-2 sm:items-start sm:gap-2 sm:p-4 sm:text-left"
               [class.border-primary]="menu()!.mode === card.mode"
               [class.border-border]="menu()!.mode !== card.mode"
               [class.ring-2]="editing() === card.mode"
@@ -179,24 +180,26 @@ const SAVE_LABELS: Record<SaveState, string> = {
               [disabled]="service.saving()"
               (click)="open(card.mode)"
             >
-              <div class="flex items-center justify-between">
+              <div class="flex w-full flex-col items-center gap-1.5 sm:flex-row sm:justify-between">
                 <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
                 @if (menu()!.mode === card.mode) {
                   <span
-                    class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-xs font-medium"
+                    class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-[11px] font-medium sm:text-xs"
                   >
                     Publié
                   </span>
                 } @else if (editing() === card.mode) {
                   <span
-                    class="bg-muted text-text-subtle rounded-full px-2 py-0.5 text-xs font-medium"
+                    class="bg-muted text-text-subtle hidden rounded-full px-2 py-0.5 text-xs font-medium sm:inline"
                   >
                     En préparation
                   </span>
                 }
               </div>
-              <span class="text-text-strong font-semibold">{{ card.title }}</span>
-              <span class="text-text-subtle text-xs">{{ card.description }}</span>
+              <span class="text-text-strong text-sm font-semibold sm:text-base">{{
+                card.title
+              }}</span>
+              <span class="text-text-subtle hidden text-xs sm:block">{{ card.description }}</span>
               <span class="text-text-subtle text-xs">{{ countFor(card.mode) }}</span>
             </button>
           }
