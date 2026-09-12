@@ -9,10 +9,11 @@ import { humanSize } from '@core/utils/format';
 @Component({
   selector: 'hk-file-dropzone',
   imports: [HkIcon],
+  host: { '[class.contents]': 'compact()' },
   template: `
     <label
       data-testid="file-dropzone"
-      class="border-border focus-within:ring-primary/30 flex flex-col items-center gap-2 rounded-md border-2 border-dashed p-8 text-center transition-colors focus-within:ring-2"
+      [class]="boxClass()"
       [class.cursor-pointer]="!disabled()"
       [class.hover:border-primary]="!disabled()"
       [class.hover:bg-muted]="!disabled()"
@@ -25,9 +26,14 @@ import { humanSize } from '@core/utils/format';
       (dragleave)="onDragLeave()"
       (drop)="onDrop($event)"
     >
-      <hk-icon name="lucideUpload" [size]="28" class="text-text-subtle" />
-      <span class="text-text-strong text-sm font-medium">{{ label() }}</span>
-      <span class="text-text-subtle text-xs">{{ hint() }}</span>
+      @if (compact()) {
+        <hk-icon name="lucideUpload" [size]="14" />
+        <span>{{ label() }}</span>
+      } @else {
+        <hk-icon name="lucideUpload" [size]="28" class="text-text-subtle" />
+        <span class="text-text-strong text-sm font-medium">{{ label() }}</span>
+        <span class="text-text-subtle text-xs">{{ hint() }}</span>
+      }
       <input
         type="file"
         class="sr-only"
@@ -39,7 +45,13 @@ import { humanSize } from '@core/utils/format';
       />
     </label>
     @if (error(); as msg) {
-      <p class="text-st-cancelled-fg mt-2 text-sm" role="alert" data-testid="dropzone-error">
+      <p
+        class="text-st-cancelled-fg text-sm"
+        [class.mt-2]="!compact()"
+        [class.basis-full]="compact()"
+        role="alert"
+        data-testid="dropzone-error"
+      >
         {{ msg }}
       </p>
     }
@@ -54,12 +66,19 @@ export class HkFileDropzone {
   readonly disabled = input(false);
   readonly label = input('Glissez votre fichier ici');
   readonly hint = input('ou cliquez pour le choisir');
+  // Forme bouton : meme validation, meme glisser-deposer, mais dans une rangee d'actions.
+  readonly compact = input(false);
 
   readonly filesPicked = output<File[]>();
 
   protected readonly dragging = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly acceptAttr = computed(() => this.accept().join(','));
+  protected readonly boxClass = computed(() =>
+    this.compact()
+      ? 'border-border bg-card text-text-strong focus-within:ring-primary/30 inline-flex items-center gap-1 rounded-md border px-3 py-1 text-sm font-medium transition-colors focus-within:ring-2'
+      : 'border-border focus-within:ring-primary/30 flex flex-col items-center gap-2 rounded-md border-2 border-dashed p-8 text-center transition-colors focus-within:ring-2',
+  );
 
   // dragleave part aussi quand le curseur passe sur un enfant : on compte les
   // entrees et les sorties, l'etat ne retombe qu'a la vraie sortie de la zone.

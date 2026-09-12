@@ -78,3 +78,18 @@ describe('HkFileDropzone', () => {
     expect(fixture.nativeElement.querySelector('label')?.textContent).toContain('Glissez');
   });
 });
+
+describe('HkFileDropzone (forme compacte)', () => {
+  it('se presente en bouton avec le libelle, sans le cadre en pointilles ni le conseil', async () => {
+    const fixture = TestBed.createComponent(HkFileDropzone);
+    fixture.componentRef.setInput('compact', true);
+    fixture.componentRef.setInput('label', 'Remplacer');
+    fixture.componentRef.setInput('hint', 'ou cliquez');
+    await fixture.whenStable();
+    const label: HTMLElement = fixture.nativeElement.querySelector('label');
+    expect(label.textContent).toContain('Remplacer');
+    expect(label.textContent).not.toContain('ou cliquez');
+    expect(label.className).not.toContain('border-dashed');
+    expect(fixture.nativeElement.querySelector('input[type=file]')).not.toBeNull();
+  });
+});

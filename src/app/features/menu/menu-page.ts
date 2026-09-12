@@ -310,6 +310,14 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideExternalLink" [size]="14" />
                     Ouvrir
                   </a>
+                  <hk-file-dropzone
+                    [compact]="true"
+                    label="Remplacer"
+                    [accept]="pdfMimes"
+                    [maxBytes]="menu()!.limits.pdfMaxBytes"
+                    [disabled]="service.saving()"
+                    (filesPicked)="onFiles($event)"
+                  />
                   <hk-button
                     variant="ghost"
                     size="sm"
@@ -351,18 +359,16 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   </div>
                 }
               }
-              <hk-file-dropzone
-                [accept]="pdfMimes"
-                [maxBytes]="menu()!.limits.pdfMaxBytes"
-                [disabled]="service.saving()"
-                [label]="
-                  pdfFile()
-                    ? 'Glissez un nouveau PDF pour remplacer celui-ci'
-                    : 'Glissez votre carte en PDF ici'
-                "
-                hint="ou cliquez pour la choisir. PDF, 10 Mo maximum."
-                (filesPicked)="onFiles($event)"
-              />
+              @if (!pdfFile()) {
+                <hk-file-dropzone
+                  [accept]="pdfMimes"
+                  [maxBytes]="menu()!.limits.pdfMaxBytes"
+                  [disabled]="service.saving()"
+                  label="Glissez votre carte en PDF ici"
+                  hint="ou cliquez pour la choisir. PDF, 10 Mo maximum."
+                  (filesPicked)="onFiles($event)"
+                />
+              }
             </section>
           }
           @case ('images') {
