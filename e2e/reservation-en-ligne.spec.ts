@@ -92,7 +92,8 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
       (await list.json()) as { id: string; source: string; customer?: { phone: string } }[]
     ).find((r) => r.id === id);
     expect(mine?.source).toBe('web');
-    expect(mine?.customer?.phone).toBe('0698765432');
+    // Le back range les numeros francais en forme internationale.
+    expect(mine?.customer?.phone).toBe('+33698765432');
   });
 
   test('un creneau pris entre-temps est refuse avec un message, et la liste se met a jour', async ({
