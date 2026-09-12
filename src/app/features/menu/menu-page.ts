@@ -173,9 +173,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
               [class.ring-2]="editing() === card.mode"
               [class.ring-primary/30]="editing() === card.mode"
               [attr.aria-pressed]="menu()!.mode === card.mode"
-              [attr.aria-label]="'Publier le format ' + card.title + ' et ouvrir sa préparation'"
+              [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
               [disabled]="service.saving()"
-              (click)="choose(card.mode)"
+              (click)="open(card.mode)"
             >
               <div class="flex items-center justify-between">
                 <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
@@ -258,7 +258,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 size="sm"
                 data-testid="publish-current"
                 [disabled]="service.saving()"
-                (click)="choose(editing())"
+                (click)="publish(editing())"
               >
                 {{ publishAction(editing()) }}
               </hk-button>
@@ -286,7 +286,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideTriangleAlert" [size]="16" />
                     Votre PDF est prêt. Il n'est pas encore visible par vos clients.
                   </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="choose('pdf')">
+                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('pdf')">
                     Publier le PDF
                   </hk-button>
                 </div>
@@ -377,7 +377,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideTriangleAlert" [size]="16" />
                     Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.
                   </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="choose('images')">
+                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('images')">
                     Publier les photos
                   </hk-button>
                 </div>
@@ -488,7 +488,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideTriangleAlert" [size]="16" />
                     Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
                   </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="choose('manual')">
+                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('manual')">
                     Publier la saisie
                   </hk-button>
                 </div>
@@ -569,11 +569,15 @@ export class MenuPage {
   protected readonly canAddImage = computed(
     () => this.images().length < (this.menu()?.limits.imageMaxCount ?? 8),
   );
-  protected readonly saveLabel = computed(() =>
-    this.service.saveState() === 'failed' && this.service.lastError()
+  // Rien tant que rien n'a ete modifie : « Enregistré » sur une page intacte n'apprend rien.
+  protected readonly saveLabel = computed(() => {
+    if (!this.service.touched()) {
+      return '';
+    }
+    return this.service.saveState() === 'failed' && this.service.lastError()
       ? this.service.lastError()!
-      : SAVE_LABELS[this.service.saveState()],
-  );
+      : SAVE_LABELS[this.service.saveState()];
+  });
 
   constructor() {
     if (this.restaurantId) {
@@ -619,15 +623,19 @@ export class MenuPage {
 
   protected confirmUnpublish(): void {
     this.pendingUnpublish.set(false);
-    this.choose('none');
+    this.publish('none');
   }
 
-  // Une carte sans contenu s'ouvre simplement : on prepare d'abord, on publie ensuite.
-  // Le back garde son refus (409) comme garde-fou, mais on ne le provoque pas pour rien.
-  protected choose(mode: MenuMode): void {
+  // Un clic sur une carte ouvre sa preparation, rien de plus : publier reste un geste
+  // explicite (bouton « Publier ... »), pour ne jamais changer la carte visible par surprise.
+  protected open(mode: MenuMode): void {
     if (mode !== 'none') {
       this.editing.set(mode);
     }
+  }
+
+  // Le back garde son refus (409) comme garde-fou, mais on ne le provoque pas pour rien.
+  protected publish(mode: MenuMode): void {
     if (this.menu()?.mode === mode || (mode !== 'none' && !this.isReady(mode))) {
       return;
     }

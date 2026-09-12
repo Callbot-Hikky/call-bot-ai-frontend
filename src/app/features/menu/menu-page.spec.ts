@@ -108,9 +108,14 @@ describe('MenuPage', () => {
     expect(fixture.nativeElement.querySelector('[aria-label="Carte en photos"]')).not.toBeNull();
   });
 
-  it('choisir un mode pret envoie PUT et un refus du back devient un toast en francais', async () => {
+  it('cliquer une carte prete ouvre sa preparation sans publier : publier est un bouton a part', async () => {
     await render(dto({ files: IMAGES }));
     (fixture.nativeElement.querySelector('[data-testid="mode-images"]') as HTMLElement).click();
+    await fixture.whenStable();
+    http.expectNone((r) => r.method === 'PUT');
+    (
+      fixture.nativeElement.querySelector('[data-testid="publish-current"] button') as HTMLElement
+    ).click();
     await fixture.whenStable();
     const req = http.expectOne((r) => r.method === 'PUT');
     expect(req.request.body).toEqual({ mode: 'images' });
@@ -157,6 +162,13 @@ describe('MenuPage', () => {
     http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [pdf] }));
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+  });
+
+  it('aucun etat d enregistrement tant que rien n a ete modifie', async () => {
+    await render(dto());
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="save-state"]').textContent.trim(),
+    ).toBe('');
   });
 
   it('rien de publie et rien de pret : pas de bouton, le bandeau explique quoi faire', async () => {

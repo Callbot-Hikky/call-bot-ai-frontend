@@ -39,8 +39,8 @@ test.describe('Menu : page restaurateur', () => {
     // Autosave : l'état passe par « en cours » puis « Enregistré ».
     await expect(page.getByTestId('save-state')).toHaveText(/Enregistré/, { timeout: 5_000 });
 
-    // Publier.
-    await page.getByTestId('mode-manual').click();
+    // Publier : par le bouton explicite, un clic sur la carte ne fait qu'ouvrir.
+    await page.getByTestId('publish-current').click();
     await expect(page.getByTestId('publish-state')).toContainText('votre carte saisie');
     await expect(page.getByTestId('mode-manual')).toContainText('Publié');
 
@@ -99,7 +99,7 @@ test.describe('Menu : page restaurateur', () => {
     await expect(page.getByTestId('image-thumb').nth(0)).toHaveAttribute('src', secondSrc!);
 
     // Publier, puis supprimer une photo avec confirmation.
-    await page.getByTestId('mode-images').click();
+    await page.getByTestId('publish-current').click();
     await expect(page.getByTestId('mode-images')).toContainText('Publié');
     await page.getByTestId(`remove-file-${secondSrc!.split('/').pop()}`).click();
     await page.getByTestId('confirm-remove-file').click();
@@ -142,7 +142,7 @@ test.describe('Menu : page restaurateur', () => {
     await expect(page.getByText('PDF remplacé.')).toBeVisible();
     await expect(page.getByTestId('pdf-preview')).toHaveCount(1);
 
-    await page.getByTestId('mode-pdf').click();
+    await page.getByTestId('publish-current').click();
     await expect(page.getByTestId('publish-state')).toContainText('votre carte en PDF');
 
     // Un seul défilement : la molette fait défiler la zone principale, jamais la fenêtre.
