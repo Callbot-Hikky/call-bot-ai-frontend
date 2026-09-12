@@ -5,7 +5,8 @@ import {
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { TitleStrategy, provideRouter, withComponentInputBinding } from '@angular/router';
+import { AppTitleStrategy } from '@core/layout/app-title.strategy';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideIcons } from '@ng-icons/core';
 import { registerLocaleData } from '@angular/common';
@@ -28,6 +29,7 @@ import {
   lucideBell,
   lucideCheck,
   lucideCircleCheck,
+  lucideCircleX,
   lucideX,
   lucidePlus,
   lucideEllipsis,
@@ -57,6 +59,10 @@ import {
   lucideCreditCard,
   lucideRefreshCw,
   lucideMinus,
+  lucideFileText,
+  lucideImage,
+  lucideExternalLink,
+  lucideTriangleAlert,
 } from '@ng-icons/lucide';
 
 import { routes } from './app.routes';
@@ -81,6 +87,7 @@ const ICONS = {
   lucideBell,
   lucideCheck,
   lucideCircleCheck,
+  lucideCircleX,
   lucideX,
   lucidePlus,
   lucideEllipsis,
@@ -110,6 +117,10 @@ const ICONS = {
   lucideCreditCard,
   lucideRefreshCw,
   lucideMinus,
+  lucideFileText,
+  lucideImage,
+  lucideExternalLink,
+  lucideTriangleAlert,
 };
 
 export const appConfig: ApplicationConfig = {
@@ -117,6 +128,7 @@ export const appConfig: ApplicationConfig = {
     { provide: LOCALE_ID, useValue: 'fr' },
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
+    { provide: TitleStrategy, useClass: AppTitleStrategy },
     provideHttpClient(withFetch()),
     provideIcons(ICONS),
     provideAppInitializer(() => inject(SessionService).refresh()),
