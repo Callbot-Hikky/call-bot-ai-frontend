@@ -103,57 +103,60 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
       <hlm-sheet side="bottom" [state]="sheetState()" (stateChanged)="sheetState.set($event)">
         <hlm-sheet-content
           *hlmSheetPortal="let ctx"
-          class="!h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6"
+          class="!h-auto max-h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6"
         >
-          <div class="flex flex-col gap-8">
-            <h1 hlmSheetTitle class="text-xl font-bold">
-              {{ reservation()?.restaurantName || 'Votre réservation' }}
-            </h1>
+          <!-- Sur grand ecran, le contenu reste en colonne lisible au centre, pas etire d'un bord a l'autre. -->
+          <div class="mx-auto w-full max-w-xl">
+            <div class="flex flex-col gap-8">
+              <h1 hlmSheetTitle class="text-xl font-bold">
+                {{ reservation()?.restaurantName || 'Votre réservation' }}
+              </h1>
 
-            <div class="flex flex-col gap-2">
-              <p class="font-bold"><span class="text-primary">2. </span>Nombre de personnes</p>
-              <p>{{ partySize() }} personne{{ partySize() > 1 ? 's' : '' }}</p>
+              <div class="flex flex-col gap-2">
+                <p class="font-bold"><span class="text-primary">2. </span>Nombre de personnes</p>
+                <p>{{ partySize() }} personne{{ partySize() > 1 ? 's' : '' }}</p>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <p class="font-bold"><span class="text-primary">3. </span>Choisissez un créneau</p>
+                <p>
+                  {{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}
+                </p>
+              </div>
+
+              <div class="flex flex-col gap-4">
+                <p class="font-bold"><span class="text-primary">4. </span>Vos informations</p>
+
+                <p class="text-sm">
+                  <span class="font-medium">Au nom de :</span>
+                  {{ reservation()?.customerFirstName || 'Client' }}
+                </p>
+
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-medium">Notes</span>
+                  <textarea
+                    rows="3"
+                    placeholder="Allergies, occasion spéciale…"
+                    class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                    [(ngModel)]="newNotes"
+                  ></textarea>
+                </label>
+              </div>
+
+              @if (submitError(); as err) {
+                <p class="text-destructive text-sm">{{ err }}</p>
+              }
+
+              <button
+                hlmBtn
+                size="lg"
+                class="w-full py-6 text-base font-semibold"
+                [disabled]="submitting()"
+                (click)="confirm()"
+              >
+                {{ submitting() ? 'Confirmation…' : 'Confirmer' }}
+              </button>
             </div>
-
-            <div class="flex flex-col gap-2">
-              <p class="font-bold"><span class="text-primary">3. </span>Choisissez un créneau</p>
-              <p>
-                {{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}
-              </p>
-            </div>
-
-            <div class="flex flex-col gap-4">
-              <p class="font-bold"><span class="text-primary">4. </span>Vos informations</p>
-
-              <p class="text-sm">
-                <span class="font-medium">Au nom de :</span>
-                {{ reservation()?.customerFirstName || 'Client' }}
-              </p>
-
-              <label class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Notes</span>
-                <textarea
-                  rows="3"
-                  placeholder="Allergies, occasion spéciale…"
-                  class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  [(ngModel)]="newNotes"
-                ></textarea>
-              </label>
-            </div>
-
-            @if (submitError(); as err) {
-              <p class="text-destructive text-sm">{{ err }}</p>
-            }
-
-            <button
-              hlmBtn
-              size="lg"
-              class="w-full py-6 text-base font-semibold"
-              [disabled]="submitting()"
-              (click)="confirm()"
-            >
-              {{ submitting() ? 'Confirmation…' : 'Confirmer' }}
-            </button>
           </div>
         </hlm-sheet-content>
       </hlm-sheet>
