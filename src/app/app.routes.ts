@@ -25,6 +25,18 @@ export const routes: Routes = [
     title: 'Configuration',
   },
 
+  // Parcours d'achat de l'offre (hors shell), reserve aux utilisateurs connectes.
+  {
+    path: 'offre',
+    canActivate: [authGuard],
+    loadComponent: () => import('@features/offer/offer-checkout').then((m) => m.OfferCheckout),
+  },
+  {
+    path: 'offre/success',
+    canActivate: [authGuard],
+    loadComponent: () => import('@features/offer/offer-success').then((m) => m.OfferSuccess),
+  },
+
   {
     path: '',
     component: AppShell,

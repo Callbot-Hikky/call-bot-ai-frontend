@@ -14,19 +14,12 @@ import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
       routerLinkActive
       #rla="routerLinkActive"
       class="relative flex h-10 items-center gap-3 rounded-sm px-3 text-sm font-medium transition-colors duration-150"
-      [class]="
-        rla.isActive || active() ? 'bg-green-100 text-green-700' : 'text-foreground hover:bg-muted'
-      "
+      [class]="rla.isActive || active() ? 'hk-flame text-white' : 'text-foreground hover:bg-muted'"
       [class.justify-center]="collapsed()"
       [attr.aria-current]="rla.isActive || active() ? 'page' : null"
       [hkTooltip]="collapsed() ? label() : ''"
       position="right"
     >
-      @if (rla.isActive || active()) {
-        <span
-          class="bg-primary absolute top-1/2 left-0 h-5 w-0.5 -translate-y-1/2 rounded-full"
-        ></span>
-      }
       <hk-icon [name]="icon()" [size]="18" />
       @if (!collapsed()) {
         <span>{{ label() }}</span>
