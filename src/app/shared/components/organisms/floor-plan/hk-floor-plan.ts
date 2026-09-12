@@ -17,7 +17,6 @@ import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkFloorPlanCanvas } from './hk-floor-plan-canvas';
 import { HkFloorPlan3d } from './hk-floor-plan-3d';
 import { HkFloorPlanLegend } from './hk-floor-plan-legend';
-import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
 import { HkTableCard } from './hk-table-card';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
@@ -56,7 +55,6 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
     HkFloorPlanCanvas,
     HkFloorPlan3d,
     HkFloorPlanLegend,
-    HkTableTimeline,
     HkTableCard,
   ],
   template: `
