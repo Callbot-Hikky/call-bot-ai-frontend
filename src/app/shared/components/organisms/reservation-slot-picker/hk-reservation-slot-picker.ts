@@ -73,6 +73,7 @@ const INITIAL_SLOTS_VISIBLE = 6;
   `,
 })
 export class HkReservationSlotPicker {
+  private autoExpanded = false;
   days = input.required<RescheduleDay[]>();
   // Créneau à préselectionner (typiquement le dateTime actuel de la resa).
   // Comparé par instant, donc l'offset (`Z` vs `+02:00`) n'a pas d'importance.
@@ -106,10 +107,12 @@ export class HkReservationSlotPicker {
       const key = date.toLocaleDateString('sv-SE'); // sv-SE = format ISO YYYY-MM-DD
       this.expanded.update((set) => new Set(set).add(key));
     });
+    // Une seule fois : un rechargement des creneaux ne rouvre pas un jour que le client a replie.
     effect(() => {
-      if (!this.expandFirstAvailable()) return;
+      if (!this.expandFirstAvailable() || this.autoExpanded) return;
       const first = this.days().find((d) => d.slots.length > 0);
       if (first) {
+        this.autoExpanded = true;
         this.expanded.update((set) => new Set(set).add(first.date));
       }
     });
