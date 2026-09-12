@@ -54,11 +54,21 @@ jobs:
 
       # La branche du back vient de e2e/backend-branch (staging par defaut) : une PR front qui
       # depend d'une PR back non fusionnee la nomme, puis la remet a staging avant sa fusion.
+      # Le depot back est prive : le clone passe par le secret BACKEND_REPO_TOKEN (jeton en
+      # lecture sur ce depot). Sans le secret, les e2e sont sautes avec un avertissement.
       - name: Start backend
+        id: backend
+        env:
+          BACKEND_REPO_TOKEN: ${{ secrets.BACKEND_REPO_TOKEN }}
         run: |
+          if [ -z "$BACKEND_REPO_TOKEN" ]; then
+            echo "::warning::Secret BACKEND_REPO_TOKEN absent : tests de bout en bout sautes"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           BACKEND_BRANCH=$(tr -d '[:space:]' < e2e/backend-branch)
           echo "Back : branche ${BACKEND_BRANCH}"
-          git clone --depth 1 --branch "$BACKEND_BRANCH" https://github.com/Callbot-Hikky/call-bot-ai-backend.git ../backend
+          git clone --depth 1 --branch "$BACKEND_BRANCH" "https://x-access-token:${BACKEND_REPO_TOKEN}@github.com/Callbot-Hikky/call-bot-ai-backend.git" ../backend
           cd ../backend
           POSTGRES_PORT=5432 docker compose up -d --build
           ready=0
@@ -70,6 +80,7 @@ jobs:
 
       # Le serveur de dev proxifie /api vers le back, comme en local (proxy.config.json).
       - name: Serve frontend
+        if: steps.backend.outputs.skip != 'true'
         run: |
           pnpm start --port 4200 > /tmp/ng-serve.log 2>&1 &
           ready=0
@@ -80,13 +91,14 @@ jobs:
           if [ "$ready" != 1 ]; then echo "Le front ne repond pas"; tail -50 /tmp/ng-serve.log; exit 1; fi
 
       - name: End-to-end tests
+        if: steps.backend.outputs.skip != 'true'
         env:
           E2E_BASE_URL: http://localhost:4200
           E2E_API_URL: http://localhost:8080/api
         run: pnpm e2e
 
       - name: Upload report on failure
-        if: failure()
+        if: failure() && steps.backend.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
