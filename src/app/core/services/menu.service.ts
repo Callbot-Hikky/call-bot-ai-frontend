@@ -52,6 +52,7 @@ export class MenuService {
   private readonly _saving = signal(false);
   private readonly _saveState = signal<SaveState>('saved');
   private readonly _lastError = signal<string | null>(null);
+  private readonly _touched = signal(false);
 
   readonly menu = this._menu.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -59,6 +60,8 @@ export class MenuService {
   readonly saving = this._saving.asReadonly();
   readonly saveState = this._saveState.asReadonly();
   readonly lastError = this._lastError.asReadonly();
+  // Vrai des la premiere modification de la saisie : l'etat d'enregistrement n'a de sens qu'apres.
+  readonly touched = this._touched.asReadonly();
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -128,6 +131,7 @@ export class MenuService {
   // Autosave : chaque frappe repousse l'envoi de 600 ms. L'etat affiche dit la verite :
   // « a enregistrer » tant que l'envoi n'est pas parti, puis « en cours », puis le resultat.
   scheduleManualSave(manual: ManualMenu): void {
+    this._touched.set(true);
     this._saveState.set('dirty');
     this.pendingManual = manual;
     if (this.autosaveTimer) {
