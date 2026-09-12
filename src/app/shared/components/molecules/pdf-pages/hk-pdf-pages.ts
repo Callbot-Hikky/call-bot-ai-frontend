@@ -76,23 +76,39 @@ export class HkPdfPages {
 
   constructor() {
     const destroyRef = inject(DestroyRef);
-    destroyRef.onDestroy(() => this.run++);
+    destroyRef.onDestroy(() => {
+      this.run++;
+      this.reset();
+    });
     effect(() => {
       const url = this.url();
       void this.render(url, ++this.run);
     });
   }
 
+  private observer: IntersectionObserver | null = null;
+  private doc: PdfDocumentLike | null = null;
+
+  // Les cadres sont crees tout de suite (mise en page stable), mais chaque page n'est
+  // dessinee qu'a l'approche de l'ecran : cinq PDF de quinze pages ne remplissent pas
+  // la memoire d'un telephone d'un coup.
   private async render(url: string, run: number): Promise<void> {
     this.state.set('loading');
-    let doc: PdfDocumentLike | null = null;
+    this.reset();
     try {
-      doc = await this.loader(url);
-      if (run !== this.run) return;
+      const doc = await this.loader(url);
+      if (run !== this.run) {
+        void doc.destroy();
+        return;
+      }
+      this.doc = doc;
       const container = this.pages().nativeElement;
       container.replaceChildren();
-      const width = Math.max(this.host.nativeElement.clientWidth, MIN_RENDER_WIDTH);
+      const hostWidth = this.host.nativeElement.clientWidth;
+      const narrow = window.innerWidth < 640;
+      const width = narrow ? Math.max(hostWidth, 320) : Math.max(hostWidth, MIN_RENDER_WIDTH);
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      const canvases: HTMLCanvasElement[] = [];
       for (let n = 1; n <= doc.numPages; n++) {
         const page = await doc.getPage(n);
         if (run !== this.run) return;
@@ -104,16 +120,47 @@ export class HkPdfPages {
         canvas.height = Math.floor(viewport.height);
         canvas.className = 'border-border/70 h-auto w-full rounded-lg border bg-white shadow-sm';
         canvas.setAttribute('aria-label', `Page ${n}`);
+        canvas.dataset['page'] = String(n);
+        container.appendChild(canvas);
+        canvases.push(canvas);
+      }
+      this.state.set('ready');
+      const paint = async (canvas: HTMLCanvasElement): Promise<void> => {
+        if (run !== this.run || canvas.dataset['painted']) return;
+        canvas.dataset['painted'] = '1';
+        const page = await doc.getPage(Number(canvas.dataset['page']));
+        if (run !== this.run) return;
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: (width / base.width) * ratio });
         const context = canvas.getContext('2d');
         if (!context) throw new Error('canvas');
         await page.render({ canvasContext: context, viewport }).promise;
-        container.appendChild(canvas);
+      };
+      if (typeof IntersectionObserver === 'undefined') {
+        for (const canvas of canvases) await paint(canvas);
+        return;
       }
-      this.state.set('ready');
+      this.observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              this.observer?.unobserve(entry.target);
+              void paint(entry.target as HTMLCanvasElement).catch(() => this.state.set('error'));
+            }
+          }
+        },
+        { rootMargin: '600px 0px' },
+      );
+      for (const canvas of canvases) this.observer.observe(canvas);
     } catch {
       if (run === this.run) this.state.set('error');
-    } finally {
-      void doc?.destroy();
     }
+  }
+
+  private reset(): void {
+    this.observer?.disconnect();
+    this.observer = null;
+    void this.doc?.destroy();
+    this.doc = null;
   }
 }
