@@ -18,6 +18,7 @@ import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-fi
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
 import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
+import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { humanSize } from '@core/utils/format';
 import { MenuService, SaveState } from '@core/services/menu.service';
@@ -82,6 +83,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkMenuManualForm,
     HkPdfPages,
     HkQrCard,
+    HkFocusOnInit,
     RouterLink,
   ],
   template: `
@@ -220,7 +222,12 @@ const SAVE_LABELS: Record<SaveState, string> = {
               Vos clients voient {{ publishedLabel(menu()!.mode) }}.
             </p>
             @if (pendingUnpublish()) {
-              <div class="flex flex-wrap items-center gap-2 text-sm" role="alert">
+              <div
+                class="flex flex-wrap items-center gap-2 text-sm"
+                role="alert"
+                hkFocusOnInit
+                (keydown.escape)="pendingUnpublish.set(false)"
+              >
                 <span>Vos clients verront « La carte arrive bientôt ». Confirmer ?</span>
                 <hk-button
                   variant="danger"
@@ -386,6 +393,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   <div
                     class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
                     role="alert"
+                    hkFocusOnInit
+                    (keydown.escape)="pendingFile.set(null)"
                   >
                     <span>Supprimer ce PDF ?</span>
                     <hk-button
@@ -502,6 +511,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
                         <div
                           class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs"
                           role="alert"
+                          hkFocusOnInit
+                          (keydown.escape)="pendingFile.set(null)"
                         >
                           <span>Supprimer cette photo ?</span>
                           <hk-button
