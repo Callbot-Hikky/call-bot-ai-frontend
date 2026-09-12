@@ -263,6 +263,9 @@
     border-radius: 999px;
     border: 3px solid var(--background);
   }
+  /* Les deux shells (AppShell, ClientShell) fixent la hauteur a l'ecran et font defiler
+     leur zone principale. Sans ceci, un contenu haut (cadre PDF, image) fait aussi
+     defiler la fenetre : deux barres. Seule la zone principale doit defiler. */
 }
 
 /* Accessibilité : si l'utilisateur a demandé moins d'animations, on coupe

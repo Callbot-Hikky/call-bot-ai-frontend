@@ -35,6 +35,12 @@ import { formatTime } from '@core/utils/format';
               >
                 Bot
               </span>
+            } @else if (reservation().source === 'web') {
+              <span
+                class="rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+              >
+                En ligne
+              </span>
             }
             @if (reservation().notes) {
               <!-- La note existe : indice discret, texte complet au survol (title). -->

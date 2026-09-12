@@ -25,12 +25,14 @@ import { formatTime } from '@core/utils/format';
           <section class="bg-card border-border/70 rounded-lg border p-6 shadow-md lg:col-span-2">
             <h2 class="text-text-strong text-lg font-semibold">Affluence du service</h2>
             <p class="text-muted-foreground mb-6 text-sm">Couverts attendus par créneau</p>
-            <hk-bar-chart [bars]="affluence()" />
+            <hk-bar-chart [bars]="affluence()" emptyLabel="Aucun couvert attendu ce soir." />
           </section>
 
           <section class="bg-card border-border/70 flex flex-col rounded-lg border p-6 shadow-md">
             <h2 class="text-text-strong text-lg font-semibold">Origine des réservations</h2>
-            <p class="text-muted-foreground text-sm">Agent vocal vs saisie manuelle</p>
+            <p class="text-muted-foreground text-sm">
+              Agent vocal, réservation en ligne, saisie manuelle
+            </p>
             <div class="flex flex-1 flex-col justify-center gap-5 pt-6">
               <div>
                 <div class="mb-2 flex items-center justify-between text-sm">
@@ -45,6 +47,22 @@ import { formatTime } from '@core/utils/format';
                   <div
                     class="bg-primary h-full rounded-full"
                     [style.width.%]="source().botPct"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="mb-2 flex items-center justify-between text-sm">
+                  <span class="flex items-center gap-2">
+                    <span class="size-2.5 rounded-full bg-sky-500"></span> En ligne
+                  </span>
+                  <span class="text-muted-foreground font-mono tabular-nums">
+                    {{ source().web }} ({{ source().webPct }}%)
+                  </span>
+                </div>
+                <div class="bg-muted h-2.5 overflow-hidden rounded-full">
+                  <div
+                    class="h-full rounded-full bg-sky-500"
+                    [style.width.%]="source().webPct"
                   ></div>
                 </div>
               </div>
@@ -131,12 +149,15 @@ export class DashboardPage {
   protected readonly source = computed(() => {
     const all = this.service.reservations();
     const bot = all.filter((r) => r.source === 'callbot').length;
+    const web = all.filter((r) => r.source === 'web').length;
     const manual = all.filter((r) => r.source === 'manual').length;
-    const total = bot + manual || 1;
+    const total = bot + web + manual || 1;
     return {
       bot,
+      web,
       manual,
       botPct: Math.round((bot / total) * 100),
+      webPct: Math.round((web / total) * 100),
       manualPct: Math.round((manual / total) * 100),
     };
   });

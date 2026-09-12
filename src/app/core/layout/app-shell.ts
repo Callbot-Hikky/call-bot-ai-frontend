@@ -14,10 +14,10 @@ import { HkToaster } from '@shared/components/molecules/toast/hk-toaster';
         <hk-sidebar />
       </div>
 
-      <div class="flex min-w-0 flex-1 flex-col">
+      <div class="flex min-h-0 min-w-0 flex-1 flex-col">
         <hk-header />
         <main
-          class="to-background from-brand-50/40 flex-1 overflow-auto bg-gradient-to-b p-4 sm:p-6 lg:p-8"
+          class="to-background from-brand-50/40 relative flex-1 overflow-auto bg-gradient-to-b p-4 sm:p-6 lg:p-8"
         >
           <div class="mx-auto max-w-[1440px]">
             <router-outlet />

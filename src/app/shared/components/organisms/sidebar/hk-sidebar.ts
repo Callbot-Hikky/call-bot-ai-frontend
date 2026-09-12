@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, computed, effect } from '@angular/core';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
+import { SessionService } from '@core/services/session.service';
+import { RestaurantService } from '@core/services/restaurant.service';
 import { AuthService } from '@core/services/auth.service';
 import { LayoutService } from '@core/services/layout.service';
 import { NAV_ITEMS } from '@core/layout/nav-items';
@@ -67,8 +69,8 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
 
       <div class="border-border border-t p-2">
         <hk-profile-menu
-          name="Marie Lefèvre"
-          restaurant="Le Bistrot du Coin"
+          [name]="displayName()"
+          [restaurant]="restaurantName()"
           [collapsed]="collapsed()"
           (logout)="onLogout()"
         />
@@ -78,7 +80,21 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkSidebar {
+  constructor() {
+    effect(() => {
+      const id = this.session.restaurantId();
+      if (id && !this.restaurants.restaurant()) {
+        this.restaurants.loadRestaurant(id);
+      }
+    });
+  }
+
   protected readonly layout = inject(LayoutService);
+  private readonly session = inject(SessionService);
+  private readonly restaurants = inject(RestaurantService);
+  // Le compte connecte n'a pas de nom : on montre l'adresse, et le restaurant de la session.
+  protected readonly displayName = computed(() => this.session.user()?.email ?? '');
+  protected readonly restaurantName = computed(() => this.restaurants.restaurant()?.name ?? '');
   protected readonly collapsed = this.layout.sidebarCollapsed;
   protected readonly navItems = NAV_ITEMS;
   private readonly auth = inject(AuthService);
