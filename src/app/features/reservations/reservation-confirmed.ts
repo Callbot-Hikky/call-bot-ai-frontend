@@ -66,16 +66,25 @@ import { PublicReservation } from '@core/models/reservation.model';
             <span class="font-semibold">{{ r.customerFirstName || 'Client' }}</span>
           </div>
         </div>
-        @if (r.restaurantId; as restaurantId) {
+        <div class="flex flex-col items-center gap-2">
+          @if (r.restaurantId; as restaurantId) {
+            <a
+              class="text-primary text-sm underline"
+              data-testid="link-menu"
+              [routerLink]="['/client/restaurants', restaurantId, 'menu']"
+              [queryParams]="{ reservation: id() }"
+            >
+              Vous voulez voir le menu ?
+            </a>
+          }
           <a
-            class="text-primary text-sm underline"
-            data-testid="link-menu"
-            [routerLink]="['/client/restaurants', restaurantId, 'menu']"
-            [queryParams]="{ reservation: id() }"
+            class="text-muted-foreground text-sm underline"
+            data-testid="link-reschedule"
+            [routerLink]="['/client/reservations', id(), 'reschedule']"
           >
-            Vous voulez voir le menu ?
+            Changer l'heure ou le jour
           </a>
-        }
+        </div>
       }
     </div>
   `,
