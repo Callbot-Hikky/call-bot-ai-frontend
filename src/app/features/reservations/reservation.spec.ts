@@ -86,6 +86,21 @@ describe('ReservationPage (replanification publique)', () => {
     http.expectNone((r) => r.url.includes('/slots'));
   });
 
+  it('une reservation annulee ne propose plus de creneaux mais un lien pour reserver a nouveau', async () => {
+    fixture = TestBed.createComponent(ReservationPage);
+    fixture.componentRef.setInput('id', 'r-1');
+    await fixture.whenStable();
+    http.expectOne('/api/public/reservations/r-1').flush({ ...RESERVATION, status: 'cancelled' });
+    await fixture.whenStable();
+    http.match((r) => r.url.includes('/slots')).forEach((req) => req.flush({ days: [] }));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="cancelled-state"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('hk-reservation-slot-picker')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="link-book-again"]').getAttribute('href'),
+    ).toBe('/client/restaurants/rest-1/schedule');
+  });
+
   it('confirmer envoie le PUT public sans nom ni table, puis va sur la page confirmee', async () => {
     await render();
     fixture.componentInstance.onSlotPicked(SLOT);

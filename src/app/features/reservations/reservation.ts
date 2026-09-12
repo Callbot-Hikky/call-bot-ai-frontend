@@ -48,6 +48,22 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
           Vérifiez le lien reçu dans votre message de confirmation.
         </p>
       </div>
+    } @else if (reservation()?.status === 'cancelled') {
+      <div class="flex flex-col items-center gap-3 py-16 text-center" data-testid="cancelled-state">
+        <p class="text-lg font-semibold">Réservation annulée</p>
+        <p class="text-muted-foreground text-sm">
+          Cette réservation a été annulée et ne peut plus être modifiée.
+        </p>
+        @if (reservation()?.restaurantId; as restaurantId) {
+          <a
+            class="text-primary text-sm underline"
+            data-testid="link-book-again"
+            [routerLink]="['/client/restaurants', restaurantId, 'schedule']"
+          >
+            Réserver à nouveau
+          </a>
+        }
+      </div>
     } @else {
       <article class="mx-auto flex w-full max-w-2xl flex-col gap-10 py-6">
         <hk-client-header
