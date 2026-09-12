@@ -52,6 +52,10 @@ describe('ReservationConfirmedPage', () => {
       '[data-testid="link-menu"]',
     );
     expect(link.getAttribute('href')).toBe('/client/restaurants/rest-1/menu?reservation=r-1');
+    const reschedule: HTMLAnchorElement = fixture.nativeElement.querySelector(
+      '[data-testid="link-reschedule"]',
+    );
+    expect(reschedule.getAttribute('href')).toBe('/client/reservations/r-1/reschedule');
   });
 
   it('un lien qui ne correspond a rien le dit, sans afficher la coche verte', async () => {
