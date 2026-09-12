@@ -129,14 +129,13 @@ test.describe('Menu : page restaurateur', () => {
     const input = page.locator('section[aria-label="Carte en PDF"] input[type=file]');
     await input.setInputFiles(fixture('carte.pdf'));
     await expect(page.getByText('PDF ajouté.')).toBeVisible();
-    const frame = page.getByTestId('pdf-preview');
-    await expect(frame).toBeVisible();
-    // Le cadre reçoit bien le PDF (le serveur autorise l'incorporation en même origine).
-    const frameStatus = await page.evaluate(
+    await expect(page.getByTestId('pdf-preview')).toBeVisible();
+    // Le fichier admin est servi a la session (le rendu en images le lit depuis le navigateur).
+    const previewStatus = await page.evaluate(
       async (src) => (await fetch(src, { credentials: 'include' })).status,
-      await frame.getAttribute('src'),
+      await page.getByTestId('open-pdf').getAttribute('href'),
     );
-    expect(frameStatus).toBe(200);
+    expect(previewStatus).toBe(200);
 
     // Un second PDF remplace le premier : toujours un seul.
     await input.setInputFiles(fixture('carte.pdf'));
