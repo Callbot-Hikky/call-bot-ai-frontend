@@ -26,6 +26,7 @@ import {
 import { HkReservationSlotPicker } from '@shared/components/organisms/reservation-slot-picker/hk-reservation-slot-picker';
 import { HkCounter } from '@shared/components/molecules/counter/hk-counter';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
+import { HkClientHeader } from '@shared/components/molecules/client-header/hk-client-header';
 
 const MIN_PARTY_SIZE = 1;
 // Meme regle que le back (PublicReservationRequest.Customer.phone) : refuse avant d'envoyer.
@@ -43,13 +44,18 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
     HkReservationSlotPicker,
     HkCounter,
     HkSkeleton,
+    HkClientHeader,
     ...HlmSheetImports,
     BrnSheetContent,
     HlmButton,
   ],
   template: `
     @if (loading()) {
-      <div class="flex flex-col gap-6" aria-busy="true" aria-label="Chargement">
+      <div
+        class="mx-auto flex w-full max-w-2xl flex-col gap-6 py-6"
+        aria-busy="true"
+        aria-label="Chargement"
+      >
         <hk-skeleton height="2rem" width="14rem" />
         <hk-skeleton height="1rem" width="10rem" />
         <hk-skeleton height="12rem" />
@@ -69,12 +75,9 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
         }
       </div>
     } @else {
-      <div class="flex flex-col gap-10">
-        <div class="flex flex-col gap-2">
-          <h1 class="text-xl font-bold">{{ restaurantName() }}</h1>
-          <p class="text-text-muted text-sm">
-            Réservez une table en quelques secondes, sans compte.
-          </p>
+      <article class="mx-auto flex w-full max-w-2xl flex-col gap-10 py-6">
+        <hk-client-header eyebrow="Réserver une table" [title]="restaurantName()">
+          <p class="text-text-muted text-sm">En quelques secondes, sans compte.</p>
           @if (hasMenu()) {
             <a
               class="text-primary text-sm underline"
@@ -84,7 +87,7 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
               Vous voulez voir le menu ?
             </a>
           }
-        </div>
+        </hk-client-header>
 
         <div class="flex flex-col gap-4">
           <p class="font-bold"><span class="text-primary">1. </span>Combien de personnes ?</p>
@@ -140,7 +143,7 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
             </div>
           }
         </div>
-      </div>
+      </article>
 
       <hlm-sheet side="bottom" [state]="sheetState()" (stateChanged)="sheetState.set($event)">
         <hlm-sheet-content
