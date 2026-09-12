@@ -263,7 +263,7 @@ export const MENU_ERROR_MESSAGES: Record<string, string> = {
   too_many_files: 'Vous avez atteint la limite de 8 images.',
   mode_not_ready: "Ajoutez d'abord du contenu avant de publier ce mode.",
   invalid_manual: 'Le menu saisi est mal formé.',
-  invalid_file_order: "L'ordre des images est incomplet, rechargez la page.",
+  invalid_file_order: "L'ordre des fichiers est incomplet, rechargez la page.",
   forbidden: "Ce restaurant n'appartient pas à votre compte.",
 };
 
