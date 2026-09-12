@@ -70,8 +70,8 @@ export const routes: Routes = [
       {
         path: 'menu',
         loadComponent: () => import('./features/menu/menu-page').then((m) => m.MenuPage),
-        title: 'Menu et QR code',
-        data: { title: 'Menu et QR code' },
+        title: 'Carte et QR codes',
+        data: { title: 'Carte et QR codes' },
       },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
