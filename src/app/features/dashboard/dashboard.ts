@@ -25,7 +25,7 @@ import { formatTime } from '@core/utils/format';
           <section class="bg-card border-border/70 rounded-lg border p-6 shadow-md lg:col-span-2">
             <h2 class="text-text-strong text-lg font-semibold">Affluence du service</h2>
             <p class="text-muted-foreground mb-6 text-sm">Couverts attendus par créneau</p>
-            <hk-bar-chart [bars]="affluence()" />
+            <hk-bar-chart [bars]="affluence()" emptyLabel="Aucun couvert attendu ce soir." />
           </section>
 
           <section class="bg-card border-border/70 flex flex-col rounded-lg border p-6 shadow-md">
