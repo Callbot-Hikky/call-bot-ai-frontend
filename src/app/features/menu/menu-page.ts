@@ -93,7 +93,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
       </span>
     </hk-page-header>
 
-    @if (!restaurantId) {
+    @if (!restaurantId()) {
       <div class="bg-card border-border/70 rounded-lg border p-10 text-center shadow-md">
         <p class="text-text-strong font-medium">Aucun restaurant n'est rattaché à votre compte.</p>
         <p class="text-muted-foreground text-sm">
@@ -175,7 +175,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
               [class.border-primary]="editing() === card.mode"
               [class.bg-primary/5]="editing() === card.mode"
               [class.border-border]="editing() !== card.mode"
-              [attr.aria-pressed]="menu()!.mode === card.mode"
+              [attr.aria-pressed]="editing() === card.mode"
               [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
               [disabled]="service.saving()"
               (click)="open(card.mode)"
@@ -339,7 +339,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <p class="text-text-subtle text-xs">{{ humanSize(pdf.sizeBytes) }}</p>
                   </div>
                   <a
-                    [href]="pdf.url"
+                    [href]="previewUrl(pdf)"
                     target="_blank"
                     rel="noopener"
                     class="text-primary flex items-center gap-1 text-sm underline"
@@ -453,7 +453,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <li class="bg-card border-border/70 flex flex-col gap-2 rounded-lg border p-2">
                       <img
                         data-testid="image-thumb"
-                        [src]="file.url"
+                        [src]="previewUrl(file)"
                         [alt]="'Photo ' + (i + 1) + ' de la carte'"
                         class="bg-muted h-56 w-full rounded-md object-contain"
                         loading="lazy"
@@ -587,15 +587,16 @@ export class MenuPage {
 
   private readonly restaurants = inject(RestaurantService);
 
-  protected readonly restaurantId = this.session.restaurantId();
+  // Signal, pas instantane : un changement de restaurant dans la session met les QR a jour.
+  protected readonly restaurantId = this.session.restaurantId;
   protected readonly cards = MODE_CARDS;
 
   // Les liens publics sont sur la meme origine que l'application.
   protected readonly menuUrl = computed(
-    () => `${location.origin}/client/restaurants/${this.restaurantId}/menu`,
+    () => `${location.origin}/client/restaurants/${this.restaurantId()}/menu`,
   );
   protected readonly bookingUrl = computed(
-    () => `${location.origin}/client/restaurants/${this.restaurantId}/schedule`,
+    () => `${location.origin}/client/restaurants/${this.restaurantId()}/schedule`,
   );
   // Nom de fichier lisible : « menu-le-bistrot-du-coin.png ».
   protected readonly slug = computed(() =>
@@ -643,11 +644,10 @@ export class MenuPage {
   });
 
   constructor() {
-    if (this.restaurantId) {
-      this.service.load(this.restaurantId);
-      if (!this.restaurants.restaurant()) {
-        this.restaurants.loadRestaurant(this.restaurantId);
-      }
+    const restaurantId = this.restaurantId();
+    if (restaurantId) {
+      this.service.load(restaurantId);
+      this.restaurants.loadRestaurant(restaurantId);
     }
     effect(() => {
       const menu = this.menu();
@@ -662,8 +662,9 @@ export class MenuPage {
   }
 
   protected retry(): void {
-    if (this.restaurantId) {
-      this.service.load(this.restaurantId);
+    const restaurantId = this.restaurantId();
+    if (restaurantId) {
+      this.service.load(restaurantId);
     }
   }
 
@@ -736,7 +737,8 @@ export class MenuPage {
         );
         const sent = results.length - failures.length;
         if (failures.length === 0) {
-          const isPdf = files[0].type === FILE_TYPE_MIME.pdf;
+          // Le type annonce peut manquer (glisser-deposer) : on regarde aussi l'extension.
+          const isPdf = files.every((f) => f.type === FILE_TYPE_MIME.pdf || /\.pdf$/i.test(f.name));
           const single = isPdf ? 'PDF ajouté.' : 'Photo ajoutée.';
           const many = isPdf ? `${sent} PDF ajoutés.` : `${sent} photos ajoutées.`;
           this.toast.show(sent === 1 ? single : many, 'success');
