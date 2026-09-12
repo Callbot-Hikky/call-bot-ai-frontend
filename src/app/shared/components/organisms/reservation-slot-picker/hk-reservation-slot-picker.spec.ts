@@ -3,10 +3,16 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { registerLocaleData } from '@angular/common';
 import localeFr from '@angular/common/locales/fr';
 
+import { formatDate } from '@angular/common';
+
 import { HkReservationSlotPicker } from './hk-reservation-slot-picker';
 import { RescheduleDay } from '@core/models/reservation.model';
 
 registerLocaleData(localeFr);
+
+// Les heures affichees dependent du fuseau de la machine (Paris ici, UTC en CI) :
+// l'attendu est calcule avec le meme formatage que le composant.
+const hhmm = (iso: string) => formatDate(iso, 'HH:mm', 'fr');
 
 const slot = (startsAt: string) => ({ startsAt, endsAt: startsAt, tableId: 't', capacity: 4 });
 const DAYS: RescheduleDay[] = [
@@ -44,7 +50,9 @@ describe('HkReservationSlotPicker', () => {
 
   it('ouvre d emblee le premier jour qui a des creneaux, pas la journee vide', async () => {
     await render(true);
-    expect(slotButtons().map((b) => b.textContent?.trim())).toEqual(['11:00', '11:30']);
+    expect(slotButtons().map((b) => b.textContent?.trim())).toEqual(
+      DAYS[1].slots.map((s) => hhmm(s.startsAt)),
+    );
   });
 
   it('choisir un creneau l emet et le marque selectionne', async () => {
