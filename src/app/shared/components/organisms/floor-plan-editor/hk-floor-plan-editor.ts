@@ -346,6 +346,20 @@ interface DeletedTableSnapshot {
             Supprimer
           </hk-button>
 
+          <!-- Repartir de zero sans avoir a tout selectionner a la main (utile
+               apres un import dont la disposition ne convient pas). Passe par la
+               MEME suppression : garde-fou reservations et annulation compris. -->
+          <hk-button
+            variant="danger"
+            size="sm"
+            data-testid="delete-all"
+            [disabled]="tableCount() === 0"
+            (click)="deleteAll()"
+          >
+            <hk-icon name="lucideTrash2" [size]="16" />
+            Tout supprimer
+          </hk-button>
+
           <div class="ml-auto flex items-center gap-3">
             <hk-button variant="ghost" size="sm" (click)="exportPng()">
               <hk-icon name="lucideDownload" [size]="16" />
@@ -1082,6 +1096,22 @@ export class HkFloorPlanEditor implements OnInit {
       .subscribe({ complete: () => this.selectedIds.set(createdIds) });
   }
 
+  // Selectionne toutes les tables (bouton « Tout supprimer », raccourci Ctrl+A).
+  protected selectAll(): void {
+    this.selectedIds.set(this.editorTables().map((t) => t.id));
+  }
+
+  // Vide la salle. Delegue a deleteSelection pour ne pas dupliquer le garde-fou
+  // reservations ni l'annulation : les tables attendues par un client restent,
+  // et le toast permet de tout recreer si c'etait une fausse manoeuvre.
+  protected deleteAll(): void {
+    if (this.tableCount() === 0) {
+      return;
+    }
+    this.selectAll();
+    this.deleteSelection();
+  }
+
   // --- Suppression (garde-fou reservations) --------------------------------------
 
   protected deleteSelection(): void {
@@ -1446,6 +1476,11 @@ export class HkFloorPlanEditor implements OnInit {
     if (!typing && mod && event.key.toLowerCase() === 'd') {
       event.preventDefault();
       this.duplicateSelection();
+      return;
+    }
+    if (!typing && mod && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      this.selectAll();
       return;
     }
     if (!typing && (event.key === 'Delete' || event.key === 'Backspace')) {

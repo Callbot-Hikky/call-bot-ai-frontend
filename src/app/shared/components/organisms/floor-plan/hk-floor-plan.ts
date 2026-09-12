@@ -11,13 +11,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import type { WritableSignal } from '@angular/core';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkFloorPlanCanvas } from './hk-floor-plan-canvas';
 import { HkFloorPlan3d } from './hk-floor-plan-3d';
 import { HkFloorPlanLegend } from './hk-floor-plan-legend';
-import { HkTableTimeline } from '@shared/components/molecules/table-timeline/hk-table-timeline';
 import { HkTableCard } from './hk-table-card';
 import { Reservation } from '@core/models/reservation.model';
 import { FloorTable } from '@core/models/table.model';
@@ -42,6 +42,12 @@ import { formatTime } from '@core/utils/format';
 import { downloadDataUrl } from '@core/utils/download';
 
 import { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan-events';
+
+// Bornes de la configuration rapide. Nommees ici et utilisees a la fois dans le
+// gabarit (attribut max) et dans la lecture de la saisie : ecrites deux fois,
+// elles finissent par diverger.
+const QUICK_MAX_TABLES = 40;
+const QUICK_MAX_SEATS = 20;
 export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan-events';
 
 // Plan de salle (Phase 1) : canvas Konva + panneau des non placees + legende.
@@ -56,7 +62,6 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
     HkFloorPlanCanvas,
     HkFloorPlan3d,
     HkFloorPlanLegend,
-    HkTableTimeline,
     HkTableCard,
   ],
   template: `
@@ -303,7 +308,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     <input
                       type="number"
                       min="1"
-                      max="40"
+                      [attr.max]="maxTables"
                       data-testid="quick-tables"
                       class="border-border bg-background w-20 rounded-sm border px-2 py-1.5 text-right font-mono text-sm"
                       [value]="quickTables()"
@@ -315,7 +320,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     <input
                       type="number"
                       min="1"
-                      max="20"
+                      [attr.max]="maxSeats"
                       data-testid="quick-seats"
                       class="border-border bg-background w-20 rounded-sm border px-2 py-1.5 text-right font-mono text-sm"
                       [value]="quickSeats()"
@@ -862,29 +867,38 @@ export class HkFloorPlan {
   // --- Configuration rapide (onboarding, aucune table) --------------------------
   // « Combien de tables ? Combien de couverts ? » -> creation de N vraies tables
   // (POST sequentiels), positions auto-grille ; l'editeur affine ensuite.
+  protected readonly maxTables = QUICK_MAX_TABLES;
+  protected readonly maxSeats = QUICK_MAX_SEATS;
   protected readonly quickTables = signal(10);
   protected readonly quickSeats = signal(4);
   protected readonly quickCreating = signal(false);
 
   protected onQuickTables(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    if (value === '') {
-      return; // champ vide en cours de frappe : on ne force pas 1 sous les doigts.
-    }
-    const raw = Number(value);
-    if (Number.isFinite(raw)) {
-      this.quickTables.set(Math.max(1, Math.min(40, Math.round(raw))));
-    }
+    this.readBounded(event, this.quickTables, QUICK_MAX_TABLES);
   }
 
   protected onQuickSeats(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    if (value === '') {
+    this.readBounded(event, this.quickSeats, QUICK_MAX_SEATS);
+  }
+
+  // Lit une saisie numerique bornee et REECRIT le champ si la valeur a ete
+  // ramenee dans les bornes. Sans cette reecriture, taper 40000 alors que le
+  // signal vaut deja son maximum le laisse affiche : le signal ne change pas,
+  // Angular ne re-rend pas, et l'ecran annonce une valeur qui ne sera pas
+  // appliquee. Le champ doit toujours dire la verite sur ce qui va etre cree.
+  private readBounded(event: Event, cible: WritableSignal<number>, max: number): void {
+    const input = event.target as HTMLInputElement;
+    if (input.value === '') {
+      return; // champ vide en cours de frappe : on ne force pas 1 sous les doigts.
+    }
+    const raw = Number(input.value);
+    if (!Number.isFinite(raw)) {
       return;
     }
-    const raw = Number(value);
-    if (Number.isFinite(raw)) {
-      this.quickSeats.set(Math.max(1, Math.min(20, Math.round(raw))));
+    const borne = Math.max(1, Math.min(max, Math.round(raw)));
+    cible.set(borne);
+    if (input.value !== String(borne)) {
+      input.value = String(borne);
     }
   }
 
