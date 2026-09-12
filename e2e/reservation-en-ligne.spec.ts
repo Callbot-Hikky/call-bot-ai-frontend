@@ -82,6 +82,8 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     );
     expect(created.status()).toBe(201);
     const id = (await created.json()).id as string;
+    // L'identifiant public est un jeton : il ne correspond a rien cote back-office.
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
 
     // Cote restaurateur (API authentifiee) : la reservation existe, source web, client rattache.
     const list = await request.get(
@@ -90,8 +92,9 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     );
     const mine = (
       (await list.json()) as { id: string; source: string; customer?: { phone: string } }[]
-    ).find((r) => r.id === id);
+    ).find((r) => r.customer?.phone === '+33698765432');
     expect(mine?.source).toBe('web');
+    expect(mine?.id).not.toBe(id);
     // Le back range les numeros francais en forme internationale.
     expect(mine?.customer?.phone).toBe('+33698765432');
   });
