@@ -6,7 +6,9 @@ import {
   inject,
   input,
   signal,
+  DestroyRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -85,7 +87,7 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
           }
           @case ('images') {
             <div class="reveal flex flex-col gap-4" [style.animation-delay.ms]="80">
-              @for (file of m.files; track file.id; let i = $index) {
+              @for (file of images(); track file.id; let i = $index) {
                 <figure
                   class="bg-card border-border/70 overflow-hidden rounded-lg border shadow-sm"
                 >
@@ -104,7 +106,11 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
           @case ('pdf') {
             @if (pdfs().length === 0) {
               <p class="text-text-muted reveal text-base" [style.animation-delay.ms]="80">
-                La carte de {{ m.restaurantName }} arrive bientôt.
+                @if (m.files.length > 0) {
+                  La carte n'a pas pu être chargée. Réessayez dans un instant.
+                } @else {
+                  La carte de {{ m.restaurantName }} arrive bientôt.
+                }
               </p>
             }
             <!-- Plusieurs cartes (plats, vins, desserts) s'enchainent dans l'ordre du restaurateur. -->
@@ -191,6 +197,7 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
 export class RestaurantMenuPage {
   private readonly service = inject(MenuService);
   private readonly title = inject(Title);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Parametre de route et parametre de requete, lies par withComponentInputBinding.
   readonly id = input<string>();
@@ -201,6 +208,12 @@ export class RestaurantMenuPage {
   protected readonly error = signal<'not_found' | 'failed' | null>(null);
 
   // Seules les URL de fichiers publics verifiees par leur forme sont rendues, jamais une valeur libre.
+  // Memes filtres pour les photos que pour les PDF : genre, forme de l'URL, ordre du restaurateur.
+  protected readonly images = computed(() =>
+    (this.menu()?.files ?? [])
+      .filter((f) => f.kind === 'image' && isSafePublicFileUrl(f.url))
+      .sort((a, b) => a.position - b.position),
+  );
   protected readonly pdfs = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'pdf' && isSafePublicFileUrl(f.url))
@@ -227,19 +240,22 @@ export class RestaurantMenuPage {
     if (!restaurantId) return;
     this.loading.set(true);
     this.error.set(null);
-    this.service.getPublic(restaurantId).subscribe({
-      next: (menu) => {
-        this.menu.set(menu);
-        this.title.setTitle(`La carte de ${menu.restaurantName}`);
-        this.loading.set(false);
-      },
-      error: (err: unknown) => {
-        this.error.set(
-          err instanceof HttpErrorResponse && err.status === 404 ? 'not_found' : 'failed',
-        );
-        this.loading.set(false);
-      },
-    });
+    this.service
+      .getPublic(restaurantId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (menu) => {
+          this.menu.set(menu);
+          this.title.setTitle(`La carte de ${menu.restaurantName}`);
+          this.loading.set(false);
+        },
+        error: (err: unknown) => {
+          this.error.set(
+            err instanceof HttpErrorResponse && err.status === 404 ? 'not_found' : 'failed',
+          );
+          this.loading.set(false);
+        },
+      });
   }
 
   protected price(value: string): string {
