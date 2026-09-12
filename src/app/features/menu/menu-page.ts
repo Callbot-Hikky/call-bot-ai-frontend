@@ -26,6 +26,7 @@ import { ToastService } from '@core/services/toast.service';
 import {
   FILE_TYPE_MIME,
   ManualMenu,
+  MenuFile,
   MenuMode,
   emptyManual,
   isSafeAdminFileUrl,
@@ -43,7 +44,7 @@ const MODE_CARDS: ModeCard[] = [
     mode: 'pdf',
     icon: 'lucideFileText',
     title: 'PDF',
-    description: 'Un seul fichier PDF, 10 Mo maximum.',
+    description: "Jusqu'à 5 PDF : plats, vins, desserts.",
   },
   {
     mode: 'images',
@@ -158,8 +159,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
         <div class="flex flex-col gap-1">
           <h2 class="text-text-strong text-lg font-semibold">Votre carte</h2>
           <p class="text-text-subtle text-sm">
-            Choisissez comment vos clients la voient : un PDF, des photos ou une saisie à la main.
-            Un seul format est publié à la fois.
+            Choisissez comment vos clients la voient : des PDF, des photos ou une saisie à la main.
+            Les formats ne se mélangent pas : un seul est publié à la fois, vos clients ne voient
+            que celui-là.
           </p>
         </div>
         <div class="grid gap-4 sm:grid-cols-3" role="group" aria-label="Mode de publication">
@@ -276,7 +278,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
         @switch (editing()) {
           @case ('pdf') {
             <section class="flex flex-col gap-4" aria-label="Carte en PDF">
-              @if (pdfFile() && menu()!.mode !== 'pdf') {
+              @if (pdfs().length > 0 && menu()!.mode !== 'pdf') {
                 <div
                   class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
                   data-testid="publish-inline"
@@ -284,20 +286,53 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 >
                   <span class="flex items-center gap-2">
                     <hk-icon name="lucideTriangleAlert" [size]="16" />
-                    Votre PDF est prêt. Il n'est pas encore visible par vos clients.
+                    {{ pdfs().length > 1 ? 'Vos PDF sont prêts. Ils ne sont' : 'Votre PDF est prêt. Il n'est' }}
+                    pas encore visible{{ pdfs().length > 1 ? 's' : '' }} par vos clients.
                   </span>
                   <hk-button size="sm" [disabled]="service.saving()" (click)="publish('pdf')">
-                    Publier le PDF
+                    {{ pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF' }}
                   </hk-button>
                 </div>
               }
-              @if (pdfFile(); as pdf) {
+              @if (pdfs().length > 0) {
+                <!-- L'ajout reste en tete : les apercus qui suivent peuvent etre longs. -->
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <p class="text-text-subtle text-xs" data-testid="pdf-count">
+                    {{ pdfs().length }}/{{ menu()!.limits.pdfMaxCount }} PDF. Plats, vins, desserts
+                    : vos clients les voient à la suite, dans cet ordre.
+                  </p>
+                  @if (canAddPdf()) {
+                    <hk-file-dropzone
+                      [compact]="true"
+                      label="Ajouter un PDF"
+                      [accept]="pdfMimes"
+                      [maxBytes]="menu()!.limits.pdfMaxBytes"
+                      [multiple]="true"
+                      [disabled]="service.saving()"
+                      (filesPicked)="onFiles($event)"
+                    />
+                  } @else {
+                    <span class="text-text-subtle text-xs">Limite de PDF atteinte.</span>
+                  }
+                </div>
+              }
+              @for (
+                pdf of pdfs();
+                track pdf.id;
+                let i = $index;
+                let first = $first;
+                let last = $last
+              ) {
                 <div
                   class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4"
+                  data-testid="pdf-row"
                 >
                   <hk-icon name="lucideFileText" [size]="24" class="text-primary" />
                   <div class="flex-1">
-                    <p class="text-text-strong text-sm font-medium">Carte en PDF</p>
+                    <p class="text-text-strong text-sm font-medium">
+                      PDF {{ i + 1
+                      }}<span class="text-text-subtle font-normal"> / {{ pdfs().length }}</span>
+                    </p>
                     <p class="text-text-subtle text-xs">{{ humanSize(pdf.sizeBytes) }}</p>
                   </div>
                   <a
@@ -310,14 +345,28 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     <hk-icon name="lucideExternalLink" [size]="14" />
                     Ouvrir
                   </a>
-                  <hk-file-dropzone
-                    [compact]="true"
-                    label="Remplacer"
-                    [accept]="pdfMimes"
-                    [maxBytes]="menu()!.limits.pdfMaxBytes"
-                    [disabled]="service.saving()"
-                    (filesPicked)="onFiles($event)"
-                  />
+                  <hk-button
+                    variant="ghost"
+                    size="sm"
+                    [attr.data-testid]="'move-up-' + pdf.id"
+                    [disabled]="first || service.saving()"
+                    (click)="move(pdf.id, -1, 'pdf')"
+                  >
+                    <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
+                      >Monter le PDF</span
+                    >
+                  </hk-button>
+                  <hk-button
+                    variant="ghost"
+                    size="sm"
+                    [attr.data-testid]="'move-down-' + pdf.id"
+                    [disabled]="last || service.saving()"
+                    (click)="move(pdf.id, 1, 'pdf')"
+                  >
+                    <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
+                      >Descendre le PDF</span
+                    >
+                  </hk-button>
                   <hk-button
                     variant="ghost"
                     size="sm"
@@ -348,24 +397,25 @@ const SAVE_LABELS: Record<SaveState, string> = {
                     >
                   </div>
                 }
-                @if (pdfPreviewUrl(); as url) {
+                @if (previewUrl(pdf); as url) {
                   <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
                   <div class="mx-auto w-full max-w-2xl">
                     <hk-pdf-pages
                       data-testid="pdf-preview"
                       [url]="url"
-                      title="Aperçu de votre carte en PDF"
+                      [title]="'Aperçu du PDF ' + (i + 1)"
                     />
                   </div>
                 }
               }
-              @if (!pdfFile()) {
+              @if (pdfs().length === 0) {
                 <hk-file-dropzone
                   [accept]="pdfMimes"
                   [maxBytes]="menu()!.limits.pdfMaxBytes"
+                  [multiple]="true"
                   [disabled]="service.saving()"
-                  label="Glissez votre carte en PDF ici"
-                  hint="ou cliquez pour la choisir. PDF, 10 Mo maximum."
+                  label="Glissez vos cartes en PDF ici"
+                  hint="ou cliquez pour les choisir. Jusqu'à 5 PDF (plats, vins, desserts), 10 Mo maximum chacun."
                   (filesPicked)="onFiles($event)"
                 />
               }
@@ -559,14 +609,18 @@ export class MenuPage {
   protected readonly draft = signal<ManualMenu>(emptyManual());
   private draftInitialized = false;
 
-  protected readonly pdfFile = computed(
-    () => this.menu()?.files.find((f) => f.kind === 'pdf') ?? null,
+  protected readonly pdfs = computed(() =>
+    (this.menu()?.files ?? [])
+      .filter((f) => f.kind === 'pdf')
+      .sort((a, b) => a.position - b.position),
+  );
+  protected readonly canAddPdf = computed(
+    () => this.pdfs().length < (this.menu()?.limits.pdfMaxCount ?? 5),
   );
   // Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue.
-  protected readonly pdfPreviewUrl = computed<string | null>(() => {
-    const file = this.pdfFile();
-    return file && isSafeAdminFileUrl(file.url) ? file.url : null;
-  });
+  protected previewUrl(file: MenuFile): string | null {
+    return isSafeAdminFileUrl(file.url) ? file.url : null;
+  }
   protected readonly images = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'image')
@@ -612,8 +666,10 @@ export class MenuPage {
 
   protected countFor(mode: MenuMode): string {
     switch (mode) {
-      case 'pdf':
-        return this.pdfFile() ? 'PDF prêt' : 'Aucun fichier';
+      case 'pdf': {
+        const n = this.pdfs().length;
+        return n === 0 ? 'Aucun fichier' : `${n} PDF`;
+      }
       case 'images': {
         const n = this.images().length;
         return n === 0 ? 'Aucune photo' : `${n} photo${n > 1 ? 's' : ''}`;
@@ -661,7 +717,6 @@ export class MenuPage {
   // Les fichiers partent un par un, dans l'ordre : un refus n'arrete pas les suivants,
   // et un seul bilan est affiche a la fin.
   protected onFiles(files: File[]): void {
-    const hadPdf = this.pdfFile() !== null;
     from(files)
       .pipe(
         concatMap((file) =>
@@ -678,9 +733,10 @@ export class MenuPage {
         );
         const sent = results.length - failures.length;
         if (failures.length === 0) {
-          const pdfLabel = hadPdf ? 'PDF remplacé.' : 'PDF ajouté.';
-          const single = files[0].type === FILE_TYPE_MIME.pdf ? pdfLabel : 'Photo ajoutée.';
-          this.toast.show(sent === 1 ? single : `${sent} photos ajoutées.`, 'success');
+          const isPdf = files[0].type === FILE_TYPE_MIME.pdf;
+          const single = isPdf ? 'PDF ajouté.' : 'Photo ajoutée.';
+          const many = isPdf ? `${sent} PDF ajoutés.` : `${sent} photos ajoutées.`;
+          this.toast.show(sent === 1 ? single : many, 'success');
         } else if (sent === 0) {
           this.toast.show(failures[0].reason, 'error');
         } else {
@@ -715,8 +771,9 @@ export class MenuPage {
       });
   }
 
-  protected move(fileId: string, direction: -1 | 1): void {
-    const ids = this.images().map((f) => f.id);
+  // Le reordonnancement porte sur un seul genre : PDF entre eux, photos entre elles.
+  protected move(fileId: string, direction: -1 | 1, kind: 'pdf' | 'image' = 'image'): void {
+    const ids = (kind === 'pdf' ? this.pdfs() : this.images()).map((f) => f.id);
     const index = ids.indexOf(fileId);
     const target = index + direction;
     if (index < 0 || target < 0 || target >= ids.length) return;
@@ -746,7 +803,7 @@ export class MenuPage {
   protected isReady(mode: MenuMode): boolean {
     switch (mode) {
       case 'pdf':
-        return this.pdfFile() !== null;
+        return this.pdfs().length > 0;
       case 'images':
         return this.images().length > 0;
       case 'manual':
@@ -759,7 +816,7 @@ export class MenuPage {
   protected publishAction(mode: MenuMode): string {
     switch (mode) {
       case 'pdf':
-        return 'Publier le PDF';
+        return this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF';
       case 'images':
         return 'Publier les photos';
       case 'manual':
@@ -772,7 +829,7 @@ export class MenuPage {
   protected publishedLabel(mode: MenuMode): string {
     switch (mode) {
       case 'pdf':
-        return 'votre carte en PDF';
+        return this.pdfs().length > 1 ? 'vos cartes en PDF' : 'votre carte en PDF';
       case 'images':
         return 'vos photos';
       case 'manual':

@@ -312,18 +312,17 @@ export class MenuService {
   // Le type vient des octets (precheck), jamais du Content-Type annonce par le navigateur.
   private mockUpload(file: File, type: MenuFileType): Observable<Menu> {
     const state = this.mockMenu(this.restaurantId ?? '');
-    const isPdf = type === 'pdf';
-    const kept = isPdf ? state.files.filter((f) => f.kind !== 'pdf') : state.files;
-    const images = kept.filter((f) => f.kind === 'image');
+    const kind = type === 'pdf' ? 'pdf' : 'image';
+    const siblings = state.files.filter((f) => f.kind === kind);
     const created: MenuFile = {
       id: `mock-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      kind: isPdf ? 'pdf' : 'image',
+      kind,
       contentType: FILE_TYPE_MIME[type],
-      position: isPdf ? 0 : (images.at(-1)?.position ?? -1) + 1,
+      position: (siblings.at(-1)?.position ?? -1) + 1,
       sizeBytes: file.size,
       url: objectUrl(file),
     };
-    this.mockState = { ...state, files: [...kept, created] };
+    this.mockState = { ...state, files: [...state.files, created] };
     return of(structuredClone(this.mockState)).pipe(delay(300));
   }
 

@@ -116,7 +116,7 @@ test.describe('Menu : page restaurateur', () => {
     await expect(page.getByTestId('nothing-published')).toBeVisible();
   });
 
-  test('PDF : dépose, aperçu intégré, remplacement, publication', async ({
+  test('PDF : dépose, aperçu intégré, second PDF ajouté, publication', async ({
     page,
     request,
     isMobile,
@@ -137,13 +137,16 @@ test.describe('Menu : page restaurateur', () => {
     );
     expect(previewStatus).toBe(200);
 
-    // Un second PDF remplace le premier : toujours un seul.
-    await input.setInputFiles(fixture('carte.pdf'));
-    await expect(page.getByText('PDF remplacé.')).toBeVisible();
-    await expect(page.getByTestId('pdf-preview')).toHaveCount(1);
+    // Un second PDF (la carte des vins, par exemple) s'ajoute a la suite du premier.
+    await page
+      .locator('section[aria-label="Carte en PDF"] input[type=file]')
+      .setInputFiles(fixture('carte.pdf'));
+    await expect(page.getByText('PDF ajouté.')).toBeVisible();
+    await expect(page.getByTestId('pdf-preview')).toHaveCount(2);
+    await expect(page.getByTestId('pdf-count')).toContainText('2/5 PDF');
 
     await page.getByTestId('publish-current').click();
-    await expect(page.getByTestId('publish-state')).toContainText('votre carte en PDF');
+    await expect(page.getByTestId('publish-state')).toContainText('vos cartes en PDF');
 
     // Un seul défilement : la molette fait défiler la zone principale, jamais la fenêtre.
     // Geste de souris : profil bureau seulement (le tactile n'a pas de molette).

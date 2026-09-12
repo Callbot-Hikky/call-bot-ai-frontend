@@ -14,7 +14,12 @@ function dto(partial: Partial<MenuDto> = {}): MenuDto {
     mode: 'none',
     manual: {},
     files: [],
-    limits: { pdfMaxBytes: 10 * 1024 * 1024, imageMaxBytes: 5 * 1024 * 1024, imageMaxCount: 8 },
+    limits: {
+      pdfMaxBytes: 10 * 1024 * 1024,
+      pdfMaxCount: 5,
+      imageMaxBytes: 5 * 1024 * 1024,
+      imageMaxCount: 8,
+    },
     ...partial,
   };
 }
