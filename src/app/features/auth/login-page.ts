@@ -11,7 +11,7 @@ import { SessionService } from '@core/services/session.service';
   standalone: true,
   imports: [FormsModule, RouterLink],
   template: `
-    <div class="bg-surface flex min-h-screen items-center justify-center p-4">
+    <div class="bg-surface-2 flex min-h-screen items-center justify-center p-4">
       <form
         (ngSubmit)="submit()"
         class="border-border bg-surface-raised w-full max-w-sm space-y-4 rounded-xl border p-6"

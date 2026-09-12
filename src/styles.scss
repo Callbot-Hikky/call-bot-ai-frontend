@@ -6,56 +6,85 @@
 
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
-/* Polices Geist (variable), servies en local via fontsource */
-@import '@fontsource-variable/geist/index.css';
+/* Polices : Instrument Sans (identique à la landing Alloquence), servie en local
+   via fontsource. Geist Mono reste pour les chiffres tabulaires. */
+@import '@fontsource-variable/instrument-sans/index.css';
 @import '@fontsource-variable/geist-mono/index.css';
 
 /* =========================================================================
-   Tokens Hikky : source de vérité unique.
-   Pour recalibrer une couleur (ex. le vert), on change ici et nulle part ailleurs.
+   Tokens Alloquence : source de vérité unique.
+   Palette alignée sur la landing (call-bot-ai-landing) : shadcn « zinc »,
+   monochrome, clair par défaut. Pour recalibrer une couleur, on change ici
+   et nulle part ailleurs.
    ========================================================================= */
 :root {
   color-scheme: light;
 
-  /* Marque : vert frais et confiant (OKLCH), pas néon */
-  --green-50: oklch(0.97 0.02 158);
-  --green-100: oklch(0.94 0.04 158);
-  --green-200: oklch(0.88 0.07 158);
-  --green-300: oklch(0.81 0.1 158);
-  --green-400: oklch(0.75 0.13 158);
-  --green-500: oklch(0.69 0.15 158);
-  --green-600: oklch(0.62 0.14 159);
-  --green-700: oklch(0.53 0.12 160);
-  --green-800: oklch(0.44 0.1 161);
-  --green-900: oklch(0.37 0.08 162);
-  --primary-fg: oklch(1 0 0);
-  --primary-hover: var(--green-800);
-  --primary-active: var(--green-900);
+  /* Marque : échelle zinc (monochrome). L'accent est neutralisé → cohérence
+     totale avec la landing, où la hiérarchie se fait par la valeur, pas la teinte. */
+  --brand-50: oklch(0.985 0 0);
+  --brand-100: oklch(0.967 0.001 286.375);
+  --brand-200: oklch(0.92 0.004 286.32);
+  --brand-300: oklch(0.871 0.006 286.286);
+  --brand-400: oklch(0.705 0.015 286.067);
+  --brand-500: oklch(0.552 0.016 285.938);
+  --brand-600: oklch(0.37 0.013 285.805);
+  --brand-700: oklch(0.21 0.006 285.885);
+  --brand-800: oklch(0.141 0.005 285.823);
+  --brand-900: oklch(0.11 0.004 285.8);
+  --primary-fg: oklch(0.985 0 0);
+  --primary-hover: var(--brand-800);
+  --primary-active: var(--brand-900);
 
-  /* Neutres : gris très légèrement chauds (hue ~95) */
-  --bg: oklch(0.99 0.004 95);
+  /* Accent chaud : repris du spectre « feu » du hero de la landing
+     (hsl 11 → 59). Usage volontairement parcimonieux — l'app reste
+     monochrome, le chaud ne sert qu'a signaler focus et element actif.
+     --warm-700 est la seule valeur posee sur du texte : 4.9:1 sur
+     --warm-100 (AA). Ne pas utiliser --warm-500/600 comme couleur de texte. */
+  --warm-100: oklch(0.96 0.03 55);
+  --warm-500: oklch(0.68 0.19 38);
+  --warm-600: oklch(0.58 0.18 34);
+  --warm-700: oklch(0.45 0.15 32);
+
+  /* Dégradé « flamme » : même ordre du feu que le hero de la landing
+     (rouge-orange → orange). Luminosité plafonnée à 0.48 pour que le blanc
+     posé dessus reste AA (>= 4.8:1) sur TOUTE la surface, y compris la
+     pointe la plus claire du dégradé. Ne pas éclaircir sans revérifier. */
+  --flame: linear-gradient(
+    135deg,
+    oklch(0.36 0.13 24) 0%,
+    oklch(0.44 0.17 32) 52%,
+    oklch(0.48 0.19 41) 100%
+  );
+  --flame-glow: radial-gradient(circle at 86% 10%, oklch(0.7 0.2 58 / 0.42), transparent 58%);
+  --flame-border: oklch(0.54 0.19 38);
+
+  /* Neutres : zinc (hue ~286), comme la landing */
+  --bg: oklch(1 0 0);
   --surface: oklch(1 0 0);
-  --surface-2: oklch(0.975 0.004 95);
-  --border: oklch(0.92 0.005 95);
-  --border-strong: oklch(0.87 0.006 95);
-  --text: oklch(0.27 0.01 95);
-  --text-strong: oklch(0.2 0.01 95);
-  --text-muted: oklch(0.55 0.01 95);
-  --text-subtle: oklch(0.66 0.008 95);
+  --surface-raised: oklch(1 0 0);
+  --surface-2: oklch(0.967 0.001 286.375);
+  --border: oklch(0.92 0.004 286.32);
+  --border-strong: oklch(0.871 0.006 286.286);
+  --text: oklch(0.21 0.006 285.885);
+  --text-strong: oklch(0.141 0.005 285.823);
+  --text-muted: oklch(0.552 0.016 285.938);
+  --text-subtle: oklch(0.705 0.015 286.067);
 
-  /* Statuts : paire (texte, fond pâle de badge) */
-  --st-pending-fg: oklch(0.55 0.12 70);
-  --st-pending-bg: oklch(0.96 0.04 75);
-  --st-confirmed-fg: oklch(0.5 0.13 158);
-  --st-confirmed-bg: oklch(0.95 0.04 158);
-  --st-seated-fg: oklch(0.52 0.13 250);
-  --st-seated-bg: oklch(0.95 0.03 250);
-  --st-completed-fg: oklch(0.45 0.01 95);
-  --st-completed-bg: oklch(0.95 0.004 95);
-  --st-cancelled-fg: oklch(0.55 0.16 25);
+  /* Statuts : paire (texte, fond pâle de badge). Chroma volontairement basse
+     pour rester lisible sans casser le monochrome. */
+  --st-pending-fg: oklch(0.52 0.09 70);
+  --st-pending-bg: oklch(0.965 0.025 75);
+  --st-confirmed-fg: oklch(0.48 0.09 158);
+  --st-confirmed-bg: oklch(0.955 0.028 158);
+  --st-seated-fg: oklch(0.5 0.09 250);
+  --st-seated-bg: oklch(0.955 0.022 250);
+  --st-completed-fg: oklch(0.442 0.017 285.786);
+  --st-completed-bg: oklch(0.967 0.001 286.375);
+  --st-cancelled-fg: oklch(0.53 0.14 25);
   --st-cancelled-bg: oklch(0.96 0.03 25);
-  --st-noshow-fg: oklch(0.5 0.15 12);
-  --st-noshow-bg: oklch(0.95 0.03 12);
+  --st-noshow-fg: oklch(0.48 0.13 12);
+  --st-noshow-bg: oklch(0.955 0.025 12);
 
   /* Espacements (base 4px) */
   --space-1: 4px;
@@ -75,8 +104,8 @@
   --dur-slow: 240ms;
   --dur-slower: 320ms;
 
-  /* Ombre d'anneau de focus Hikky (Spartan garde --ring en couleur, voir remap) */
-  --focus-ring: 0 0 0 3px oklch(0.69 0.15 158 / 0.25);
+  /* Ombre d'anneau de focus Alloquence (Spartan garde --ring en couleur, voir remap) */
+  --focus-ring: 0 0 0 3px oklch(0.68 0.19 38 / 0.4);
 
   /* Z-index */
   --z-dropdown: 1000;
@@ -87,57 +116,65 @@
   --z-tooltip: 1050;
   --z-toast: 1060;
 
-  /* ---- Variables Spartan remappées sur les tokens Hikky (pointeurs) ----
+  /* ---- Variables Spartan remappées sur les tokens Alloquence (pointeurs) ----
      Une seule source de vérité par couleur : ces variables ne dupliquent pas
-     les valeurs OKLCH, elles pointent vers les tokens ci-dessus. */
-  --radius: var(--radius-md);
+     les valeurs OKLCH, elles pointent vers les tokens ci-dessus.
+     Les valeurs correspondent une à une à celles de la landing. */
+  --radius: var(--radius-lg);
   --background: var(--bg);
-  --foreground: var(--text);
+  --foreground: var(--text-strong);
   --card: var(--surface);
-  --card-foreground: var(--text);
+  --card-foreground: var(--text-strong);
   --popover: var(--surface);
-  --popover-foreground: var(--text);
-  --primary: var(--green-700);
+  --popover-foreground: var(--text-strong);
+  --primary: var(--brand-700);
   --primary-foreground: var(--primary-fg);
   --secondary: var(--surface-2);
-  --secondary-foreground: var(--text);
+  --secondary-foreground: var(--brand-700);
   --muted: var(--surface-2);
   --muted-foreground: var(--text-muted);
   --accent: var(--surface-2);
-  --accent-foreground: var(--text);
-  --destructive: var(--st-cancelled-fg);
+  --accent-foreground: var(--brand-700);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
   --input: var(--border);
-  --ring: var(--green-500);
+  --ring: var(--warm-500);
   --sidebar: var(--bg);
   --sidebar-foreground: var(--text);
-  --sidebar-primary: var(--green-500);
+  --sidebar-primary: var(--brand-700);
   --sidebar-primary-foreground: var(--primary-fg);
-  --sidebar-accent: var(--green-100);
-  --sidebar-accent-foreground: var(--green-700);
+  --sidebar-accent: var(--warm-100);
+  --sidebar-accent-foreground: var(--warm-700);
   --sidebar-border: var(--border);
-  --sidebar-ring: var(--green-500);
+  --sidebar-ring: var(--warm-500);
 }
 
 /* =========================================================================
    Exposition à Tailwind v4 : on n'expose que ce qui manque (les utilitaires
-   sémantiques neutres viennent déjà du preset Spartan, désormais reliés à Hikky).
+   sémantiques neutres viennent déjà du preset Spartan, désormais reliés à Alloquence).
    ========================================================================= */
 @theme {
   /* Polices */
-  --font-sans: 'Geist Variable', system-ui, sans-serif;
+  --font-sans: 'Instrument Sans Variable', system-ui, sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  /* Échelle de marque : bg-green-500, text-green-700, ... */
-  --color-green-50: var(--green-50);
-  --color-green-100: var(--green-100);
-  --color-green-200: var(--green-200);
-  --color-green-300: var(--green-300);
-  --color-green-400: var(--green-400);
-  --color-green-500: var(--green-500);
-  --color-green-600: var(--green-600);
-  --color-green-700: var(--green-700);
-  --color-green-800: var(--green-800);
-  --color-green-900: var(--green-900);
+  /* Échelle de marque : bg-brand-500, text-brand-700, ... */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* Accent chaud : bg-warm-100, text-warm-700, bg-warm-500 (indicateur actif) */
+  --color-warm-100: var(--warm-100);
+  --color-warm-500: var(--warm-500);
+  --color-warm-600: var(--warm-600);
+  --color-warm-700: var(--warm-700);
 
   /* Statuts : bg-st-confirmed-bg, text-st-confirmed-fg, ... */
   --color-st-pending-fg: var(--st-pending-fg);
@@ -164,16 +201,33 @@
   --color-text-muted: var(--text-muted);
   --color-text-subtle: var(--text-subtle);
 
-  /* Rayons : rounded-sm/md/lg */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* Meme piege que ci-dessus pour le vocabulaire surface/fg utilise par les
+     pages auth et le plan de salle : bg-surface, text-fg, text-primary-fg
+     etaient poses partout sans qu'aucune regle ne soit generee. Consequence
+     visible : le libelle des boutons primaires heritait du texte fonce sur
+     fond --brand-700, donc illisible. */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-2: var(--surface-2);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-subtle: var(--text-subtle);
+  --color-primary-fg: var(--primary-fg);
+  --color-border-strong: var(--border-strong);
+
+  /* Rayons : rounded-sm/md/lg — cales sur --radius: 0.625rem de la landing */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
 
   /* Ombres très douces, en couches : shadow-xs/sm/md/lg */
-  --shadow-xs: 0 1px 2px oklch(0.27 0.01 95 / 0.05);
-  --shadow-sm: 0 1px 3px oklch(0.27 0.01 95 / 0.06), 0 1px 2px oklch(0.27 0.01 95 / 0.04);
-  --shadow-md: 0 4px 12px oklch(0.27 0.01 95 / 0.06), 0 2px 4px oklch(0.27 0.01 95 / 0.04);
-  --shadow-lg: 0 12px 32px oklch(0.27 0.01 95 / 0.1), 0 4px 8px oklch(0.27 0.01 95 / 0.05);
+  --shadow-xs: 0 1px 2px oklch(0.141 0.005 285.823 / 0.05);
+  --shadow-sm:
+    0 1px 3px oklch(0.141 0.005 285.823 / 0.06), 0 1px 2px oklch(0.141 0.005 285.823 / 0.04);
+  --shadow-md:
+    0 4px 12px oklch(0.141 0.005 285.823 / 0.06), 0 2px 4px oklch(0.141 0.005 285.823 / 0.04);
+  --shadow-lg:
+    0 12px 32px oklch(0.141 0.005 285.823 / 0.1), 0 4px 8px oklch(0.141 0.005 285.823 / 0.05);
 
   /* Easings : ease-out (entrées), ease-in-out (déplacements), ease-spring (feedback) */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -188,6 +242,26 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Sélection et scrollbar : mêmes réglages que la landing. */
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--background);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, var(--background));
+    border-radius: 999px;
+    border: 3px solid var(--background);
   }
   /* Les deux shells (AppShell, ClientShell) fixent la hauteur a l'ecran et font defiler
      leur zone principale. Sans ceci, un contenu haut (cadre PDF, image) fait aussi
@@ -212,4 +286,22 @@
    réservation (portail CDK) reste au-dessus de l'overlay. */
 body.service-mode hk-header {
   display: none;
+}
+
+/* Surface « flamme » : réservée aux rares elements mis en avant (carte KPI
+   phare). Le glow est une couche separee pour rester au-dessus du degrade
+   sans toucher au contenu. */
+.hk-flame {
+  position: relative;
+  background-image: var(--flame);
+  border-color: var(--flame-border);
+  isolation: isolate;
+}
+.hk-flame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background-image: var(--flame-glow);
 }

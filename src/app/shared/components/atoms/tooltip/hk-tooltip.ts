@@ -11,7 +11,7 @@ import {
   tooltipPositionVariants,
 } from '@spartan-ng/helm/tooltip';
 
-// Tooltip Hikky : réutilise le style Spartan (fond foreground sombre, texte clair, 12px,
+// Tooltip Alloquence : réutilise le style Spartan (fond foreground sombre, texte clair, 12px,
 // déjà relié aux tokens) avec un sélecteur unifié [hkTooltip]. Usage : <button hkTooltip="...">.
 @Directive({
   selector: '[hkTooltip]',

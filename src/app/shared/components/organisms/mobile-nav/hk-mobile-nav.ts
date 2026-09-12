@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmSheetImports } from '@spartan-ng/helm/sheet';
 import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
 import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
+import { AuthService } from '@core/services/auth.service';
 
 // Sidebar en drawer sur mobile, via la primitive Spartan sheet (overlay + Echap natifs).
 @Component({
@@ -24,7 +25,7 @@ import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
       <hlm-sheet-content *brnSheetContent class="w-64 p-0">
         <div class="flex h-full flex-col">
           <div class="flex h-14 items-center px-4">
-            <span class="text-text-strong text-lg font-semibold">Hikky</span>
+            <span class="text-text-strong text-lg font-semibold">Alloquence</span>
           </div>
           <nav class="flex flex-1 flex-col gap-1 p-2" aria-label="Navigation principale">
             @for (item of navItems; track item.route) {
@@ -37,7 +38,11 @@ import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
             }
           </nav>
           <div class="border-border border-t p-2">
-            <hk-profile-menu name="Marie Lefèvre" restaurant="Le Bistrot du Coin" />
+            <hk-profile-menu
+              name="Marie Lefèvre"
+              restaurant="Le Bistrot du Coin"
+              (logout)="onLogout(sheet)"
+            />
           </div>
         </div>
       </hlm-sheet-content>
@@ -47,4 +52,10 @@ import { FLAT_NAV_ITEMS } from '@core/layout/nav-items';
 })
 export class HkMobileNav {
   protected readonly navItems = FLAT_NAV_ITEMS;
+  private readonly auth = inject(AuthService);
+
+  protected async onLogout(sheet: { close: () => void }): Promise<void> {
+    sheet.close();
+    await this.auth.signOut();
+  }
 }
