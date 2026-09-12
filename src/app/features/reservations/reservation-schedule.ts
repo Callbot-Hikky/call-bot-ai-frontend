@@ -148,97 +148,100 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
       <hlm-sheet side="bottom" [state]="sheetState()" (stateChanged)="sheetState.set($event)">
         <hlm-sheet-content
           *hlmSheetPortal="let ctx"
-          class="!h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6"
+          class="!h-auto max-h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6"
         >
-          <form class="flex flex-col gap-8" (ngSubmit)="confirm()" novalidate>
-            <h1 hlmSheetTitle class="text-xl font-bold">{{ restaurantName() }}</h1>
+          <!-- Sur grand ecran, le contenu reste en colonne lisible au centre, pas etire d'un bord a l'autre. -->
+          <div class="mx-auto w-full max-w-xl">
+            <form class="flex flex-col gap-8" (ngSubmit)="confirm()" novalidate>
+              <h1 hlmSheetTitle class="text-xl font-bold">{{ restaurantName() }}</h1>
 
-            <div class="flex flex-col gap-2">
-              <p class="font-bold"><span class="text-primary">1. </span>Nombre de personnes</p>
-              <p>{{ partySize() }} personne{{ partySize() > 1 ? 's' : '' }}</p>
-            </div>
+              <div class="flex flex-col gap-2">
+                <p class="font-bold"><span class="text-primary">1. </span>Nombre de personnes</p>
+                <p>{{ partySize() }} personne{{ partySize() > 1 ? 's' : '' }}</p>
+              </div>
 
-            <div class="flex flex-col gap-2">
-              <p class="font-bold"><span class="text-primary">2. </span>Créneau</p>
-              <p class="first-letter:uppercase">
-                {{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}
-              </p>
-            </div>
+              <div class="flex flex-col gap-2">
+                <p class="font-bold"><span class="text-primary">2. </span>Créneau</p>
+                <p class="first-letter:uppercase">
+                  {{ pickedSlot()?.startsAt | date: 'EEEE d MMMM à HH:mm' }}
+                </p>
+              </div>
 
-            <div class="flex flex-col gap-4">
-              <p class="font-bold"><span class="text-primary">3. </span>Vos informations</p>
+              <div class="flex flex-col gap-4">
+                <p class="font-bold"><span class="text-primary">3. </span>Vos informations</p>
 
-              <label class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Prénom</span>
-                <input
-                  type="text"
-                  name="firstName"
-                  autocomplete="given-name"
-                  data-testid="booking-first-name"
-                  class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  [class.border-destructive]="fieldErrors().firstName"
-                  [(ngModel)]="firstName"
-                  (ngModelChange)="clearFieldError('firstName')"
-                />
-                @if (fieldErrors().firstName; as msg) {
-                  <span class="text-destructive text-xs" role="alert">{{ msg }}</span>
-                }
-              </label>
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-medium">Prénom</span>
+                  <input
+                    type="text"
+                    name="firstName"
+                    autocomplete="given-name"
+                    data-testid="booking-first-name"
+                    class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                    [class.border-destructive]="fieldErrors().firstName"
+                    [(ngModel)]="firstName"
+                    (ngModelChange)="clearFieldError('firstName')"
+                  />
+                  @if (fieldErrors().firstName; as msg) {
+                    <span class="text-destructive text-xs" role="alert">{{ msg }}</span>
+                  }
+                </label>
 
-              <label class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Téléphone</span>
-                <input
-                  type="tel"
-                  name="phone"
-                  autocomplete="tel"
-                  inputmode="tel"
-                  placeholder="06 12 34 56 78"
-                  data-testid="booking-phone"
-                  class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  [class.border-destructive]="fieldErrors().phone"
-                  [(ngModel)]="phone"
-                  (ngModelChange)="clearFieldError('phone')"
-                />
-                @if (fieldErrors().phone; as msg) {
-                  <span class="text-destructive text-xs" role="alert">{{ msg }}</span>
-                } @else {
-                  <span class="text-text-muted text-xs">
-                    Pour vous prévenir en cas d'imprévu. Jamais partagé.
-                  </span>
-                }
-              </label>
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-medium">Téléphone</span>
+                  <input
+                    type="tel"
+                    name="phone"
+                    autocomplete="tel"
+                    inputmode="tel"
+                    placeholder="06 12 34 56 78"
+                    data-testid="booking-phone"
+                    class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                    [class.border-destructive]="fieldErrors().phone"
+                    [(ngModel)]="phone"
+                    (ngModelChange)="clearFieldError('phone')"
+                  />
+                  @if (fieldErrors().phone; as msg) {
+                    <span class="text-destructive text-xs" role="alert">{{ msg }}</span>
+                  } @else {
+                    <span class="text-text-muted text-xs">
+                      Pour vous prévenir en cas d'imprévu. Jamais partagé.
+                    </span>
+                  }
+                </label>
 
-              <label class="flex flex-col gap-2">
-                <span class="text-sm font-medium">Notes (facultatif)</span>
-                <textarea
-                  name="notes"
-                  rows="3"
-                  maxlength="500"
-                  placeholder="Allergies, poussette, occasion spéciale…"
-                  data-testid="booking-notes"
-                  class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  [(ngModel)]="notes"
-                ></textarea>
-              </label>
-            </div>
+                <label class="flex flex-col gap-2">
+                  <span class="text-sm font-medium">Notes (facultatif)</span>
+                  <textarea
+                    name="notes"
+                    rows="3"
+                    maxlength="500"
+                    placeholder="Allergies, poussette, occasion spéciale…"
+                    data-testid="booking-notes"
+                    class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                    [(ngModel)]="notes"
+                  ></textarea>
+                </label>
+              </div>
 
-            @if (submitError(); as err) {
-              <p class="text-destructive text-sm" role="alert" data-testid="booking-submit-error">
-                {{ err }}
-              </p>
-            }
+              @if (submitError(); as err) {
+                <p class="text-destructive text-sm" role="alert" data-testid="booking-submit-error">
+                  {{ err }}
+                </p>
+              }
 
-            <button
-              hlmBtn
-              type="submit"
-              size="lg"
-              class="w-full py-6 text-base font-semibold"
-              data-testid="booking-submit"
-              [disabled]="submitting()"
-            >
-              {{ submitting() ? 'Réservation en cours…' : 'Confirmer la réservation' }}
-            </button>
-          </form>
+              <button
+                hlmBtn
+                type="submit"
+                size="lg"
+                class="w-full py-6 text-base font-semibold"
+                data-testid="booking-submit"
+                [disabled]="submitting()"
+              >
+                {{ submitting() ? 'Réservation en cours…' : 'Confirmer la réservation' }}
+              </button>
+            </form>
+          </div>
         </hlm-sheet-content>
       </hlm-sheet>
     }
