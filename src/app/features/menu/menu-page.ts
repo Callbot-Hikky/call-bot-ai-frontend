@@ -164,17 +164,17 @@ const SAVE_LABELS: Record<SaveState, string> = {
             que celui-là.
           </p>
         </div>
-        <!-- Mobile : trois tuiles compactes sur une ligne, comme des onglets. Grand ecran : trois cartes. -->
+        <!-- Mobile : trois tuiles compactes sur une ligne, comme des onglets. Grand ecran : trois cartes.
+             Le contour vert suit le format ouvert ; le badge « Publié » dit lequel est en ligne. -->
         <div class="grid grid-cols-3 gap-2 sm:gap-4" role="group" aria-label="Mode de publication">
           @for (card of cards; track card.mode) {
             <button
               type="button"
               [attr.data-testid]="'mode-' + card.mode"
               class="bg-card hover:border-primary flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center shadow-sm transition-colors focus-visible:ring-2 sm:items-start sm:gap-2 sm:p-4 sm:text-left"
-              [class.border-primary]="menu()!.mode === card.mode"
-              [class.border-border]="menu()!.mode !== card.mode"
-              [class.ring-2]="editing() === card.mode"
-              [class.ring-primary/30]="editing() === card.mode"
+              [class.border-primary]="editing() === card.mode"
+              [class.bg-primary/5]="editing() === card.mode"
+              [class.border-border]="editing() !== card.mode"
               [attr.aria-pressed]="menu()!.mode === card.mode"
               [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
               [disabled]="service.saving()"
