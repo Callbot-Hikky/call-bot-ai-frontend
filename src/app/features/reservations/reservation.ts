@@ -119,9 +119,9 @@ const MAX_PARTY_SIZE = BOOKING_MAX_PARTY_SIZE;
       <hlm-sheet side="bottom" [state]="sheetState()" (stateChanged)="sheetState.set($event)">
         <hlm-sheet-content
           *hlmSheetPortal="let ctx"
-          class="!h-auto max-h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6"
+          class="sm:data-open:slide-in-from-bottom-0 sm:data-open:zoom-in-95 sm:data-closed:slide-out-to-bottom-0 sm:data-closed:zoom-out-95 !h-auto max-h-[90vh] w-full overflow-y-auto rounded-t-2xl p-6 sm:inset-auto! sm:top-1/2! sm:left-1/2! sm:w-[min(100vw-2rem,40rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border"
         >
-          <!-- Sur grand ecran, le contenu reste en colonne lisible au centre, pas etire d'un bord a l'autre. -->
+          <!-- Mobile : feuille qui monte du bas. Grand ecran : boite centree, pas un panneau qui surgit d'en bas. -->
           <div class="mx-auto w-full max-w-xl">
             <div class="flex flex-col gap-8">
               <h1 hlmSheetTitle class="text-xl font-bold">
