@@ -207,7 +207,7 @@ export class ReservationPage {
 
   // État de la sheet de confirmation. Bindé à hlm-sheet via [state] / (stateChanged).
   sheetState = signal<BrnDialogState>('closed');
-  // Slot que le user vient de cliquer — affiché dans la sheet.
+  // Slot que le user vient de cliquer : affiché dans la sheet.
   pickedSlot = signal<RescheduleSlot | null>(null);
   // Notes editables dans la sheet (le nom ne l'est pas : la route est anonyme).
   newNotes = signal<string>('');
