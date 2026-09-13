@@ -1,6 +1,6 @@
-import { DestroyRef, Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { EMPTY, Observable, of } from 'rxjs';
+import { EMPTY, Observable, of, throwError } from 'rxjs';
 import { delay, map, switchMap, tap } from 'rxjs/operators';
 
 import { environment } from '@env/environment';
@@ -42,20 +42,60 @@ export class ReservationService {
   // DTO bruts du back (mode réel), nécessaires pour reconstruire le corps d'un PUT.
   private readonly _raw = signal<ReservationDto[]>([]);
 
+  // Jour affiche par la liste et le plan (cle « YYYY-MM-DD », en heure locale).
+  private readonly _day = signal(localDateKey());
+  readonly day = this._day.asReadonly();
+  // Date du jour rafraichie chaque minute : une tablette laissee ouverte passe minuit.
+  private readonly _today = signal(localDateKey());
+  readonly today = this._today.asReadonly();
+  readonly isToday = computed(() => this._day() === this._today());
+  // Reservations du jour courant deja vues : le diff des arrivees porte sur ce soir,
+  // quel que soit le jour consulte.
+  private todayIds: Set<string> | null = null;
+
+  constructor() {
+    const clock = setInterval(() => this._today.set(localDateKey()), 60_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(clock));
+  }
+
   readonly reservations = this._reservations.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
-  // Charge les réservations du jour et alimente les signals.
+  // Change de jour : la liste, le plan et le polling suivent.
+  setDay(day: string): void {
+    if (day === this._day()) return;
+    this._day.set(day);
+    this.loadToday(day);
+  }
+
+  // Retour a aujourd'hui (tableau de bord) : une seule requete dans tous les cas.
+  showToday(): void {
+    const today = localDateKey();
+    this._today.set(today);
+    if (this._day() === today) {
+      this.loadToday();
+    } else {
+      this.setDay(today);
+    }
+  }
+
+  // Charge les réservations du jour affiche (ou du jour demande, qui devient
+  // le jour affiche). Une reponse arrivee apres un changement de jour est
+  // ignoree : la liste correspond toujours a l'en-tete.
   loadToday(date?: string): void {
+    if (date) this._day.set(date);
+    const target = this._day();
     this._loading.set(true);
     this._error.set(false);
-    this.getToday(date).subscribe({
+    this.getToday(target).subscribe({
       next: (list) => {
+        if (target !== this._day()) return;
         this._reservations.set(list);
         this._loading.set(false);
       },
       error: () => {
+        if (target !== this._day()) return;
         this._error.set(true);
         this._loading.set(false);
       },
@@ -91,15 +131,17 @@ export class ReservationService {
 
   // Re-fetch SILENCIEUX (pas de spinner : refresh() ne touche pas `loading`),
   // puis diff par id -> callback pour chaque nouvelle reservation.
+  // Les arrivees annoncees sont celles du jour courant (le bot capte pendant le
+  // service), meme si l'ecran consulte un autre jour.
   private refreshSilently(onNew?: (created: Reservation) => void): void {
     if (this._loading()) {
       return; // chargement initial (ou reessai) en cours : inutile de doubler.
     }
-    const beforeIds = new Set(this._reservations().map((r) => r.id));
+    const before = this.todayIds;
     this.refresh().subscribe({
-      next: (list) => {
-        if (onNew) {
-          for (const created of newReservations(beforeIds, list)) {
+      next: () => {
+        if (onNew && before && this.todayIds) {
+          for (const created of this.todayArrivals(before)) {
             onNew(created);
           }
         }
@@ -109,14 +151,24 @@ export class ReservationService {
     });
   }
 
+  private todayArrivals(before: Set<string>): Reservation[] {
+    return newReservations(before, this.todayRaw.map(mapReservation));
+  }
+
+  // DTO du jour courant lors du dernier fetch (base du diff des arrivees).
+  private todayRaw: ReservationDto[] = [];
+
   refresh(date?: string): Observable<Reservation[]> {
     // MOCK : l'etat courant fait foi (les creations locales - walk-in, resa
     // manuelle - ne doivent pas etre ecrasees par la liste de depart).
     if (environment.useMock) {
       return of(this._reservations()).pipe(delay(200));
     }
-    return this.getToday(date).pipe(
+    if (date) this._day.set(date);
+    const target = this._day();
+    return this.getToday(target).pipe(
       tap((list) => {
+        if (target !== this._day()) return;
         // PAYLOAD IDENTIQUE -> on ne republie PAS le signal : toute la cascade
         // en aval (liste OnPush, canvas Konva, scene 3D) reste au repos. Cle de
         // comparaison = ce qui pilote reellement le rendu.
@@ -139,11 +191,19 @@ export class ReservationService {
     }
     // Le back filtre par restaurant ; le filtre "du jour" est fait côté front (POC),
     // en jour LOCAL pour rester cohérent avec l'en-tête et les heures affichées.
-    const target = date ?? localDateKey();
+    const target = date ?? this._day();
     const url = `${this.baseUrl}?expand=table,customer&restaurantId=${this.session.restaurantId() ?? ''}`;
     return this.http.get<ReservationDto[]>(url).pipe(
+      tap((dtos) => {
+        // Le jour courant est memorise a chaque fetch, pour annoncer ses arrivees.
+        const today = this._today();
+        this.todayRaw = dtos.filter((d) => localDateKey(new Date(d.startsAt)) === today);
+        this.todayIds = new Set(this.todayRaw.map((d) => d.id));
+      }),
       map((dtos) => dtos.filter((d) => localDateKey(new Date(d.startsAt)) === target)),
-      tap((dtos) => this._raw.set(dtos)),
+      tap((dtos) => {
+        if (target === this._day()) this._raw.set(dtos);
+      }),
       map((dtos) => dtos.map(mapReservation)),
     );
   }
@@ -173,6 +233,12 @@ export class ReservationService {
   // customerId null - fait verifie), fenetre de 2 h, en heure LOCALE avec fuseau.
   createWalkIn(table: RestaurantTable, partySize: number): Observable<Reservation> {
     const now = new Date();
+    if (!this.isToday()) {
+      // Des clients qui arrivent, c'est maintenant : pas depuis le plan d'un autre jour.
+      return throwError(
+        () => new Error("Pour installer des clients, revenez sur le plan d'aujourd'hui."),
+      );
+    }
     if (environment.useMock) {
       const created: Reservation = {
         id: `walkin-${Date.now()}`,
@@ -186,7 +252,12 @@ export class ReservationService {
       };
       return of(created).pipe(
         delay(200),
-        tap((res) => this._reservations.update((list) => [...list, res])),
+        tap((res) => {
+          // Creee pour un autre jour que celui affiche : elle n'entre pas dans la liste.
+          if (localDateKey(new Date(res.dateTime)) === this._day()) {
+            this._reservations.update((list) => [...list, res]);
+          }
+        }),
       );
     }
     const body: ReservationRequestDto = {
@@ -282,9 +353,12 @@ export class ReservationService {
               phone: input.phone,
             },
           };
-          this._raw.update((list) => [...list, patched]);
           const created = mapReservation(patched);
-          this._reservations.update((list) => [...list, created]);
+          // Creee pour un autre jour que celui affiche : elle n'entre pas dans la liste.
+          if (localDateKey(new Date(created.dateTime)) === this._day()) {
+            this._raw.update((list) => [...list, patched]);
+            this._reservations.update((list) => [...list, created]);
+          }
           return created;
         }),
       );

@@ -77,6 +77,8 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
       <hk-floor-plan
         class="block h-full min-h-0"
         [serviceMode]="true"
+        [live]="live()"
+        [forecast]="forecast()"
         [portrait]="portrait()"
         [(selectedTableId)]="selectedTableId"
         [(view3d)]="view3d"
@@ -129,6 +131,8 @@ export class HkServiceOverlay {
   // PORTRAIT MOBILE : bascule le plan en vue TUILES (operable) plutot que le plan
   // spatial ecrase - le poste d'accueil reste utilisable sur un telephone tenu droit.
   readonly portrait = input(false);
+  readonly live = input(true);
+  readonly forecast = input(false);
   readonly loading = input(false);
   readonly error = input(false);
 

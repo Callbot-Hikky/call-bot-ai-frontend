@@ -24,7 +24,10 @@ import { FloorTable } from '@core/models/table.model';
 import {
   FloorTableView,
   bestFitTableId,
+  TABLE_TONE_LABEL,
+  deriveForecastStatus,
   deriveTableStatus,
+  tableTone,
   eveningLoad,
   layoutTables,
   mergeViews,
@@ -82,7 +85,10 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
            Le plan spatial revient en paysage ; ici on OPERE la salle. -->
       <div class="flex flex-col gap-3">
         <div class="text-text-muted flex items-center justify-between px-1 text-xs">
-          <span>{{ summary().libres }} libres · {{ summary().installees }} occupées</span>
+          <span>
+            {{ summary().libres }} libres · {{ summary().reservees }} réservées ·
+            {{ summary().installees }} occupées
+          </span>
           @if (unplaced().length > 0) {
             <span class="text-st-cancelled-fg font-semibold">
               {{ unplaced().length }} à placer
@@ -148,12 +154,11 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
               <span class="text-[11px] font-medium" [class]="tileStatusClass(v)">
                 @if (v.lateMinutes; as late) {
                   +{{ late }} min de retard
-                } @else if (v.status === 'installee') {
-                  Installée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
-                } @else if (v.status === 'reservee') {
-                  Réservée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
-                } @else {
+                } @else if (v.status === 'libre') {
                   Libre{{ v.nextTime ? ' · → ' + v.nextTime : '' }}
+                } @else {
+                  {{ toneLabel(v)
+                  }}{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
                 }
               </span>
             </button>
@@ -182,6 +187,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [walkInEnabled]="live()"
             [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
@@ -197,13 +203,19 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
     } @else {
       <div
         class="grid gap-4"
-        [class]="serviceMode() ? 'lg:grid-cols-[1fr_400px]' : 'lg:grid-cols-[1fr_320px]'"
+        [class]="
+          serviceMode()
+            ? 'lg:grid-cols-[minmax(0,1fr)_400px]'
+            : 'lg:grid-cols-[minmax(0,1fr)_320px]'
+        "
         [class.h-full]="serviceMode()"
       >
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
           <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
                FLOTTE sur le plan (zero layout shift, pleine largeur). -->
-          <div class="flex items-center justify-between gap-3">
+          <!-- minmax(0,1fr) sur la colonne : la barre ne peut pas pousser le
+               panneau hors de l'ecran (portables 1280 px) ; elle passe a la ligne. -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- AIDE : bouton qui ouvre un panneau explicatif des gestes et des
                  modes (2D/3D, simulation, service) - flottant, zero shift.
                  Masque en mode service (poste d'accueil) : pas de bruit d'aide. -->
@@ -223,7 +235,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             }
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
-            <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
+            <div class="flex flex-wrap items-center justify-end gap-2">
               <!-- Vue 3D / Simuler / Mode service / Exporter n'ont de sens qu'avec
                    des tables : masques en onboarding (salle vide) pour eviter les
                    boutons sans effet. Seul « Modifier » reste, pour creer la salle. -->
@@ -245,7 +257,12 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     [variant]="simulating() ? 'primary' : 'secondary'"
                     size="sm"
                     data-testid="toggle-sim"
-                    title="Voir la salle à une heure choisie de la soirée"
+                    [disabled]="!live()"
+                    [title]="
+                      live()
+                        ? 'Voir la salle à une heure choisie de la soirée'
+                        : 'La simulation porte sur la soirée du jour'
+                    "
                     (click)="simulating() ? stopSim() : startSim()"
                   >
                     <hk-icon name="lucideCalendar" [size]="16" />
@@ -256,7 +273,9 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   <hk-button
                     variant="secondary"
                     size="sm"
-                    title="Affichage plein écran pour le poste d'accueil"
+                    data-testid="enter-service"
+                    [disabled]="!live()"
+                    [title]="serviceTitle()"
                     (click)="onEnterService()"
                   >
                     <hk-icon name="lucideMaximize" [size]="16" />
@@ -614,7 +633,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     data-testid="evening-load"
                     title="Couverts attendus ce soir (réservations vivantes) rapportés à la capacité totale de la salle"
                   >
-                    Ce soir :
+                    {{ live() ? 'Ce soir' : 'Ce jour-là' }} :
                     <strong class="text-text-strong">{{ load().couverts }}</strong>
                     / {{ load().capacity }} couv. ({{ load().pct }} %)
                   </span>
@@ -649,6 +668,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 [view]="selectedTableView()"
                 [tableReservations]="selectedTableReservations()"
                 [readOnly]="simulating()"
+                [walkInEnabled]="live()"
                 [large]="serviceMode()"
                 (closeCard)="closeInspector()"
                 (walkIn)="confirmWalkInFromCard($event)"
@@ -770,6 +790,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [walkInEnabled]="live()"
             [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
@@ -847,6 +868,23 @@ export class HkFloorPlan {
   // PRESELECTION (« Placer » depuis la liste, /plan?placer=id) : la resa arrive
   // deja selectionnee, bandeau d'affectation ouvert, meilleure table surlignee.
   readonly preselectId = input<string | null>(null);
+  // JOUR COURANT affiche ? Sinon la salle est previsionnelle : pas de walk-in,
+  // pas de mode service ni de simulation (ils parlent de la soiree en cours).
+  readonly live = input(true);
+  // JOURNEE PREVISIONNELLE (autre jour) : les statuts se lisent sur la journee
+  // entiere (deriveForecastStatus), l'horloge murale ne dit rien sur ce jour-la.
+  readonly forecast = input(false);
+
+  protected readonly simTitle = computed(() =>
+    this.live()
+      ? 'Voir la salle à une heure choisie de la soirée'
+      : 'La simulation porte sur la soirée du jour',
+  );
+  protected readonly serviceTitle = computed(() =>
+    this.live()
+      ? "Affichage plein écran pour le poste d'accueil"
+      : 'Le mode service se lance sur le plan du jour',
+  );
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
@@ -983,11 +1021,14 @@ export class HkFloorPlan {
     const reservations = this.reservations();
     const simulated = this.simNow();
     const now = simulated ?? new Date();
+    const forecast = this.forecast() && simulated === null;
     const views = this.placed().map((p) => ({
       ...p,
       // `projected` en simulation : les tables installees se liberent apres la
       // duree de service estimee (sinon la projection mentirait sur le futur).
-      ...deriveTableStatus(p.table.id, reservations, now, simulated !== null),
+      ...(forecast
+        ? deriveForecastStatus(p.table.id, reservations)
+        : deriveTableStatus(p.table.id, reservations, now, simulated !== null)),
     }));
     // Tables fusionnees : chaque groupe devient UNE tablee (2D ET 3D).
     return mergeViews(views, this.merges());
@@ -1294,10 +1335,14 @@ export class HkFloorPlan {
     if (v.lateMinutes != null) {
       return ring + 'border-st-cancelled-fg/40 bg-st-cancelled-bg';
     }
-    if (v.status === 'reservee') {
+    const tone = tableTone(v);
+    if (tone === 'attente') {
+      return ring + 'border-st-pending-fg/30 bg-st-pending-bg';
+    }
+    if (tone === 'reservee') {
       return ring + 'border-st-confirmed-fg/30 bg-st-confirmed-bg';
     }
-    if (v.status === 'installee') {
+    if (tone === 'installee') {
       return ring + 'border-st-seated-fg/30 bg-st-seated-bg';
     }
     return ring + 'border-border bg-surface';
@@ -1307,13 +1352,21 @@ export class HkFloorPlan {
     if (v.lateMinutes != null) {
       return 'text-st-cancelled-fg';
     }
-    if (v.status === 'reservee') {
+    const tone = tableTone(v);
+    if (tone === 'attente') {
+      return 'text-st-pending-fg';
+    }
+    if (tone === 'reservee') {
       return 'text-st-confirmed-fg';
     }
-    if (v.status === 'installee') {
+    if (tone === 'installee') {
       return 'text-st-seated-fg';
     }
     return 'text-text-subtle';
+  }
+
+  protected toneLabel(v: FloorTableView): string {
+    return TABLE_TONE_LABEL[tableTone(v)];
   }
 
   protected toggleUnplaced(reservation: Reservation): void {

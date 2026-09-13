@@ -57,3 +57,23 @@ export function humanSize(bytes: number): string {
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} Ko`;
   return `${bytes} octets`;
 }
+
+// « dimanche 13 septembre » a partir d'une cle « YYYY-MM-DD », en heure locale.
+export function formatDayLabel(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}
+
+// Ouvre le selecteur natif d'un champ date/heure au clic sur tout le champ.
+// Silencieux si le navigateur ne le permet pas (ancien Safari, hors geste).
+export function openNativePicker(input: HTMLInputElement): void {
+  try {
+    input.showPicker?.();
+  } catch {
+    // Le navigateur garde son comportement par defaut (icone du champ).
+  }
+}

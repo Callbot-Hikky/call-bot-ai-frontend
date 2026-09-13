@@ -173,6 +173,7 @@ export class DashboardPage {
   protected readonly formatTime = formatTime;
 
   constructor() {
-    this.service.loadToday();
+    // Le tableau de bord parle toujours de ce soir, quel que soit le jour choisi ailleurs.
+    this.service.showToday();
   }
 }

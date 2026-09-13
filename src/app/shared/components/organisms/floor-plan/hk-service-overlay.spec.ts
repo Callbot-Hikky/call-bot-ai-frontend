@@ -25,6 +25,8 @@ class FloorPlanStub {
   readonly view3d = model(false);
   readonly vitrine = model(false);
   readonly portrait = input(false);
+  readonly live = input(true);
+  readonly forecast = input(false);
   readonly loading = input(false);
   readonly error = input(false);
   readonly serviceMode = input(false);
