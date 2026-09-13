@@ -117,6 +117,31 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByText('Karim')).toBeVisible();
   });
 
+  test('le restaurateur prend une reservation pour demain sans changer le jour affiche', async ({
+    page,
+    request,
+  }) => {
+    const owner = await ownerWithOneTable(request, 'manual-tomorrow');
+    await login(page, owner);
+    await page.goto('/reservations');
+    await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const key = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    await page.getByTestId('open-new-resa').click();
+    await page.getByTestId('new-resa-name').fill('Lina Demain');
+    await page.getByTestId('new-resa-phone').fill('+33698765400');
+    await page.getByTestId('new-resa-date').fill(key);
+    await page.getByTestId('new-resa-time').fill('20:00');
+    await page.getByRole('button', { name: 'Créer la réservation' }).click();
+    await expect(page.getByText(/Réservation créée pour Lina Demain \(/)).toBeVisible();
+    await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
+    await page.getByTestId('day-next').locator('button').click();
+    await expect(page.getByText('Lina Demain').first()).toBeVisible();
+    await expect(page.getByText('20:00').first()).toBeVisible();
+  });
+
   test('un creneau pris entre-temps est refuse avec un message, et la liste se met a jour', async ({
     page,
     request,

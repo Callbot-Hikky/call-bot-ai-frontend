@@ -131,7 +131,7 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
           class="mb-3 hidden flex-wrap items-center justify-between gap-2 max-lg:landscape:flex"
           data-testid="compact-day-bar"
         >
-          <p class="text-text-muted text-sm capitalize" aria-live="polite">{{ dayLabel() }}</p>
+          <p class="text-text-muted text-sm" aria-live="polite">{{ dayLabel() }}</p>
           <hk-day-picker
             [day]="service.day()"
             [today]="service.today()"
