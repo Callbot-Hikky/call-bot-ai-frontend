@@ -154,6 +154,37 @@ export function deriveTableStatus(
   return { status: 'libre', reservation: null, ...none };
 }
 
+// JOURNEE PREVISIONNELLE (un autre jour que le jour courant) : l'horloge ne dit
+// rien sur ce jour-la. On lit la journee entiere : une table avec une resa
+// vivante est « reservee » (la premiere affichee, la suivante en `nextTime`),
+// une resa installee reste « installee », sinon la table est libre. Pas de
+// retard : le concept n'a de sens qu'en temps reel.
+export function deriveForecastStatus(
+  tableId: string,
+  reservations: readonly Reservation[],
+): DerivedTableStatus {
+  const linked = reservations.filter((r) => r.table?.id === tableId);
+  const none = { nextTime: null, nextDateTime: null, lateMinutes: null };
+  const seated = linked.find((r) => r.status === 'seated');
+  if (seated) {
+    return { status: 'installee', reservation: seated, ...none };
+  }
+  const upcoming = linked
+    .filter((r) => r.status === 'confirmed' || r.status === 'pending')
+    .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+  if (upcoming.length === 0) {
+    return { status: 'libre', reservation: null, ...none };
+  }
+  const [first, second] = upcoming;
+  return {
+    status: 'reservee',
+    reservation: first,
+    nextTime: second ? formatTime(second.dateTime) : null,
+    nextDateTime: second?.dateTime ?? null,
+    lateMinutes: null,
+  };
+}
+
 // RETARD d'une reservation attendue (badge de la LISTE) : memes seuils que la
 // pastille du plan - signale de +15 min (LATE_THRESHOLD_MIN) jusqu'a la fin de
 // la fenetre active (+120 min, ACTIVE_AFTER_MIN). Au-dela, le plan considere la

@@ -235,7 +235,9 @@ export class ReservationService {
     const now = new Date();
     if (!this.isToday()) {
       // Des clients qui arrivent, c'est maintenant : pas depuis le plan d'un autre jour.
-      return throwError(() => new Error("L'installation de clients se fait sur le plan du jour."));
+      return throwError(
+        () => new Error("Pour installer des clients, revenez sur le plan d'aujourd'hui."),
+      );
     }
     if (environment.useMock) {
       const created: Reservation = {

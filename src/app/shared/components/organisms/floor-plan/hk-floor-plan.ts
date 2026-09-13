@@ -24,6 +24,7 @@ import { FloorTable } from '@core/models/table.model';
 import {
   FloorTableView,
   bestFitTableId,
+  deriveForecastStatus,
   deriveTableStatus,
   eveningLoad,
   layoutTables,
@@ -82,7 +83,10 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
            Le plan spatial revient en paysage ; ici on OPERE la salle. -->
       <div class="flex flex-col gap-3">
         <div class="text-text-muted flex items-center justify-between px-1 text-xs">
-          <span>{{ summary().libres }} libres · {{ summary().installees }} occupées</span>
+          <span>
+            {{ summary().libres }} libres · {{ summary().reservees }} réservées ·
+            {{ summary().installees }} occupées
+          </span>
           @if (unplaced().length > 0) {
             <span class="text-st-cancelled-fg font-semibold">
               {{ unplaced().length }} à placer
@@ -860,9 +864,9 @@ export class HkFloorPlan {
   // JOUR COURANT affiche ? Sinon la salle est previsionnelle : pas de walk-in,
   // pas de mode service ni de simulation (ils parlent de la soiree en cours).
   readonly live = input(true);
-  // Heure de reference des statuts hors jour courant (debut ou fin de journee) :
-  // l'horloge murale ne dit rien sur un autre jour.
-  readonly referenceNow = input<Date | null>(null);
+  // JOURNEE PREVISIONNELLE (autre jour) : les statuts se lisent sur la journee
+  // entiere (deriveForecastStatus), l'horloge murale ne dit rien sur ce jour-la.
+  readonly forecast = input(false);
 
   protected readonly simTitle = computed(() =>
     this.live()
@@ -1009,15 +1013,15 @@ export class HkFloorPlan {
   protected readonly tableViews = computed<FloorTableView[]>(() => {
     const reservations = this.reservations();
     const simulated = this.simNow();
-    const reference = this.referenceNow();
-    const now = simulated ?? reference ?? new Date();
-    // `projected` hors temps reel (simulation ou autre jour) : les tables
-    // installees se liberent apres la duree de service estimee et aucun retard
-    // n'est signale (sinon la projection mentirait).
-    const projected = simulated !== null || reference !== null;
+    const now = simulated ?? new Date();
+    const forecast = this.forecast() && simulated === null;
     const views = this.placed().map((p) => ({
       ...p,
-      ...deriveTableStatus(p.table.id, reservations, now, projected),
+      // `projected` en simulation : les tables installees se liberent apres la
+      // duree de service estimee (sinon la projection mentirait sur le futur).
+      ...(forecast
+        ? deriveForecastStatus(p.table.id, reservations)
+        : deriveTableStatus(p.table.id, reservations, now, simulated !== null)),
     }));
     // Tables fusionnees : chaque groupe devient UNE tablee (2D ET 3D).
     return mergeViews(views, this.merges());

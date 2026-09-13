@@ -84,7 +84,7 @@ const WALK_IN_GUARD_MIN = 90;
         } @else if (sel.status === 'libre' && !walkInEnabled()) {
           <!-- Autre jour consulte : des clients qui arrivent, c'est aujourd'hui. -->
           <p class="text-text-muted text-xs" data-testid="walkin-off-note">
-            L'installation de clients se fait sur le plan du jour.
+            Table libre ce jour-là. Pour installer des clients, revenez sur le plan d'aujourd'hui.
           </p>
         } @else if (sel.status === 'libre') {
           <!-- Table LIBRE : installer des clients sans reservation. -->

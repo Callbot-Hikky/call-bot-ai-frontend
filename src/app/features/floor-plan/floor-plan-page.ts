@@ -21,7 +21,12 @@ import {
 } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
 import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-editor/hk-floor-plan-editor';
-import { deriveTableStatus, layoutTables, mergeViews } from '@core/models/floor-plan.model';
+import {
+  deriveForecastStatus,
+  deriveTableStatus,
+  layoutTables,
+  mergeViews,
+} from '@core/models/floor-plan.model';
 import { SessionService } from '@core/services/session.service';
 import { ReservationService } from '@core/services/reservation.service';
 import { ReservationActionsService } from '@core/services/reservation-actions.service';
@@ -30,6 +35,7 @@ import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
 import { formatDayLabel, formatTime } from '@core/utils/format';
+import { bindDayToQuery } from '@core/utils/day-query';
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
 // sous les KPI), avec l'editeur, le mode service plein ecran et le drawer de
@@ -44,7 +50,7 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
         [restaurantName]="restaurantName"
         [today]="dayLabel()"
         [live]="service.isToday()"
-        [referenceNow]="referenceNow()"
+        [forecast]="!service.isToday()"
         [views]="serviceTableViews()"
         [reservations]="service.reservations()"
         [tables]="tables.tables()"
@@ -84,8 +90,8 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
           class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
           data-testid="forecast-note"
         >
-          Journée prévisionnelle : les statuts sont projetés, l'installation de clients se fait sur
-          le plan du jour.
+          Vous consultez un autre jour : les tables réservées apparaissent en couleur. Installer des
+          clients se fait sur le plan d'aujourd'hui.
         </p>
       }
       <hk-floor-plan
@@ -99,7 +105,7 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
         [preselectId]="placerId()"
         [restaurantName]="restaurantName"
         [live]="service.isToday()"
-        [referenceNow]="referenceNow()"
+        [forecast]="!service.isToday()"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (assign)="onAssign($event)"
@@ -144,8 +150,9 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
           class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
           data-testid="forecast-note"
         >
-          Journée prévisionnelle : les statuts sont projetés, l'installation de clients et le mode
-          service se font sur le plan du jour.
+          Vous consultez un autre jour : les tables réservées apparaissent en couleur avec leur
+          première réservation. Installer des clients, simuler ou passer en mode service se fait sur
+          le plan d'aujourd'hui.
         </p>
       }
 
@@ -169,7 +176,7 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
             [live]="service.isToday()"
-            [referenceNow]="referenceNow()"
+            [forecast]="!service.isToday()"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
             (assign)="onAssign($event)"
@@ -234,30 +241,24 @@ export class FloorPlanPage {
 
   protected readonly dayLabel = computed(() => formatDayLabel(this.service.day()));
 
-  // Heure de reference hors jour courant : un jour a venir se lit en debut de
-  // journee (tout reste a venir), un jour passe en fin de journee (tout est joue).
-  protected readonly referenceNow = computed<Date | null>(() => {
-    const day = this.service.day();
-    const today = this.service.today();
-    if (day === today) return null;
-    const [y, m, d] = day.split('-').map(Number);
-    return day > today ? new Date(y, m - 1, d, 0, 0, 0) : new Date(y, m - 1, d, 23, 59, 59);
-  });
-
   // Synthese de salle du bandeau service (memes derivations que le plan).
   protected readonly serviceTableViews = computed(() => {
     const reservations = this.service.reservations();
-    const reference = this.referenceNow();
-    const now = reference ?? new Date();
+    const forecast = !this.service.isToday();
+    const now = new Date();
     const views = layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
       ...p,
-      ...deriveTableStatus(p.table.id, reservations, now, reference !== null),
+      ...(forecast
+        ? deriveForecastStatus(p.table.id, reservations)
+        : deriveTableStatus(p.table.id, reservations, now)),
     }));
     // Tablees fusionnees comptees comme UNE table (meme synthese que le plan).
     return mergeViews(views, this.floorPlan.merges());
   });
 
   constructor() {
+    // Le jour affiche suit l'URL (?jour=...) : il survit au rechargement.
+    bindDayToQuery();
     // Suivi de l'orientation (mobile) : le plan n'est rendu qu'en paysage.
     // Garde jsdom : matchMedia absent en environnement de test.
     if (typeof window.matchMedia === 'function') {
