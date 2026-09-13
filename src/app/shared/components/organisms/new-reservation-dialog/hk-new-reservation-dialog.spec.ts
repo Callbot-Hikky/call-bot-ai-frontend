@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { HkNewReservationDialog, NewReservationInput } from './hk-new-reservation-dialog';
+import { localDateKey } from '@core/utils/format';
 
-// Le dialogue cree sur le jour que la page affiche, pas forcement aujourd'hui.
+// Le dialogue propose le jour que la page affiche, et la date reste modifiable.
 describe('HkNewReservationDialog', () => {
   let fixture: ComponentFixture<HkNewReservationDialog>;
 
@@ -13,7 +14,14 @@ describe('HkNewReservationDialog', () => {
     await fixture.whenStable();
   });
 
-  it('la date emise est celle du jour affiche, a l heure saisie', () => {
+  const open = async () => {
+    fixture.componentInstance.state.set('open');
+    await fixture.whenStable();
+  };
+
+  it('a l ouverture, la date proposee est le jour affiche ; l heure saisie s y applique', async () => {
+    await open();
+    expect(fixture.componentInstance['date']()).toBe('2030-01-15');
     const emitted: NewReservationInput[] = [];
     fixture.componentInstance.createReservation.subscribe((i) => emitted.push(i));
     fixture.componentInstance['phone'].set('0612345678');
@@ -27,10 +35,26 @@ describe('HkNewReservationDialog', () => {
     expect(fixture.componentInstance['timeInPast']()).toBe(false);
   });
 
-  it('un jour passe rend toute heure passee', async () => {
+  it('la date se change dans le formulaire sans toucher au jour consulte', async () => {
+    await open();
+    const emitted: NewReservationInput[] = [];
+    fixture.componentInstance.createReservation.subscribe((i) => emitted.push(i));
+    fixture.componentInstance['date'].set('2030-02-03');
+    fixture.componentInstance['phone'].set('0612345678');
+    fixture.componentInstance['time'].set('12:00');
+    fixture.componentInstance['submit'](new Event('submit'));
+    expect(emitted[0].dateTime.getMonth() + 1).toBe(2);
+    expect(emitted[0].dateTime.getDate()).toBe(3);
+    expect(fixture.componentInstance.day()).toBe('2030-01-15');
+  });
+
+  it('un jour passe consulte propose aujourd hui, et une date passee bloque', async () => {
     fixture.componentRef.setInput('day', '2020-01-15');
+    await open();
+    expect(fixture.componentInstance['date']()).toBe(localDateKey());
+    fixture.componentInstance['date'].set('2020-01-15');
     fixture.componentInstance['time'].set('23:00');
-    await fixture.whenStable();
     expect(fixture.componentInstance['timeInPast']()).toBe(true);
+    expect(fixture.componentInstance['valid']()).toBe(false);
   });
 });
