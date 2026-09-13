@@ -114,6 +114,17 @@ describe('ReservationService', () => {
     });
   });
 
+  it('setDay change le jour affiche et recharge ce jour-la', () => {
+    service.setDay('2026-06-25');
+    expect(service.day()).toBe('2026-06-25');
+    const req = httpMock.expectOne((r) => r.url.includes('/reservations'));
+    req.flush([dto('1', 'pending'), dto('2', 'confirmed', '2026-06-25T12:00:00Z')]);
+    expect(service.reservations().map((r) => r.id)).toEqual(['2']);
+    // Le meme jour redemande : rien ne part.
+    service.setDay('2026-06-25');
+    httpMock.expectNone((r) => r.url.includes('/reservations'));
+  });
+
   it('charge, filtre par jour et mappe le DTO backend', () => {
     service.loadToday('2026-06-24');
     expect(service.loading()).toBe(true);

@@ -42,11 +42,22 @@ export class ReservationService {
   // DTO bruts du back (mode réel), nécessaires pour reconstruire le corps d'un PUT.
   private readonly _raw = signal<ReservationDto[]>([]);
 
+  // Jour affiche par la liste et le plan (cle « YYYY-MM-DD », en heure locale).
+  private readonly _day = signal(localDateKey());
+  readonly day = this._day.asReadonly();
+
   readonly reservations = this._reservations.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
 
-  // Charge les réservations du jour et alimente les signals.
+  // Change de jour : la liste, le plan et le polling suivent.
+  setDay(day: string): void {
+    if (day === this._day()) return;
+    this._day.set(day);
+    this.loadToday(day);
+  }
+
+  // Charge les réservations du jour affiche et alimente les signals.
   loadToday(date?: string): void {
     this._loading.set(true);
     this._error.set(false);
@@ -139,7 +150,7 @@ export class ReservationService {
     }
     // Le back filtre par restaurant ; le filtre "du jour" est fait côté front (POC),
     // en jour LOCAL pour rester cohérent avec l'en-tête et les heures affichées.
-    const target = date ?? localDateKey();
+    const target = date ?? this._day();
     const url = `${this.baseUrl}?expand=table,customer&restaurantId=${this.session.restaurantId() ?? ''}`;
     return this.http.get<ReservationDto[]>(url).pipe(
       map((dtos) => dtos.filter((d) => localDateKey(new Date(d.startsAt)) === target)),
