@@ -6,6 +6,9 @@
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!-- Les liens du convive portent un jeton dans leur chemin : aucune page ne doit le
+       transmettre à un tiers via l'en-tête Referer. -->
+    <meta name="referrer" content="no-referrer" />
   </head>
   <body>
     <app-root></app-root>

@@ -1,5 +1,9 @@
+import type { GuaranteeMode, GuaranteeStatus, PendingTopUp } from './guarantee.model';
+
 export type ReservationStatus =
   | 'pending'
+  // Table pré-tenue le temps que le convive règle sa garantie (30 min).
+  | 'awaiting_payment'
   | 'confirmed'
   | 'seated'
   | 'completed'
@@ -30,6 +34,14 @@ export interface Reservation {
   table?: RestaurantTable;
   status: ReservationStatus;
   notes?: string;
+  // Garantie demandée à ce convive, figée à la création de la réservation.
+  guaranteeMode?: GuaranteeMode;
+  guaranteeStatus?: GuaranteeStatus;
+  // Montant en centimes, affiché dans le détail de la réservation.
+  guaranteeAmountCents?: number;
+  // Hausse de couverts demandee mais pas encore reglee. Tant qu'elle est la,
+  // `partySize` est l'ancien nombre : rien n'a bouge, et rien n'est tenu.
+  pendingTopUp?: PendingTopUp;
   // Origine de la réservation (utile pour valoriser le bot)
   source?: 'callbot' | 'manual' | 'web';
   restaurant?: RestaurantSummary;

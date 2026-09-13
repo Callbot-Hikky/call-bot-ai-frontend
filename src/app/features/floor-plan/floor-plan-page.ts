@@ -74,6 +74,7 @@ import { bindDayToQuery } from '@core/utils/day-query';
         (callReservation)="onCall($event)"
         (finishService)="onFinish($event)"
         (markArrived)="onMarkArrived($event)"
+        (markNoShow)="onMarkNoShow($event)"
         (retry)="reload()"
       />
     } @else if (portraitMobile()) {
@@ -118,6 +119,7 @@ import { bindDayToQuery } from '@core/utils/day-query';
         (callReservation)="onCall($event)"
         (finishService)="onFinish($event)"
         (markArrived)="onMarkArrived($event)"
+        (markNoShow)="onMarkNoShow($event)"
         (retry)="reload()"
       />
     } @else {
@@ -189,6 +191,7 @@ import { bindDayToQuery } from '@core/utils/day-query';
             (callReservation)="onCall($event)"
             (finishService)="onFinish($event)"
             (markArrived)="onMarkArrived($event)"
+            (markNoShow)="onMarkNoShow($event)"
             (edit)="onEdit()"
             (enterService)="enterServiceMode()"
             (retry)="reload()"
@@ -445,6 +448,12 @@ export class FloorPlanPage {
 
   protected onMarkArrived(reservation: Reservation): void {
     this.actions.markArrived(reservation, this.destroyRef);
+  }
+
+  // Constat d'absence depuis la carte de table : action partagee (toast + fenetre
+  // d'annulation de 2 h portee par ReservationActionsService).
+  protected onMarkNoShow(reservation: Reservation): void {
+    this.actions.markNoShow(reservation, this.destroyRef);
   }
 
   protected onUnassign(reservation: Reservation): void {

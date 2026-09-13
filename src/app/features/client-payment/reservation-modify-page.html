@@ -1,0 +1,217 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-6">
+  <section hlmCard class="w-full max-w-md">
+    @if (loading()) {
+      <div hlmCardContent class="py-12 text-center">
+        <p class="text-muted-foreground text-sm">Chargement de votre réservation…</p>
+      </div>
+    } @else if (linkDead()) {
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
+        <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
+        <p hlmCardDescription>Appelez le restaurant pour toute modification.</p>
+      </div>
+    } @else if (result(); as outcome) {
+      <!-- Ce qui a été enregistré, qui n'est pas toujours ce qui a été demandé. -->
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideCircleCheckBig" class="text-primary mb-2" size="36" />
+        @if (outcome.pendingTopUp; as topUp) {
+          <h3 hlmCardTitle>Un complément est à régler</h3>
+          <p hlmCardDescription>
+            Le passage à {{ topUp.targetPartySize }} couverts prend effet une fois le complément
+            réglé.
+          </p>
+        } @else {
+          <h3 hlmCardTitle>Réservation modifiée</h3>
+          <p hlmCardDescription>Le restaurant en a été informé.</p>
+        }
+      </div>
+
+      <div hlmCardContent class="flex flex-col gap-4">
+        <dl class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Date</dt>
+            <dd class="font-medium">{{ formatDateTime(outcome.startsAt) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Couverts</dt>
+            <dd class="font-medium">{{ outcome.partySize }}</dd>
+          </div>
+        </dl>
+
+        @if (outcome.pendingTopUp; as topUp) {
+          <div class="bg-muted flex items-baseline justify-between rounded-md px-4 py-3">
+            <span class="text-sm font-medium">Complément à régler</span>
+            <span class="text-lg font-semibold">{{ formatAmount(topUp.amountCents) }}</span>
+          </div>
+          <!-- Repli : normalement le convive part droit sur la page de règlement, dont
+               le jeton voyage avec la réponse. Reste le message qu'il a aussi reçu. -->
+          <p class="text-muted-foreground text-sm">
+            Un lien de paiement vous a été envoyé par message. Votre réservation reste confirmée à
+            <strong>{{ outcome.partySize }} couverts</strong> tant qu'il n'est pas réglé.
+          </p>
+        } @else if (outcome.refundedAmountCents > 0) {
+          <div class="bg-muted flex items-center justify-between rounded-md px-4 py-3">
+            <span class="text-sm font-medium">Remboursé</span>
+            <span class="text-sm font-semibold">
+              {{ formatAmount(outcome.refundedAmountCents) }}
+            </span>
+          </div>
+          <p class="text-muted-foreground text-sm">
+            Le remboursement apparaît sur votre relevé sous quelques jours ouvrés.
+          </p>
+        }
+      </div>
+    } @else if (reservation(); as current) {
+      <div hlmCardHeader>
+        <h3 hlmCardTitle>Modifier votre réservation</h3>
+        <p hlmCardDescription>{{ current.restaurantName }}</p>
+      </div>
+
+      @if (!current.open) {
+        <!-- Le lien s'ouvre sur une page qui dit pourquoi, plutôt que sur une erreur. -->
+        <div hlmCardContent class="flex flex-col gap-3">
+          @if (current.startsAt) {
+            <dl class="flex flex-col gap-2 text-sm">
+              <div class="flex justify-between">
+                <dt class="text-muted-foreground">Date</dt>
+                <dd class="font-medium">{{ formatDateTime(current.startsAt) }}</dd>
+              </div>
+              <div class="flex justify-between">
+                <dt class="text-muted-foreground">Couverts</dt>
+                <dd class="font-medium">{{ current.partySize }}</dd>
+              </div>
+            </dl>
+            <p class="text-sm">
+              Les modifications en ligne sont closes pour cette réservation.
+              <strong>Appelez le restaurant</strong> : votre table reste réservée.
+            </p>
+          } @else {
+            <!-- Le lien a survécu à sa réservation : il ne reste que qui appeler. -->
+            <p class="text-sm">
+              Cette réservation n'est plus modifiable en ligne.
+              <strong>Appelez le restaurant</strong> pour toute question.
+            </p>
+          }
+        </div>
+      } @else {
+        <div hlmCardContent class="flex flex-col gap-5">
+          <!-- Combien de couverts -->
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium">Nombre de couverts</span>
+            <div class="flex items-center gap-3">
+              <button
+                hlmBtn
+                variant="outline"
+                size="icon"
+                class="size-11"
+                aria-label="Retirer un couvert"
+                [disabled]="partySize() <= 1 || saving()"
+                (click)="changePartySize(-1)"
+              >
+                <ng-icon name="lucideMinus" size="16" />
+              </button>
+              <span
+                class="w-6 text-center text-lg font-semibold tabular-nums"
+                aria-live="polite"
+                [attr.aria-label]="partySize() + ' couverts'"
+              >
+                {{ partySize() }}
+              </span>
+              <button
+                hlmBtn
+                variant="outline"
+                size="icon"
+                class="size-11"
+                aria-label="Ajouter un couvert"
+                [disabled]="saving()"
+                (click)="changePartySize(1)"
+              >
+                <ng-icon name="lucidePlus" size="16" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Le sort de l'argent, dit avant le clic et jamais découvert après. Annoncé
+               à voix haute : il change sous le doigt du convive, sans qu'il navigue. -->
+          <div aria-live="polite">
+            @if (refundPreview(); as refund) {
+              <p class="text-sm">
+                Vous réduisez votre tablée : <strong>{{ refund }}</strong> vous seront
+                <strong>remboursés</strong>.
+              </p>
+            } @else if (topUpPreview(); as topUp) {
+              <p class="text-sm">
+                Vous agrandissez votre tablée : un complément de <strong>{{ topUp }}</strong> vous
+                sera demandé, et la hausse ne prendra effet qu'une fois réglé.
+              </p>
+            }
+          </div>
+
+          <!-- Quel créneau. La grille suit la tablée : une table pour huit n'est pas une
+               table pour deux. -->
+          <div class="flex flex-col gap-2">
+            <span class="text-sm font-medium" id="slots-label">Changer d'horaire</span>
+            <div aria-live="polite" [attr.aria-busy]="slotsLoading()" aria-labelledby="slots-label">
+              @if (slotsLoading()) {
+                <p class="text-muted-foreground text-sm">Recherche des créneaux libres…</p>
+              } @else if (slotsFailed()) {
+                <!-- Une panne réseau n'est pas une salle complète : le dire autrement. -->
+                <p class="text-destructive text-sm">
+                  Les créneaux n'ont pas pu être chargés. Réessayez dans un instant.
+                </p>
+              } @else if (days().length === 0) {
+                <p class="text-muted-foreground text-sm">
+                  Aucun créneau n'est libre pour {{ partySize() }} couverts dans les sept prochains
+                  jours. Appelez le restaurant.
+                </p>
+              } @else {
+                <p class="text-muted-foreground text-xs">
+                  Gardez votre horaire actuel, ou choisissez-en un autre.
+                </p>
+                <div class="flex max-h-64 flex-col gap-3 overflow-y-auto">
+                  @for (day of days(); track day.date) {
+                    <div class="flex flex-col gap-1.5">
+                      <span class="text-muted-foreground text-xs font-medium capitalize">
+                        {{ formatDay(day.date) }}
+                      </span>
+                      <div class="flex flex-wrap gap-1.5">
+                        @for (slot of day.slots; track slot.startsAt) {
+                          <button
+                            hlmBtn
+                            size="sm"
+                            class="h-11 min-w-16"
+                            [variant]="chosenSlot() === slot.startsAt ? 'default' : 'outline'"
+                            [attr.aria-pressed]="chosenSlot() === slot.startsAt"
+                            (click)="chooseSlot(slot.startsAt)"
+                          >
+                            {{ formatTime(slot.startsAt) }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          @if (errorMessage()) {
+            <p class="text-destructive text-sm" role="alert">{{ errorMessage() }}</p>
+          }
+        </div>
+
+        <div hlmCardFooter class="flex-col items-stretch gap-2">
+          <button hlmBtn class="w-full" [disabled]="!changed() || saving()" (click)="submit()">
+            {{ saving() ? 'Enregistrement…' : 'Enregistrer les modifications' }}
+          </button>
+          <p class="text-muted-foreground text-center text-xs">
+            Le restaurant est prévenu de chaque modification.
+            @if (closesAt(); as deadline) {
+              <br />Modifiable en ligne jusqu'au {{ deadline }}.
+            }
+          </p>
+        </div>
+      }
+    }
+  </section>
+</main>

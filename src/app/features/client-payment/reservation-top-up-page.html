@@ -1,0 +1,84 @@
+<main class="bg-muted flex min-h-screen items-center justify-center p-6">
+  <section hlmCard class="w-full max-w-md">
+    @if (loading()) {
+      <div hlmCardContent class="py-12 text-center">
+        <p class="text-muted-foreground text-sm">Chargement de votre demande…</p>
+      </div>
+    } @else if (linkDead()) {
+      <div hlmCardHeader class="items-center text-center">
+        <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
+        <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
+        <p hlmCardDescription>
+          Le délai de 30 minutes est écoulé, ou le complément a déjà été réglé.
+        </p>
+      </div>
+      <div hlmCardContent>
+        <p class="text-muted-foreground text-sm">
+          Votre réservation initiale reste confirmée. Appelez le restaurant pour renouveler votre
+          demande.
+        </p>
+      </div>
+    } @else if (topUp(); as current) {
+      <div hlmCardHeader>
+        <h3 hlmCardTitle>{{ current.restaurantName }}</h3>
+        <p hlmCardDescription>
+          Réglez le complément pour passer à {{ current.targetPartySize }} couverts.
+        </p>
+      </div>
+
+      <div hlmCardContent class="flex flex-col gap-4">
+        <dl class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Date</dt>
+            <dd class="font-medium">{{ formatDateTime(current.startsAt) }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Réservation actuelle</dt>
+            <dd class="font-medium">{{ current.currentPartySize }} couverts</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-muted-foreground">Couverts demandés</dt>
+            <dd class="font-medium">{{ current.targetPartySize }} couverts</dd>
+          </div>
+        </dl>
+
+        <div class="bg-muted flex items-baseline justify-between rounded-md px-4 py-3">
+          <span class="text-sm font-medium">
+            À régler pour {{ extraGuests() }} couvert(s) en plus
+          </span>
+          <span class="text-lg font-semibold">{{ amount() }}</span>
+        </div>
+
+        <!-- Les deux choses qu'il vaut mieux lire avant de payer qu'après. -->
+        <p class="text-muted-foreground text-sm">
+          Votre réservation reste confirmée à
+          <strong>{{ current.currentPartySize }} couverts</strong> tant que ce complément n'est pas
+          réglé.
+        </p>
+        <p class="text-muted-foreground text-sm">
+          Le passage à {{ current.targetPartySize }} couverts est
+          <strong>subordonné à une table disponible</strong> au moment du paiement. Si aucune table
+          ne peut vous accueillir, ce complément vous est intégralement remboursé.
+        </p>
+
+        @if (errorMessage()) {
+          <p class="text-destructive text-sm">{{ errorMessage() }}</p>
+        }
+      </div>
+
+      <div hlmCardFooter class="flex-col items-stretch gap-2">
+        <button hlmBtn class="w-full" [disabled]="redirecting()" (click)="pay()">
+          <ng-icon name="lucideCreditCard" size="18" />
+          @if (redirecting()) {
+            Ouverture…
+          } @else {
+            Payer {{ amount() }}
+          }
+        </button>
+        <p class="text-muted-foreground text-center text-xs">
+          Paiement sécurisé par Stripe. Aucune donnée bancaire ne passe par Alloquence.
+        </p>
+      </div>
+    }
+  </section>
+</main>

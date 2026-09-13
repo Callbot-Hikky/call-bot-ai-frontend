@@ -95,6 +95,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         (mergeAssign)="mergeAssign.emit($event)"
         (walkIn)="walkIn.emit($event)"
         (unassign)="unassign.emit($event)"
+        (markNoShow)="markNoShow.emit($event)"
         (confirmReservation)="confirmReservation.emit($event)"
         (cancelReservation)="cancelReservation.emit($event)"
         (callReservation)="callReservation.emit($event)"
@@ -149,6 +150,7 @@ export class HkServiceOverlay {
   readonly finishService = output<Reservation>();
   readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
+  readonly markNoShow = output<Reservation>();
   readonly retry = output<void>();
 
   // Synthese de salle (libres / reservees / installees / couverts) : pure, depuis

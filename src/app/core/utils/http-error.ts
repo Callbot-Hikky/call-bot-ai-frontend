@@ -6,6 +6,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 const CONFLICT_MESSAGES: Record<string, string> = {
   table_overlap: 'Cette table est déjà réservée sur ce créneau.',
   duplicate_phone: 'Un client existe déjà avec ce numéro.',
+  no_table_available: 'Aucune table libre ne peut asseoir ce nombre de couverts sur ce créneau.',
+  top_up_pending: 'Un complément est déjà en attente de règlement sur cette réservation.',
 };
 
 export function conflictMessage(err: unknown, fallback: string): string {
