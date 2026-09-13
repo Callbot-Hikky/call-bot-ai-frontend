@@ -43,6 +43,8 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
       <hk-service-overlay
         [restaurantName]="restaurantName"
         [today]="dayLabel()"
+        [live]="service.isToday()"
+        [referenceNow]="referenceNow()"
         [views]="serviceTableViews()"
         [reservations]="service.reservations()"
         [tables]="tables.tables()"
@@ -71,8 +73,21 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
     } @else if (portraitMobile()) {
       <!-- MOBILE PORTRAIT : vue TUILES (le plan spatial revient en paysage). -->
       <hk-page-header [subtitle]="dayLabel()">
-        <hk-day-picker [day]="service.day()" (dayChange)="service.setDay($event)" />
+        <hk-day-picker
+          [day]="service.day()"
+          [today]="service.today()"
+          (dayChange)="service.setDay($event)"
+        />
       </hk-page-header>
+      @if (!service.isToday()) {
+        <p
+          class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
+          data-testid="forecast-note"
+        >
+          Journée prévisionnelle : les statuts sont projetés, l'installation de clients se fait sur
+          le plan du jour.
+        </p>
+      }
       <hk-floor-plan
         [portrait]="true"
         [reservations]="service.reservations()"
@@ -83,6 +98,8 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
         [(selectedTableId)]="selectedTableId"
         [preselectId]="placerId()"
         [restaurantName]="restaurantName"
+        [live]="service.isToday()"
+        [referenceNow]="referenceNow()"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (assign)="onAssign($event)"
@@ -99,12 +116,37 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
       />
     } @else {
       @if (!editing()) {
-        <!-- Paysage compact : chaque pixel vertical compte, l'en-tete saute. -->
+        <!-- Paysage compact : chaque pixel vertical compte, l'en-tete se reduit
+             a une ligne (le jour reste choisissable). -->
         <div class="max-lg:landscape:hidden">
           <hk-page-header [subtitle]="dayLabel()">
-            <hk-day-picker [day]="service.day()" (dayChange)="service.setDay($event)" />
+            <hk-day-picker
+              [day]="service.day()"
+              [today]="service.today()"
+              (dayChange)="service.setDay($event)"
+            />
           </hk-page-header>
         </div>
+        <div
+          class="mb-3 hidden flex-wrap items-center justify-between gap-2 max-lg:landscape:flex"
+          data-testid="compact-day-bar"
+        >
+          <p class="text-text-muted text-sm capitalize" aria-live="polite">{{ dayLabel() }}</p>
+          <hk-day-picker
+            [day]="service.day()"
+            [today]="service.today()"
+            (dayChange)="service.setDay($event)"
+          />
+        </div>
+      }
+      @if (!service.isToday()) {
+        <p
+          class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
+          data-testid="forecast-note"
+        >
+          Journée prévisionnelle : les statuts sont projetés, l'installation de clients et le mode
+          service se font sur le plan du jour.
+        </p>
       }
 
       <div class="flex flex-col gap-6">
@@ -126,6 +168,8 @@ import { formatDayLabel, formatTime } from '@core/utils/format';
             [(vitrine)]="vitrine"
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
+            [live]="service.isToday()"
+            [referenceNow]="referenceNow()"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
             (assign)="onAssign($event)"
@@ -190,13 +234,24 @@ export class FloorPlanPage {
 
   protected readonly dayLabel = computed(() => formatDayLabel(this.service.day()));
 
+  // Heure de reference hors jour courant : un jour a venir se lit en debut de
+  // journee (tout reste a venir), un jour passe en fin de journee (tout est joue).
+  protected readonly referenceNow = computed<Date | null>(() => {
+    const day = this.service.day();
+    const today = this.service.today();
+    if (day === today) return null;
+    const [y, m, d] = day.split('-').map(Number);
+    return day > today ? new Date(y, m - 1, d, 0, 0, 0) : new Date(y, m - 1, d, 23, 59, 59);
+  });
+
   // Synthese de salle du bandeau service (memes derivations que le plan).
   protected readonly serviceTableViews = computed(() => {
     const reservations = this.service.reservations();
-    const now = new Date();
+    const reference = this.referenceNow();
+    const now = reference ?? new Date();
     const views = layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
       ...p,
-      ...deriveTableStatus(p.table.id, reservations, now),
+      ...deriveTableStatus(p.table.id, reservations, now, reference !== null),
     }));
     // Tablees fusionnees comptees comme UNE table (meme synthese que le plan).
     return mergeViews(views, this.floorPlan.merges());

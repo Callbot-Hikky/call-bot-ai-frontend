@@ -22,6 +22,8 @@ import { localDateKey } from '@core/utils/format';
         aria-label="Jour affiché"
         data-testid="day-input"
         [value]="day()"
+        [min]="bounds().min"
+        [max]="bounds().max"
         (change)="onInput($event)"
       />
       <hk-icon-button
@@ -30,26 +32,35 @@ import { localDateKey } from '@core/utils/format';
         data-testid="day-next"
         (click)="shift(1)"
       />
-      @if (!isToday()) {
-        <hk-button
-          variant="ghost"
-          size="sm"
-          data-testid="day-today"
-          (click)="dayChange.emit(today)"
-        >
-          Aujourd'hui
-        </hk-button>
-      }
+      <!-- Toujours monte : un bouton qui disparait sous le focus le perd. -->
+      <hk-button
+        variant="ghost"
+        size="sm"
+        data-testid="day-today"
+        [disabled]="isToday()"
+        (click)="dayChange.emit(today())"
+      >
+        Aujourd'hui
+      </hk-button>
     </div>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkDayPicker {
   readonly day = input.required<string>();
+  // Date du jour fournie par le parent (rafraichie chaque minute cote service).
+  readonly today = input(localDateKey());
   readonly dayChange = output<string>();
 
-  protected readonly today = localDateKey();
-  protected readonly isToday = computed(() => this.day() === this.today);
+  protected readonly isToday = computed(() => this.day() === this.today());
+  // Un an autour d'aujourd'hui : evite les saisies fantaisistes (annee 0099).
+  protected readonly bounds = computed(() => {
+    const [y, m, d] = this.today().split('-').map(Number);
+    return {
+      min: localDateKey(new Date(y - 1, m - 1, d)),
+      max: localDateKey(new Date(y + 1, m - 1, d)),
+    };
+  });
 
   protected shift(days: number): void {
     const [y, m, d] = this.day().split('-').map(Number);
@@ -58,9 +69,13 @@ export class HkDayPicker {
   }
 
   protected onInput(event: Event): void {
-    const value = (event.target as HTMLInputElement).value;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      this.dayChange.emit(value);
+    const input = event.target as HTMLInputElement;
+    const { min, max } = this.bounds();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input.value) && input.value >= min && input.value <= max) {
+      this.dayChange.emit(input.value);
+      return;
     }
+    // Champ vide ou hors bornes : le champ revient sur le jour affiche.
+    input.value = this.day();
   }
 }

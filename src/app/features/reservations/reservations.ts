@@ -31,7 +31,7 @@ import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
-import { formatDayLabel, formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime, localDateKey } from '@core/utils/format';
 import { conflictMessage } from '@core/utils/http-error';
 
 // Ordre métier des statuts pour le tri.
@@ -64,7 +64,11 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   ],
   template: `
     <hk-page-header [subtitle]="dayLabel()">
-      <hk-day-picker [day]="service.day()" (dayChange)="service.setDay($event)" />
+      <hk-day-picker
+        [day]="service.day()"
+        [today]="service.today()"
+        (dayChange)="service.setDay($event)"
+      />
       <hk-button size="sm" data-testid="open-new-resa" (click)="newResaState.set('open')">
         <hk-icon name="lucidePlus" [size]="16" />
         Nouvelle réservation
@@ -256,7 +260,9 @@ export class ReservationsPage {
         next: (created) => {
           this.creatingManual.set(false);
           this.newResaState.set('closed');
-          this.toast.show(`Réservation créée pour ${created.customerName}`, 'success', {
+          const day = localDateKey(new Date(created.dateTime));
+          const when = day === this.service.today() ? '' : ` (${formatDayLabel(day)})`;
+          this.toast.show(`Réservation créée pour ${created.customerName}${when}`, 'success', {
             label: 'Placer sur le plan',
             run: () => this.onPlace(created),
           });
@@ -274,6 +280,8 @@ export class ReservationsPage {
   // « Placer » depuis la liste : bascule sur la page Plan avec la resa
   // PRESELECTIONNEE (bandeau d'affectation ouvert, meilleure table surlignee).
   protected onPlace(reservation: Reservation): void {
+    // Le plan s'ouvre sur le jour de la reservation (sinon elle n'y serait pas).
+    this.service.setDay(localDateKey(new Date(reservation.dateTime)));
     void this.router.navigate(['/plan'], { queryParams: { placer: reservation.id } });
   }
 

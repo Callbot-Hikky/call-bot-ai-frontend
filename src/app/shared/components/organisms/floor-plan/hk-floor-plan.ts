@@ -182,6 +182,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [walkInEnabled]="live()"
             [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
@@ -245,7 +246,12 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     [variant]="simulating() ? 'primary' : 'secondary'"
                     size="sm"
                     data-testid="toggle-sim"
-                    title="Voir la salle à une heure choisie de la soirée"
+                    [disabled]="!live()"
+                    [title]="
+                      live()
+                        ? 'Voir la salle à une heure choisie de la soirée'
+                        : 'La simulation porte sur la soirée du jour'
+                    "
                     (click)="simulating() ? stopSim() : startSim()"
                   >
                     <hk-icon name="lucideCalendar" [size]="16" />
@@ -256,7 +262,9 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                   <hk-button
                     variant="secondary"
                     size="sm"
-                    title="Affichage plein écran pour le poste d'accueil"
+                    data-testid="enter-service"
+                    [disabled]="!live()"
+                    [title]="serviceTitle()"
                     (click)="onEnterService()"
                   >
                     <hk-icon name="lucideMaximize" [size]="16" />
@@ -614,7 +622,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                     data-testid="evening-load"
                     title="Couverts attendus ce soir (réservations vivantes) rapportés à la capacité totale de la salle"
                   >
-                    Ce soir :
+                    {{ live() ? 'Ce soir' : 'Ce jour-là' }} :
                     <strong class="text-text-strong">{{ load().couverts }}</strong>
                     / {{ load().capacity }} couv. ({{ load().pct }} %)
                   </span>
@@ -649,6 +657,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
                 [view]="selectedTableView()"
                 [tableReservations]="selectedTableReservations()"
                 [readOnly]="simulating()"
+                [walkInEnabled]="live()"
                 [large]="serviceMode()"
                 (closeCard)="closeInspector()"
                 (walkIn)="confirmWalkInFromCard($event)"
@@ -770,6 +779,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             [view]="selectedTableView()"
             [tableReservations]="selectedTableReservations()"
             [readOnly]="simulating()"
+            [walkInEnabled]="live()"
             [large]="serviceMode()"
             [showClose]="false"
             (walkIn)="confirmWalkInFromCard($event)"
@@ -847,6 +857,23 @@ export class HkFloorPlan {
   // PRESELECTION (« Placer » depuis la liste, /plan?placer=id) : la resa arrive
   // deja selectionnee, bandeau d'affectation ouvert, meilleure table surlignee.
   readonly preselectId = input<string | null>(null);
+  // JOUR COURANT affiche ? Sinon la salle est previsionnelle : pas de walk-in,
+  // pas de mode service ni de simulation (ils parlent de la soiree en cours).
+  readonly live = input(true);
+  // Heure de reference des statuts hors jour courant (debut ou fin de journee) :
+  // l'horloge murale ne dit rien sur un autre jour.
+  readonly referenceNow = input<Date | null>(null);
+
+  protected readonly simTitle = computed(() =>
+    this.live()
+      ? 'Voir la salle à une heure choisie de la soirée'
+      : 'La simulation porte sur la soirée du jour',
+  );
+  protected readonly serviceTitle = computed(() =>
+    this.live()
+      ? "Affichage plein écran pour le poste d'accueil"
+      : 'Le mode service se lance sur le plan du jour',
+  );
 
   // Vue 3D decorative (Three.js, statuts live). La 2D reste la vue d'ACTION
   // (clics, affectation) : la 3D est un ecran de presentation / d'accueil.
@@ -982,12 +1009,15 @@ export class HkFloorPlan {
   protected readonly tableViews = computed<FloorTableView[]>(() => {
     const reservations = this.reservations();
     const simulated = this.simNow();
-    const now = simulated ?? new Date();
+    const reference = this.referenceNow();
+    const now = simulated ?? reference ?? new Date();
+    // `projected` hors temps reel (simulation ou autre jour) : les tables
+    // installees se liberent apres la duree de service estimee et aucun retard
+    // n'est signale (sinon la projection mentirait).
+    const projected = simulated !== null || reference !== null;
     const views = this.placed().map((p) => ({
       ...p,
-      // `projected` en simulation : les tables installees se liberent apres la
-      // duree de service estimee (sinon la projection mentirait sur le futur).
-      ...deriveTableStatus(p.table.id, reservations, now, simulated !== null),
+      ...deriveTableStatus(p.table.id, reservations, now, projected),
     }));
     // Tables fusionnees : chaque groupe devient UNE tablee (2D ET 3D).
     return mergeViews(views, this.merges());

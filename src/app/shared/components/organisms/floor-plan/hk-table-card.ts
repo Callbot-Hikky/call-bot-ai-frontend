@@ -81,6 +81,11 @@ const WALK_IN_GUARD_MIN = 90;
           <p class="text-text-muted text-xs" data-testid="readonly-note">
             Salle projetée à l'heure simulée. Quittez la simulation pour agir sur cette table.
           </p>
+        } @else if (sel.status === 'libre' && !walkInEnabled()) {
+          <!-- Autre jour consulte : des clients qui arrivent, c'est aujourd'hui. -->
+          <p class="text-text-muted text-xs" data-testid="walkin-off-note">
+            L'installation de clients se fait sur le plan du jour.
+          </p>
         } @else if (sel.status === 'libre') {
           <!-- Table LIBRE : installer des clients sans reservation. -->
           <div class="flex flex-col gap-3" data-testid="walkin-panel">
@@ -207,6 +212,8 @@ export class HkTableCard {
   // LECTURE SEULE (simulation) : masque toute action -> pas de mutation reelle
   // depuis une salle projetee.
   readonly readOnly = input(false);
+  // Installation de clients (walk-in) : seulement sur le plan du jour courant.
+  readonly walkInEnabled = input(true);
   // GRAND FORMAT (mode service / poste d'accueil) : boutons et stepper agrandis
   // pour un tap rapide au comptoir et une bonne lisibilite sur ecran mural.
   readonly large = input(false);
