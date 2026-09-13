@@ -83,11 +83,12 @@ jobs:
           done
           if [ "$ready" != 1 ]; then echo "Le back ne repond pas"; docker compose logs app | tail -50; exit 1; fi
 
-      # Le serveur de dev proxifie /api vers le back, comme en local (proxy.config.json).
+      # Configuration production : le meme bundling que le deploiement (un module CommonJS ne
+      # s'y presente pas comme en developpement). Le proxy /api vers le back reste actif.
       - name: Serve frontend
         if: steps.backend.outputs.skip != 'true'
         run: |
-          pnpm start --port 4200 > /tmp/ng-serve.log 2>&1 &
+          pnpm exec ng serve --configuration production --port 4200 > /tmp/ng-serve.log 2>&1 &
           ready=0
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4200/ > /dev/null; then ready=1; break; fi
