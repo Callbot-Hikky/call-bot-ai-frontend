@@ -12,6 +12,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
+import { HkDayPicker } from '@shared/components/molecules/day-picker/hk-day-picker';
 import {
   AssignEvent,
   HkFloorPlan,
@@ -28,7 +29,7 @@ import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
-import { formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime } from '@core/utils/format';
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
 // sous les KPI), avec l'editeur, le mode service plein ecran et le drawer de
@@ -36,12 +37,12 @@ import { formatTime } from '@core/utils/format';
 // services (signals) - une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
-  imports: [HkPageHeader, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
+  imports: [HkPageHeader, HkDayPicker, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
   template: `
     @if (serviceMode()) {
       <hk-service-overlay
         [restaurantName]="restaurantName"
-        [today]="today"
+        [today]="dayLabel()"
         [views]="serviceTableViews()"
         [reservations]="service.reservations()"
         [tables]="tables.tables()"
@@ -69,7 +70,9 @@ import { formatTime } from '@core/utils/format';
       />
     } @else if (portraitMobile()) {
       <!-- MOBILE PORTRAIT : vue TUILES (le plan spatial revient en paysage). -->
-      <hk-page-header [subtitle]="today" />
+      <hk-page-header [subtitle]="dayLabel()">
+        <hk-day-picker [day]="service.day()" (dayChange)="service.setDay($event)" />
+      </hk-page-header>
       <hk-floor-plan
         [portrait]="true"
         [reservations]="service.reservations()"
@@ -98,7 +101,9 @@ import { formatTime } from '@core/utils/format';
       @if (!editing()) {
         <!-- Paysage compact : chaque pixel vertical compte, l'en-tete saute. -->
         <div class="max-lg:landscape:hidden">
-          <hk-page-header [subtitle]="today" />
+          <hk-page-header [subtitle]="dayLabel()">
+            <hk-day-picker [day]="service.day()" (dayChange)="service.setDay($event)" />
+          </hk-page-header>
         </div>
       }
 
@@ -183,11 +188,7 @@ export class FloorPlanPage {
   // En mode service, le plan est dans l'overlay (pas un enfant direct de la page).
   private readonly serviceOverlayCmp = viewChild(HkServiceOverlay);
 
-  protected readonly today = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  protected readonly dayLabel = computed(() => formatDayLabel(this.service.day()));
 
   // Synthese de salle du bandeau service (memes derivations que le plan).
   protected readonly serviceTableViews = computed(() => {
