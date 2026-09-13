@@ -33,6 +33,7 @@ import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
 import { formatDayLabel, formatTime, localDateKey } from '@core/utils/format';
 import { conflictMessage } from '@core/utils/http-error';
+import { bindDayToQuery } from '@core/utils/day-query';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -215,6 +216,8 @@ export class ReservationsPage {
   });
 
   constructor() {
+    // Le jour affiche suit l'URL (?jour=...) : il survit au rechargement.
+    bindDayToQuery();
     // Retour depuis la page Plan : donnees deja en memoire -> refresh silencieux
     // (pas de skeletons), sinon chargement initial complet.
     if (this.service.reservations().length > 0) {

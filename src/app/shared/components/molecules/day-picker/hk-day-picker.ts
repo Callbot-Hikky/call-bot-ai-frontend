@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
-import { localDateKey } from '@core/utils/format';
+import { localDateKey, openNativePicker } from '@core/utils/format';
 
 // Choix du jour affiche (liste, plan) : la veille, le lendemain, une date au choix,
 // et un retour rapide a aujourd'hui. La valeur echangee est une cle « YYYY-MM-DD ».
@@ -24,6 +24,7 @@ import { localDateKey } from '@core/utils/format';
         [value]="day()"
         [min]="bounds().min"
         [max]="bounds().max"
+        (click)="openPicker($event)"
         (change)="onInput($event)"
       />
       <hk-icon-button
@@ -66,6 +67,12 @@ export class HkDayPicker {
     const [y, m, d] = this.day().split('-').map(Number);
     const date = new Date(y, m - 1, d + days);
     this.dayChange.emit(localDateKey(date));
+  }
+
+  // Le calendrier natif s'ouvre au clic sur tout le champ, pas seulement sur
+  // l'icone. showPicker est absent de certains navigateurs : on laisse faire.
+  protected openPicker(event: Event): void {
+    openNativePicker(event.target as HTMLInputElement);
   }
 
   protected onInput(event: Event): void {
