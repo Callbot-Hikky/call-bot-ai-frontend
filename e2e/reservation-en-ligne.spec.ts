@@ -63,7 +63,10 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByTestId('link-reschedule')).toBeVisible();
   });
 
-  test('la reservation web arrive chez le restaurateur avec sa source', async ({ request }) => {
+  test('la reservation web arrive chez le restaurateur avec sa source', async ({
+    page,
+    request,
+  }) => {
     const owner = await ownerWithOneTable(request, 'booking-list');
     // Demain : le test tient a toute heure, y compris apres la fermeture du soir.
     const slots = await request.get(
@@ -97,6 +100,17 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     expect(mine?.id).not.toBe(id);
     // Le back range les numeros francais en forme internationale.
     expect(mine?.customer?.phone).toBe('+33698765432');
+
+    // Liste du jour : rien aujourd'hui, la reservation apparait en passant au lendemain,
+    // et l'en-tete suit le jour choisi. « Aujourd'hui » ramene a la journee vide.
+    await login(page, owner);
+    await page.goto('/reservations');
+    await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
+    await page.getByTestId('day-next').locator('button').click();
+    await expect(page.getByText('Karim')).toBeVisible();
+    await expect(page.getByTestId('day-today')).toBeVisible();
+    await page.getByTestId('day-today').locator('button').click();
+    await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
   });
 
   test('un creneau pris entre-temps est refuse avec un message, et la liste se met a jour', async ({
