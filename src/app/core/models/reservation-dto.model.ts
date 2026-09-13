@@ -1,5 +1,7 @@
 import { PublicReservation, Reservation, ReservationStatus } from './reservation.model';
 
+import type { PendingTopUp } from './guarantee.model';
+
 // Forme brute renvoyée par le backend (ReservationResponse, objets liés via ?expand).
 export interface BackTable {
   id: string;
@@ -46,9 +48,14 @@ export interface ReservationDto {
   createdAt: string;
   updatedAt: string;
   cancelledAt: string | null;
+  guaranteeMode?: string | null;
+  guaranteeStatus?: string | null;
+  guaranteeAmountCents?: number | null;
   table?: BackTable | null;
   customer?: BackCustomer | null;
   restaurant?: BackRestaurant | null;
+  // Present uniquement tant qu'une hausse de couverts attend son reglement.
+  pendingTopUp?: PendingTopUp | null;
 }
 
 // Corps attendu par le backend pour POST / PUT (ReservationRequest).
@@ -82,13 +89,21 @@ export function mapReservation(dto: ReservationDto): Reservation {
     notes: dto.notes ?? '',
     source: (dto.source as Reservation['source']) ?? undefined,
     restaurant: dto.restaurant ? { id: dto.restaurant.id, name: dto.restaurant.name } : undefined,
+    guaranteeMode: (dto.guaranteeMode as Reservation['guaranteeMode']) ?? undefined,
+    guaranteeStatus: (dto.guaranteeStatus as Reservation['guaranteeStatus']) ?? undefined,
+    guaranteeAmountCents: dto.guaranteeAmountCents ?? undefined,
+    pendingTopUp: dto.pendingTopUp ?? undefined,
   };
 }
 
 // Champs surchargeables lors d'une mutation PUT (le reste vient du DTO courant).
 // `tableId` permet d'affecter (UUID) ou de desaffecter (null) une table sans
-// changer le statut. `startsAt` / `endsAt` / `partySize` / `notes` couvrent le
-// flow client "je change de créneau" (reschedule).
+// changer le statut. `startsAt` / `endsAt` / `notes` couvrent le flow client
+// "je change de créneau" (reschedule).
+// `partySize` permet de corriger le nombre de couverts : le back y applique sa
+// regle. Une baisse passe, une hausse exige une table libre, et sur une
+// reservation payante elle ouvre un complement au lieu de s'appliquer — la
+// reponse fait alors foi, pas la valeur demandee.
 export interface ReservationRequestOverrides {
   status?: string;
   tableId?: string | null;

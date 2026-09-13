@@ -32,6 +32,55 @@ export const routes: Routes = [
     loadComponent: () => import('@features/offer/offer-success').then((m) => m.OfferSuccess),
   },
 
+  // Parcours du convive : il a réservé par téléphone, n'a pas de compte, et n'en aura
+  // pas. Le jeton dans l'URL est sa seule identification — donc hors shell et hors garde.
+  {
+    path: 'client/reservations/payer/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-payment-page').then(
+        (m) => m.ReservationPaymentPage,
+      ),
+  },
+  {
+    path: 'client/reservations/complement/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-top-up-page').then(
+        (m) => m.ReservationTopUpPage,
+      ),
+  },
+  {
+    path: 'client/reservations/modifier/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-modify-page').then(
+        (m) => m.ReservationModifyPage,
+      ),
+  },
+  {
+    path: 'client/reservations/annuler/:token',
+    loadComponent: () =>
+      import('@features/client-payment/reservation-cancel-page').then(
+        (m) => m.ReservationCancelPage,
+      ),
+  },
+  {
+    path: 'client/reservations/payee',
+    data: { outcome: 'paid' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+  {
+    path: 'client/reservations/complement-regle',
+    data: { outcome: 'top-up-paid' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+  {
+    path: 'client/reservations/paiement-annule',
+    data: { outcome: 'abandoned' },
+    loadComponent: () =>
+      import('@features/client-payment/payment-result-page').then((m) => m.PaymentResultPage),
+  },
+
   {
     path: '',
     component: AppShell,
@@ -67,10 +116,9 @@ export const routes: Routes = [
       },
       {
         path: 'parametres',
-        loadComponent: () =>
-          import('./features/coming-soon/coming-soon').then((m) => m.ComingSoonPage),
-        title: 'Paramètres',
         data: { title: 'Paramètres', icon: 'lucideSettings' },
+        loadComponent: () =>
+          import('@features/settings/payment-settings-page').then((m) => m.PaymentSettingsPage),
       },
       {
         path: 'mon-restaurant',

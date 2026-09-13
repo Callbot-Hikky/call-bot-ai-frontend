@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
+import { formatCents } from '@core/models/guarantee.model';
 import { ConfirmService } from '@shared/components/molecules/confirm-dialog/hk-confirm-dialog';
 import { filter, switchMap } from 'rxjs';
 import { Reservation } from '@core/models/reservation.model';
@@ -76,6 +77,47 @@ export class ReservationActionsService {
       });
   }
 
+  // Correction des COUVERTS. Le back tranche (baisse libre, hausse conditionnee a une
+  // table assez grande, complement a regler en `booking_fee`) ; ici on se contente de
+  // remonter sa reponse au personnel plutot qu'un echec muet.
+  updatePartySize(
+    reservation: Reservation,
+    partySize: number,
+    destroyRef: DestroyRef,
+    onDone?: () => void,
+  ): void {
+    if (this.isTerminal(reservation)) {
+      this.toast.show('Cette réservation est clôturée.');
+      return;
+    }
+    if (!Number.isInteger(partySize) || partySize < 1) {
+      this.toast.show('Le nombre de couverts doit être au moins 1.');
+      return;
+    }
+    if (partySize === reservation.partySize) {
+      onDone?.();
+      return;
+    }
+    this.service
+      .updatePartySize(reservation.id, partySize)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: (updated) => {
+          // Une hausse payante ne s'applique pas tout de suite : annoncer
+          // « mise a jour » ferait croire au personnel que la table a grandi.
+          this.toast.show(
+            updated.pendingTopUp
+              ? `Complément de ${formatCents(updated.pendingTopUp.amountCents, updated.pendingTopUp.currency)} demandé au client. La réservation reste à ${updated.partySize} couverts.`
+              : `Réservation mise à jour : ${updated.partySize} couverts`,
+            'success',
+          );
+          onDone?.();
+        },
+        error: (err) =>
+          this.toast.show(conflictMessage(err, 'Échec du changement de couverts'), 'error'),
+      });
+  }
+
   finish(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
     if (reservation.status !== 'seated') {
       this.toast.show('Aucun client installé à cette table.');
@@ -125,6 +167,40 @@ export class ReservationActionsService {
       .confirm(reservation.id)
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe(() => this.toast.show('Réservation confirmée', 'success'));
+  }
+
+  /**
+   * ABSENCE CONSTATEE : le client n'est pas venu. Rien n'est debite tout de suite —
+   * une fenetre de 2 h laisse au personnel le temps de revenir sur un constat pose
+   * par erreur, et le toast le dit pour que personne ne croie l'acte irreversible.
+   */
+  markNoShow(reservation: Reservation, destroyRef: DestroyRef, onDone?: () => void): void {
+    if (this.isTerminal(reservation)) {
+      return;
+    }
+    this.service
+      .recordNoShow(reservation.id)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => {
+          this.toast.show('Absence constatée — annulable pendant 2 h', 'success', {
+            label: 'Annuler le constat',
+            run: () => this.undoNoShow(reservation, destroyRef),
+          });
+          onDone?.();
+        },
+        error: (err) => this.toast.show(conflictMessage(err, 'Échec du constat'), 'error'),
+      });
+  }
+
+  undoNoShow(reservation: Reservation, destroyRef: DestroyRef): void {
+    this.service
+      .undoNoShow(reservation.id)
+      .pipe(takeUntilDestroyed(destroyRef))
+      .subscribe({
+        next: () => this.toast.show('Constat annulé', 'success'),
+        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'annulation"), 'error'),
+      });
   }
 
   // Annuler est irreversible : on demande confirmation avant tout appel reseau.

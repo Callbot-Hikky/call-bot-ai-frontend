@@ -16,7 +16,10 @@ import {
   HkReservationList,
   ReservationSort,
 } from '@shared/components/organisms/reservation-list/hk-reservation-list';
-import { HkReservationDetailDrawer } from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
+import {
+  HkReservationDetailDrawer,
+  PartySizeChangeEvent,
+} from '@shared/components/organisms/reservation-detail-drawer/hk-reservation-detail-drawer';
 import { HkFilterBar, StatusFilter } from '@shared/components/molecules/filter-bar/hk-filter-bar';
 import { HkCallbackRequests } from '@shared/components/organisms/callback-requests/hk-callback-requests';
 import {
@@ -37,6 +40,8 @@ import { bindDayToQuery } from '@core/utils/day-query';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
+  // Le plus urgent : la table est tenue et le compteur tourne.
+  awaiting_payment: 0,
   pending: 0,
   confirmed: 1,
   seated: 2,
@@ -100,6 +105,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         (confirm)="onConfirm($event)"
         (cancelReservation)="onCancel($event)"
         (call)="onCall($event)"
+        (markNoShow)="onMarkNoShow($event)"
         (retry)="service.loadToday()"
       />
     </div>
@@ -120,6 +126,8 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
       (call)="onCall($event)"
       (endService)="onFinish($event)"
       (markArrived)="onMarkArrived($event)"
+      (markNoShow)="onMarkNoShowFromDrawer($event)"
+      (changePartySize)="onChangePartySize($event)"
     />
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -301,6 +309,23 @@ export class ReservationsPage {
   // Client arrive (drawer) : installe la resa + ferme le drawer.
   protected onMarkArrived(reservation: Reservation): void {
     this.actions.markArrived(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // ABSENCE CONSTATEE depuis la LISTE : le drawer n'est pas ouvert, rien a fermer.
+  protected onMarkNoShow(reservation: Reservation): void {
+    this.actions.markNoShow(reservation, this.destroyRef);
+  }
+
+  // Depuis le DRAWER : le constat clot la resa, garder le detail ouvert sur une
+  // fiche devenue inerte n'aiderait personne -> on ferme, comme « Client arrive ».
+  protected onMarkNoShowFromDrawer(reservation: Reservation): void {
+    this.actions.markNoShow(reservation, this.destroyRef, () => this.drawerState.set('closed'));
+  }
+
+  // Correction des couverts (drawer) : le drawer reste ouvert, le personnel voit
+  // le nouveau chiffre ou le motif du refus sans perdre le contexte.
+  protected onChangePartySize(event: PartySizeChangeEvent): void {
+    this.actions.updatePartySize(event.reservation, event.partySize, this.destroyRef);
   }
 
   protected onConfirm(reservation: Reservation): void {

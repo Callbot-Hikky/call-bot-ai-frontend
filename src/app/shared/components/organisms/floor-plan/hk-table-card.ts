@@ -205,6 +205,19 @@ const WALK_IN_GUARD_MIN = 90;
               >
                 Appeler le client
               </hk-button>
+              <!-- ABSENCE CONSTATEE : meme geste que dans la liste, pour le personnel qui
+                   travaille depuis le plan. Reversible 2 h via le toast, donc pas de
+                   confirmation supplementaire ici. -->
+              <hk-button
+                [size]="actionSize()"
+                variant="secondary"
+                class="block [&>button]:w-full"
+                title="Le client n'est pas venu : annulable pendant 2 h"
+                data-testid="card-no-show"
+                (click)="markNoShow.emit(res)"
+              >
+                Absence constatée
+              </hk-button>
               <hk-button
                 [size]="actionSize()"
                 variant="danger"
@@ -273,6 +286,7 @@ export class HkTableCard {
   readonly finishService = output<Reservation>();
   readonly markArrived = output<Reservation>();
   readonly unassign = output<Reservation>();
+  readonly markNoShow = output<Reservation>();
 
   protected readonly formatTime = formatTime;
   protected readonly walkInSize = signal(1);

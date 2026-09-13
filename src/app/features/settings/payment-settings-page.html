@@ -1,0 +1,228 @@
+<div class="flex flex-col gap-6">
+  <!-- 1. Compte de paiement : la porte d'entrée de tout le reste. -->
+  <section hlmCard>
+    <div hlmCardHeader>
+      <h3 hlmCardTitle>Compte de paiement</h3>
+      <p hlmCardDescription>
+        Un compte par restaurant, versé sur sa propre banque. Les frais réglés par vos convives vous
+        parviennent un jour après le service.
+      </p>
+    </div>
+
+    <div hlmCardContent class="flex flex-col gap-4">
+      @if (account(); as current) {
+        @if (current.chargesEnabled) {
+          <p class="text-sm">
+            <span class="font-medium">Compte actif.</span>
+            @if (!current.payoutsEnabled) {
+              Les encaissements fonctionnent, mais les versements vers votre banque sont encore
+              suspendus : complétez vos informations chez Stripe.
+            } @else {
+              Encaissements et versements opérationnels.
+            }
+          </p>
+        } @else if (current.connected) {
+          <div class="flex items-start gap-3">
+            <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mt-0.5" size="18" />
+            <p class="text-sm">
+              Votre inscription n'est pas terminée. Les modes payants restent indisponibles jusqu'à
+              la validation par Stripe.
+            </p>
+          </div>
+        } @else {
+          <p class="text-muted-foreground text-sm">
+            Aucun compte de paiement. Créez-le pour pouvoir demander des frais de réservation.
+          </p>
+        }
+      } @else {
+        <p class="text-muted-foreground text-sm">Chargement…</p>
+      }
+    </div>
+
+    <div hlmCardFooter class="gap-2">
+      <button hlmBtn [disabled]="connecting()" (click)="startOnboarding()">
+        <ng-icon name="lucideCreditCard" size="18" />
+        {{ account()?.connected ? 'Reprendre l’inscription' : 'Créer mon compte de paiement' }}
+      </button>
+      @if (account()?.connected) {
+        <button hlmBtn variant="outline" (click)="refreshAccount()">
+          <ng-icon name="lucideRefreshCw" size="18" />
+          Actualiser
+        </button>
+      }
+    </div>
+  </section>
+
+  <!-- 2. Mode de garantie. -->
+  <section hlmCard>
+    <div hlmCardHeader>
+      <h3 hlmCardTitle>Mode de garantie</h3>
+      <p hlmCardDescription>
+        S'applique aux prochaines réservations. Celles déjà prises gardent le mode sous lequel elles
+        ont été acceptées.
+      </p>
+    </div>
+
+    @if (settings(); as current) {
+      <div hlmCardContent class="flex flex-col gap-3">
+        @for (mode of modes; track mode.code) {
+          <label
+            class="flex cursor-pointer items-start gap-3 rounded-md border p-3"
+            [class.border-primary]="current.mode === mode.code"
+            [class.opacity-50]="mode.code !== 'none' && !canCharge()"
+          >
+            <input
+              type="radio"
+              name="guarantee-mode"
+              class="mt-1"
+              [value]="mode.code"
+              [checked]="current.mode === mode.code"
+              (click)="selectMode(mode.code)"
+            />
+            <span class="flex flex-col gap-1">
+              <span class="text-sm font-medium">{{ mode.label }}</span>
+              <span class="text-muted-foreground text-xs">{{ mode.hint }}</span>
+              @if (mode.code !== 'none' && !canCharge()) {
+                <span class="text-muted-foreground text-xs italic">
+                  Cliquez pour créer votre compte de paiement — ce mode s'activera ensuite.
+                </span>
+              }
+            </span>
+          </label>
+        }
+
+        @if (current.mode === 'booking_fee') {
+          <div class="flex flex-col gap-2 pt-2">
+            <label class="text-sm font-medium" for="booking-fee">Montant par couvert (€)</label>
+            <input
+              id="booking-fee"
+              type="number"
+              min="0"
+              step="0.50"
+              class="border-input w-40 rounded-md border px-3 py-2 text-sm"
+              [value]="eurosOf(current.bookingFeeCentsPerGuest)"
+              (input)="setAmount('booking_fee', $any($event.target).value)"
+            />
+          </div>
+        }
+
+        @if (current.mode === 'no_show') {
+          <div class="flex flex-col gap-2 pt-2">
+            <label class="text-sm font-medium" for="no-show">Pénalité par couvert (€)</label>
+            <input
+              id="no-show"
+              type="number"
+              min="0"
+              step="0.50"
+              class="border-input w-40 rounded-md border px-3 py-2 text-sm"
+              [value]="eurosOf(current.noShowPenaltyCentsPerGuest)"
+              (input)="setAmount('no_show', $any($event.target).value)"
+            />
+          </div>
+        }
+
+        @if (current.mode !== 'none') {
+          <div class="flex flex-col gap-2 pt-2">
+            <label class="text-sm font-medium" for="refund-window">
+              Remboursement intégral jusqu'à (heures avant le service)
+            </label>
+            <input
+              id="refund-window"
+              type="number"
+              min="0"
+              step="1"
+              class="border-input w-40 rounded-md border px-3 py-2 text-sm"
+              [value]="current.refundWindowHours ?? ''"
+              (input)="setRefundWindow($any($event.target).value)"
+            />
+            <p class="text-muted-foreground text-xs">
+              Vaut pour une annulation, qui est toujours tout ou rien : au-delà du délai,
+              remboursement total ; en deçà, rien. Une baisse du nombre de couverts, elle, rend
+              toujours les couverts abandonnés.
+            </p>
+          </div>
+        }
+
+        <!-- Hors du bloc payant : une réservation gratuite se modifie aussi. -->
+        <div class="flex flex-col gap-2 pt-2">
+          <label class="text-sm font-medium" for="modification-window">
+            Modification par le client jusqu'à (heures avant le service)
+          </label>
+          <input
+            id="modification-window"
+            type="number"
+            min="0"
+            step="1"
+            class="border-input w-40 rounded-md border px-3 py-2 text-sm"
+            [value]="current.modificationWindowHours ?? ''"
+            (input)="setModificationWindow($any($event.target).value)"
+          />
+          <p class="text-muted-foreground text-xs">
+            Le client change lui-même ses couverts et son horaire depuis le lien reçu par message,
+            jusqu'à ce délai. <strong>0 = jusqu'au service.</strong> Vous êtes prévenu à chaque
+            modification.
+          </p>
+        </div>
+      </div>
+
+      <div hlmCardFooter>
+        <button hlmBtn [disabled]="saving()" (click)="save()">
+          {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
+      </div>
+    } @else {
+      <div hlmCardContent>
+        <p class="text-muted-foreground text-sm">Chargement des réglages…</p>
+      </div>
+    }
+  </section>
+
+  <!-- 3. Suivi des reversements. -->
+  <section hlmCard>
+    <div hlmCardHeader>
+      <h3 hlmCardTitle>Reversements</h3>
+      <p hlmCardDescription>
+        Montants nets de la commission Alloquence, envoyés vers votre banque un jour après le
+        service.
+      </p>
+    </div>
+
+    <div hlmCardContent>
+      @if (payouts().length === 0) {
+        <p class="text-muted-foreground text-sm">Aucun reversement pour le moment.</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-muted-foreground text-left text-xs">
+              <tr>
+                <th class="py-2 font-medium">Date</th>
+                <th class="py-2 font-medium">Réservations</th>
+                <th class="py-2 font-medium">Montant</th>
+                <th class="py-2 font-medium">État</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (payout of payouts(); track payout.id) {
+                <tr class="border-t">
+                  <td class="py-2">{{ formatDate(payout.createdAt) }}</td>
+                  <td class="py-2">{{ payout.reservationCount }}</td>
+                  <td class="py-2 font-medium">
+                    {{ formatAmount(payout.amountCents, payout.currency) }}
+                  </td>
+                  <td class="py-2">
+                    {{ payoutLabel(payout.status) }}
+                    @if (payout.failureMessage) {
+                      <span class="text-muted-foreground block text-xs">
+                        {{ payout.failureMessage }}
+                      </span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+</div>

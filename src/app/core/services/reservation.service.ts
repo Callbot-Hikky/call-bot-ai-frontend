@@ -364,6 +364,38 @@ export class ReservationService {
       );
   }
 
+  /**
+   * Constate une absence. Passe par la route dédiée, jamais par un simple changement de
+   * statut : c'est ce constat qui arme le compte à rebours avant tout débit, et un PUT
+   * qui écrirait `no_show` à la main débiterait sans jamais laisser la fenêtre de retour.
+   */
+  recordNoShow(id: string): Observable<Reservation> {
+    if (environment.useMock) {
+      return this.mutateStatus(id, 'no_show');
+    }
+    return this.http
+      .post<ReservationDto>(`${this.baseUrl}/${id}/no-show`, {})
+      .pipe(map((dto) => this.applyDto(dto)));
+  }
+
+  /** Revient sur un constat, tant que rien n'a été débité. */
+  undoNoShow(id: string): Observable<Reservation> {
+    if (environment.useMock) {
+      return this.mutateStatus(id, 'completed');
+    }
+    return this.http
+      .delete<ReservationDto>(`${this.baseUrl}/${id}/no-show`)
+      .pipe(map((dto) => this.applyDto(dto)));
+  }
+
+  private applyDto(dto: ReservationDto): Reservation {
+    this._raw.update((list) => list.map((d) => (d.id === dto.id ? { ...d, ...dto } : d)));
+    const updated = mapReservation({ ...dto });
+    this.applyUpdate(updated);
+
+    return updated;
+  }
+
   // --- Reservation en ligne, sans session : le client vient du lien ou du QR du restaurateur.
 
   // Creneaux libres du restaurant sur 7 jours, pour `partySize` couverts.
@@ -514,6 +546,48 @@ export class ReservationService {
         return updated;
       }),
     );
+  }
+
+  // Corrige le nombre de couverts. Le back porte la regle : une baisse passe toujours
+  // (jamais de remboursement partiel), une hausse exige une table assez grande libre sur
+  // le creneau, et sur une reservation payante elle ouvre un complement au lieu de
+  // s'appliquer. Un refus franc remonte en 409 avec son motif.
+  //
+  // La reponse fait foi, jamais la valeur demandee : quand un complement s'ouvre, le
+  // back renvoie l'ancien nombre de couverts et un `pendingTopUp`. Recopier la demande
+  // afficherait au personnel une tablee qui n'a pas bouge.
+  updatePartySize(id: string, partySize: number): Observable<Reservation> {
+    if (environment.useMock) {
+      const current = this._reservations().find((r) => r.id === id);
+      if (!current) {
+        return EMPTY;
+      }
+      const updated: Reservation = { ...current, partySize };
+      return of(updated).pipe(
+        delay(200),
+        tap((res) => this.applyUpdate(res)),
+      );
+    }
+    const dto = this._raw().find((d) => d.id === id);
+    if (!dto) {
+      return EMPTY;
+    }
+    return this.http
+      .put<ReservationDto>(`${this.baseUrl}/${id}`, toRequest(dto, { partySize }))
+      .pipe(
+        map((response) => {
+          const patched: ReservationDto = {
+            ...dto,
+            partySize: response.partySize,
+            pendingTopUp: response.pendingTopUp ?? null,
+          };
+          this._raw.update((list) => list.map((d) => (d.id === id ? patched : d)));
+          const updated = mapReservation(patched);
+          this.applyUpdate(updated);
+
+          return updated;
+        }),
+      );
   }
 
   // Affecte une table a une reservation (plan de salle). PUT avec tableId rempli
