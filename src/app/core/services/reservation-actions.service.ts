@@ -68,7 +68,11 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'installation"), 'error'),
+        error: (err) =>
+          this.toast.show(
+            conflictMessage(err, err instanceof Error ? err.message : "Échec de l'installation"),
+            'error',
+          ),
       });
   }
 
@@ -82,7 +86,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée - service terminé', 'success');
+          this.toast.show('Service terminé, la table est libre', 'success');
           onDone?.();
         },
         error: () => this.toast.show('Échec de la clôture', 'error'),
@@ -98,10 +102,10 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée');
+          this.toast.show('Réservation retirée de la table : à replacer depuis le plan');
           onDone?.();
         },
-        error: () => this.toast.show('Échec de la libération', 'error'),
+        error: () => this.toast.show('Impossible de retirer la réservation de la table', 'error'),
       });
   }
 

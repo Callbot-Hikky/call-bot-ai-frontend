@@ -30,10 +30,6 @@ import { HkTooltip } from '@shared/components/atoms/tooltip/hk-tooltip';
 
     <ng-template #menu>
       <div hlmDropdownMenu>
-        <button hlmDropdownMenuItem (click)="profile.emit()">
-          <hk-icon name="lucideUsers" [size]="16" />
-          Profil
-        </button>
         <button hlmDropdownMenuItem (click)="settings.emit()">
           <hk-icon name="lucideSettings" [size]="16" />
           Paramètres
@@ -52,7 +48,6 @@ export class HkProfileMenu {
   readonly name = input.required<string>();
   readonly restaurant = input('');
   readonly collapsed = input(false);
-  readonly profile = output<void>();
   readonly settings = output<void>();
   readonly logout = output<void>();
 }

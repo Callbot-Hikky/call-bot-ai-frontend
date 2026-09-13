@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
-// Legende des statuts du plan (V1 = 3 statuts). Pastille + libelle, jamais la
+// Legende des statuts du plan (4 tonalites, memes couleurs que les badges de la liste). Pastille + libelle, jamais la
 // couleur seule (daltonisme). Roles semantiques alignes sur les tokens.
 @Component({
   selector: 'hk-floor-plan-legend',
@@ -17,10 +17,11 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkFloorPlanLegend {
-  // Semantique alignee sur les badges de la vue Liste :
-  // Reservee = vert (st-confirmed), Installee = bleu (st-seated).
+  // Semantique alignee sur les badges de la vue Liste : En attente = ambre
+  // (st-pending), Reservee = vert (st-confirmed), Installee = bleu (st-seated).
   protected readonly items = [
     { label: 'Libre', classes: 'bg-surface border-border-strong' },
+    { label: 'En attente', classes: 'bg-st-pending-bg border-st-pending-fg' },
     { label: 'Réservée', classes: 'bg-st-confirmed-bg border-st-confirmed-fg' },
     { label: 'Installée', classes: 'bg-st-seated-bg border-st-seated-fg' },
   ];

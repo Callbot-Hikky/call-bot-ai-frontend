@@ -12,6 +12,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { map } from 'rxjs/operators';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
+import { HkDayPicker } from '@shared/components/molecules/day-picker/hk-day-picker';
 import {
   AssignEvent,
   HkFloorPlan,
@@ -20,7 +21,12 @@ import {
 } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { HkServiceOverlay } from '@shared/components/organisms/floor-plan/hk-service-overlay';
 import { HkFloorPlanEditor } from '@shared/components/organisms/floor-plan-editor/hk-floor-plan-editor';
-import { deriveTableStatus, layoutTables, mergeViews } from '@core/models/floor-plan.model';
+import {
+  deriveForecastStatus,
+  deriveTableStatus,
+  layoutTables,
+  mergeViews,
+} from '@core/models/floor-plan.model';
 import { SessionService } from '@core/services/session.service';
 import { ReservationService } from '@core/services/reservation.service';
 import { ReservationActionsService } from '@core/services/reservation-actions.service';
@@ -28,7 +34,8 @@ import { TableService } from '@core/services/table.service';
 import { FloorPlanService } from '@core/services/floor-plan.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation } from '@core/models/reservation.model';
-import { formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime } from '@core/utils/format';
+import { bindDayToQuery } from '@core/utils/day-query';
 
 // PAGE DEDIEE « Plan de salle » : le plan respire plein cadre (plus de scroll
 // sous les KPI), avec l'editeur, le mode service plein ecran et le drawer de
@@ -36,12 +43,14 @@ import { formatTime } from '@core/utils/format';
 // services (signals) - une affectation faite ici est visible la-bas.
 @Component({
   selector: 'app-floor-plan-page',
-  imports: [HkPageHeader, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
+  imports: [HkPageHeader, HkDayPicker, HkFloorPlan, HkServiceOverlay, HkFloorPlanEditor],
   template: `
     @if (serviceMode()) {
       <hk-service-overlay
         [restaurantName]="restaurantName"
-        [today]="today"
+        [today]="dayLabel()"
+        [live]="service.isToday()"
+        [forecast]="!service.isToday()"
         [views]="serviceTableViews()"
         [reservations]="service.reservations()"
         [tables]="tables.tables()"
@@ -69,7 +78,22 @@ import { formatTime } from '@core/utils/format';
       />
     } @else if (portraitMobile()) {
       <!-- MOBILE PORTRAIT : vue TUILES (le plan spatial revient en paysage). -->
-      <hk-page-header [subtitle]="today" />
+      <hk-page-header [subtitle]="dayLabel()">
+        <hk-day-picker
+          [day]="service.day()"
+          [today]="service.today()"
+          (dayChange)="service.setDay($event)"
+        />
+      </hk-page-header>
+      @if (!service.isToday()) {
+        <p
+          class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
+          data-testid="forecast-note"
+        >
+          Vous consultez un autre jour : les tables réservées apparaissent en couleur. Installer des
+          clients se fait sur le plan d'aujourd'hui.
+        </p>
+      }
       <hk-floor-plan
         [portrait]="true"
         [reservations]="service.reservations()"
@@ -80,6 +104,8 @@ import { formatTime } from '@core/utils/format';
         [(selectedTableId)]="selectedTableId"
         [preselectId]="placerId()"
         [restaurantName]="restaurantName"
+        [live]="service.isToday()"
+        [forecast]="!service.isToday()"
         [loading]="service.loading() || tables.loading()"
         [error]="service.error() || tables.error()"
         (assign)="onAssign($event)"
@@ -96,10 +122,38 @@ import { formatTime } from '@core/utils/format';
       />
     } @else {
       @if (!editing()) {
-        <!-- Paysage compact : chaque pixel vertical compte, l'en-tete saute. -->
+        <!-- Paysage compact : chaque pixel vertical compte, l'en-tete se reduit
+             a une ligne (le jour reste choisissable). -->
         <div class="max-lg:landscape:hidden">
-          <hk-page-header [subtitle]="today" />
+          <hk-page-header [subtitle]="dayLabel()">
+            <hk-day-picker
+              [day]="service.day()"
+              [today]="service.today()"
+              (dayChange)="service.setDay($event)"
+            />
+          </hk-page-header>
         </div>
+        <div
+          class="mb-3 hidden flex-wrap items-center justify-between gap-2 max-lg:landscape:flex"
+          data-testid="compact-day-bar"
+        >
+          <p class="text-text-muted text-sm" aria-live="polite">{{ dayLabel() }}</p>
+          <hk-day-picker
+            [day]="service.day()"
+            [today]="service.today()"
+            (dayChange)="service.setDay($event)"
+          />
+        </div>
+      }
+      @if (!service.isToday()) {
+        <p
+          class="border-border bg-surface text-text-muted mb-3 rounded-md border px-3 py-2 text-sm"
+          data-testid="forecast-note"
+        >
+          Vous consultez un autre jour : les tables réservées apparaissent en couleur avec leur
+          première réservation. Installer des clients, simuler ou passer en mode service se fait sur
+          le plan d'aujourd'hui.
+        </p>
       }
 
       <div class="flex flex-col gap-6">
@@ -121,6 +175,8 @@ import { formatTime } from '@core/utils/format';
             [(vitrine)]="vitrine"
             [preselectId]="placerId()"
             [restaurantName]="restaurantName"
+            [live]="service.isToday()"
+            [forecast]="!service.isToday()"
             [loading]="service.loading() || tables.loading()"
             [error]="service.error() || tables.error()"
             (assign)="onAssign($event)"
@@ -183,25 +239,26 @@ export class FloorPlanPage {
   // En mode service, le plan est dans l'overlay (pas un enfant direct de la page).
   private readonly serviceOverlayCmp = viewChild(HkServiceOverlay);
 
-  protected readonly today = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  protected readonly dayLabel = computed(() => formatDayLabel(this.service.day()));
 
   // Synthese de salle du bandeau service (memes derivations que le plan).
   protected readonly serviceTableViews = computed(() => {
     const reservations = this.service.reservations();
+    const forecast = !this.service.isToday();
     const now = new Date();
     const views = layoutTables(this.tables.tables(), this.floorPlan.geometry()).map((p) => ({
       ...p,
-      ...deriveTableStatus(p.table.id, reservations, now),
+      ...(forecast
+        ? deriveForecastStatus(p.table.id, reservations)
+        : deriveTableStatus(p.table.id, reservations, now)),
     }));
     // Tablees fusionnees comptees comme UNE table (meme synthese que le plan).
     return mergeViews(views, this.floorPlan.merges());
   });
 
   constructor() {
+    // Le jour affiche suit l'URL (?jour=...) : il survit au rechargement.
+    bindDayToQuery();
     // Suivi de l'orientation (mobile) : le plan n'est rendu qu'en paysage.
     // Garde jsdom : matchMedia absent en environnement de test.
     if (typeof window.matchMedia === 'function') {

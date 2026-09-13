@@ -13,7 +13,7 @@ import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime, localDateKey, openNativePicker } from '@core/utils/format';
 
 // Donnees saisies pour une reservation manuelle (le telephone est requis : le
 // back cree un client, et c'est la cle de rappel du restaurateur).
@@ -79,9 +79,26 @@ export interface NewReservationInput {
               />
             </label>
 
+            <label class="flex flex-col gap-1.5">
+              <span class="text-text-strong text-sm font-medium">
+                Date
+                <span class="text-text-subtle font-normal">({{ dayLabel() }})</span>
+              </span>
+              <input
+                type="date"
+                required
+                data-testid="new-resa-date"
+                class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
+                [value]="date()"
+                [min]="today"
+                (click)="openPicker($event)"
+                (input)="onDate($event)"
+              />
+            </label>
+
             <div class="grid grid-cols-2 gap-3">
               <label class="flex flex-col gap-1.5">
-                <span class="text-text-strong text-sm font-medium">Heure (aujourd'hui)</span>
+                <span class="text-text-strong text-sm font-medium">Heure</span>
                 <input
                   type="time"
                   required
@@ -92,7 +109,7 @@ export interface NewReservationInput {
                 />
                 @if (timeInPast()) {
                   <span class="text-st-cancelled-fg text-xs" data-testid="new-resa-past">
-                    Cette heure est déjà passée aujourd'hui.
+                    Cette heure est déjà passée.
                   </span>
                 }
               </label>
@@ -143,7 +160,18 @@ export class HkNewReservationDialog {
   // Creation en cours (pilotee par la page) : desactive le submit -> pas de
   // double envoi si on clique deux fois avant la reponse reseau.
   readonly busy = input(false);
+  // Jour propose a l'ouverture : celui que la page affiche (cle « YYYY-MM-DD »).
+  // La date reste modifiable dans le formulaire : on prend une reservation pour
+  // lundi sans avoir a changer le jour consulte.
+  readonly day = input<string>(localDateKey());
   readonly createReservation = output<NewReservationInput>();
+
+  protected readonly today = localDateKey();
+  protected readonly date = signal(localDateKey());
+  protected readonly dayLabel = computed(() => {
+    const d = this.date();
+    return d === this.today ? "aujourd'hui" : formatDayLabel(d);
+  });
 
   constructor() {
     // Champs REINITIALISES a l'ouverture (pas au submit : en cas d'echec de
@@ -154,6 +182,8 @@ export class HkNewReservationDialog {
         this.phone.set('');
         this.notes.set('');
         this.partySize.set(2);
+        // Un jour passe consulte ne propose pas une date passee : on part d'aujourd'hui.
+        this.date.set(this.day() < this.today ? this.today : this.day());
         this.time.set(defaultTime());
       }
     });
@@ -165,24 +195,40 @@ export class HkNewReservationDialog {
   protected readonly partySize = signal(2);
   protected readonly notes = signal('');
 
-  // Heure choisie ANTERIEURE a maintenant (le jour est fige a aujourd'hui) : une
-  // reservation dans le passe n'a pas de sens. Recalcule a chaque frappe (lit
-  // l'heure courante a la volee) - suffisant pour une saisie interactive.
+  // Heure choisie ANTERIEURE a maintenant, sur la date choisie : une reservation
+  // dans le passe n'a pas de sens. Recalcule a chaque frappe (lit l'heure courante
+  // a la volee) - suffisant pour une saisie interactive.
   protected readonly timeInPast = computed(() => {
     const t = this.time();
-    if (!/^\d{2}:\d{2}$/.test(t)) {
+    if (!/^\d{2}:\d{2}$/.test(t) || !this.dateValid()) {
       return false;
     }
-    const [h, m] = t.split(':').map(Number);
-    const chosen = new Date();
-    chosen.setHours(h, m, 0, 0);
-    return chosen.getTime() < Date.now();
+    return this.dateTimeFor(t).getTime() < Date.now();
   });
+
+  private dateTimeFor(time: string): Date {
+    const [hours, minutes] = time.split(':').map(Number);
+    const [y, m, d] = this.date().split('-').map(Number);
+    return new Date(y, m - 1, d, hours, minutes, 0, 0);
+  }
+
+  protected readonly dateValid = computed(() => /^\d{4}-\d{2}-\d{2}$/.test(this.date()));
 
   protected readonly valid = computed(
     () =>
-      this.phone().trim().length >= 6 && /^\d{2}:\d{2}$/.test(this.time()) && !this.timeInPast(),
+      this.phone().trim().length >= 6 &&
+      this.dateValid() &&
+      /^\d{2}:\d{2}$/.test(this.time()) &&
+      !this.timeInPast(),
   );
+
+  protected openPicker(event: Event): void {
+    openNativePicker(event.target as HTMLInputElement);
+  }
+
+  protected onDate(event: Event): void {
+    this.date.set((event.target as HTMLInputElement).value);
+  }
 
   protected asValue(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -200,9 +246,7 @@ export class HkNewReservationDialog {
     if (!this.valid() || this.busy()) {
       return;
     }
-    const [hours, minutes] = this.time().split(':').map(Number);
-    const dateTime = new Date();
-    dateTime.setHours(hours, minutes, 0, 0);
+    const dateTime = this.dateTimeFor(this.time());
     this.createReservation.emit({
       firstName: this.firstName().trim(),
       phone: this.phone().trim(),
@@ -213,9 +257,8 @@ export class HkNewReservationDialog {
   }
 }
 
-// Prochaine heure PLEINE, bornee a AUJOURD'HUI (la page ne montre que le jour
-// courant : apres 23 h on propose 23:30 plutot que de basculer sur demain 00:00,
-// que le submit - fige sur la date du jour - transformerait en resa du passe).
+// Prochaine heure PLEINE, bornee a la journee : apres 23 h on propose 23:30
+// plutot que de basculer sur 00:00 (heure passee sur la date proposee).
 function defaultTime(): string {
   const now = new Date();
   const d = new Date(now);
