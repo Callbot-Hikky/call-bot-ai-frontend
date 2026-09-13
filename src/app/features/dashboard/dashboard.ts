@@ -4,7 +4,7 @@ import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-st
 import { HkBarChart, BarDatum } from '@shared/components/molecules/bar-chart/hk-bar-chart';
 import { HkBadge } from '@shared/components/atoms/badge/hk-badge';
 import { ReservationService } from '@core/services/reservation.service';
-import { formatTime } from '@core/utils/format';
+import { formatTime, localDateKey } from '@core/utils/format';
 
 @Component({
   selector: 'app-dashboard',
@@ -173,6 +173,8 @@ export class DashboardPage {
   protected readonly formatTime = formatTime;
 
   constructor() {
+    // Le tableau de bord parle toujours de ce soir, quel que soit le jour choisi ailleurs.
+    this.service.setDay(localDateKey());
     this.service.loadToday();
   }
 }
