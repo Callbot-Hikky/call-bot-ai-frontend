@@ -32,7 +32,13 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
         } @else if (svgHtml(); as html) {
           <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
         } @else {
-          <span class="text-text-subtle text-xs">Génération du QR code…</span>
+          @if (failed()) {
+            <span class="text-st-cancelled-fg text-xs" role="alert" data-testid="qr-error">
+              Le QR code n'a pas pu être généré. Le lien reste valable.
+            </span>
+          } @else {
+            <span class="text-text-subtle text-xs">Génération du QR code…</span>
+          }
         }
       </div>
 
@@ -116,6 +122,7 @@ export class HkQrCard {
 
   protected readonly svg = signal('');
   protected readonly png = signal<string | null>(null);
+  protected readonly failed = signal(false);
   protected readonly copied = signal(false);
   protected readonly copyFailed = signal(false);
   // Ce que le QR encode : exactement le lien, rien d'autre.
@@ -153,9 +160,18 @@ export class HkQrCard {
     const run = ++this.generation;
     const options = { margin: 1, errorCorrectionLevel: 'M' as const };
     // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
-    const QRCode = await import('qrcode');
-    const svg = await QRCode.toString(url, { ...options, type: 'svg' });
+    // Module CommonJS : en build de production, les fonctions sont sous « default ».
+    const loaded: unknown = await import('qrcode');
+    const QRCode = resolveQrModule(loaded);
+    let svg: string;
+    try {
+      svg = await QRCode.toString(url, { ...options, type: 'svg' });
+    } catch {
+      if (run === this.generation) this.failed.set(true);
+      return;
+    }
     if (run !== this.generation) return;
+    this.failed.set(false);
     this.svg.set(svg);
     try {
       const png = await QRCode.toDataURL(url, { ...options, width: 512 });
@@ -177,4 +193,16 @@ export class HkQrCard {
       this.copyFailed.set(true);
     }
   }
+}
+
+type QrModule = typeof import('qrcode');
+
+// Selon le bundler, le module arrive avec ses fonctions a la racine (developpement) ou
+// sous « default » (production, module CommonJS) : on prend celui qui a les fonctions.
+function resolveQrModule(loaded: unknown): QrModule {
+  const candidate = loaded as Partial<QrModule> & { default?: Partial<QrModule> };
+  if (typeof candidate.toDataURL === 'function') {
+    return candidate as QrModule;
+  }
+  return candidate.default as QrModule;
 }
