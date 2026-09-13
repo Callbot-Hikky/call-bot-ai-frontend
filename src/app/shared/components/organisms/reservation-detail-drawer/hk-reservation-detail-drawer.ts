@@ -109,7 +109,7 @@ import { telHref } from '@core/utils/format';
               @if (r.status === 'seated') {
                 <!-- Clients a table : « Confirmer » n'a plus d'objet, et liberer la
                      table passe par la fin du service (resa completed -> table libre). -->
-                <hk-button (click)="endService.emit(r)">
+                <hk-button class="block [&>button]:w-full" (click)="endService.emit(r)">
                   <hk-icon name="lucideCircleCheck" [size]="16" />
                   Terminer le service
                 </hk-button>
@@ -117,26 +117,41 @@ import { telHref } from '@core/utils/format';
                 <!-- Memes mots et meme ordre que la carte du plan : une resa en
                      attente se confirme d'abord ; une resa confirmee attend son client. -->
                 @if (r.status === 'pending') {
-                  <hk-button data-testid="drawer-confirm" (click)="confirm.emit(r)">
+                  <hk-button
+                    class="block [&>button]:w-full"
+                    data-testid="drawer-confirm"
+                    (click)="confirm.emit(r)"
+                  >
                     <hk-icon name="lucideCheck" [size]="16" />
                     Confirmer la réservation
                   </hk-button>
                   @if (r.table) {
-                    <hk-button variant="secondary" (click)="markArrived.emit(r)">
+                    <hk-button
+                      class="block [&>button]:w-full"
+                      variant="secondary"
+                      (click)="markArrived.emit(r)"
+                    >
                       <hk-icon name="lucideCircleCheck" [size]="16" />
                       Client arrivé
                     </hk-button>
                   }
                 } @else if (r.table) {
-                  <hk-button data-testid="drawer-arrived" (click)="markArrived.emit(r)">
+                  <hk-button
+                    class="block [&>button]:w-full"
+                    data-testid="drawer-arrived"
+                    (click)="markArrived.emit(r)"
+                  >
                     <hk-icon name="lucideCircleCheck" [size]="16" />
                     Client arrivé
                   </hk-button>
                 }
               }
-              <hk-button variant="secondary" (click)="call.emit(r)">Appeler le client</hk-button>
+              <hk-button class="block [&>button]:w-full" variant="secondary" (click)="call.emit(r)"
+                >Appeler le client</hk-button
+              >
               @if (showUnassign() && r.table && r.status !== 'seated') {
                 <hk-button
+                  class="block [&>button]:w-full"
                   variant="secondary"
                   title="La réservation reste, elle attend une autre table"
                   (click)="unassign.emit(r)"
@@ -146,6 +161,7 @@ import { telHref } from '@core/utils/format';
                 </hk-button>
               }
               <hk-button
+                class="block [&>button]:w-full"
                 variant="danger"
                 title="Le client ne vient plus : la réservation est annulée"
                 (click)="cancelReservation.emit(r)"
