@@ -11,3 +11,19 @@ describe('format', () => {
     expect(localDateKey(new Date(2026, 0, 5, 23, 30))).toBe('2026-01-05');
   });
 });
+
+describe('openNativePicker', () => {
+  it('appelle showPicker quand il existe, et ne casse rien sinon', async () => {
+    const { openNativePicker } = await import('./format');
+    const showPicker = vi.fn();
+    openNativePicker({ showPicker } as unknown as HTMLInputElement);
+    expect(showPicker).toHaveBeenCalledOnce();
+    expect(() => openNativePicker({} as HTMLInputElement)).not.toThrow();
+    const failing = {
+      showPicker: () => {
+        throw new Error('NotAllowedError');
+      },
+    } as unknown as HTMLInputElement;
+    expect(() => openNativePicker(failing)).not.toThrow();
+  });
+});

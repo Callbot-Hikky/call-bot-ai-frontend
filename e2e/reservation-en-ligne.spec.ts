@@ -108,6 +108,10 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
     await page.getByTestId('day-next').locator('button').click();
     await expect(page.getByText('Karim')).toBeVisible();
+    // Le jour choisi est dans l'URL : un rechargement le conserve.
+    await expect(page).toHaveURL(/jour=\d{4}-\d{2}-\d{2}/);
+    await page.reload();
+    await expect(page.getByText('Karim')).toBeVisible();
     await expect(page.getByTestId('day-today').locator('button')).toBeEnabled();
     await page.getByTestId('day-today').locator('button').click();
     await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();

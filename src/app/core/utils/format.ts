@@ -67,3 +67,13 @@ export function formatDayLabel(key: string): string {
     month: 'long',
   });
 }
+
+// Ouvre le selecteur natif d'un champ date/heure au clic sur tout le champ.
+// Silencieux si le navigateur ne le permet pas (ancien Safari, hors geste).
+export function openNativePicker(input: HTMLInputElement): void {
+  try {
+    input.showPicker?.();
+  } catch {
+    // Le navigateur garde son comportement par defaut (icone du champ).
+  }
+}

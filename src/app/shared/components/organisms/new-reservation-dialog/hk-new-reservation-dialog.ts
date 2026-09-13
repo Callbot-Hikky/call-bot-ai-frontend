@@ -13,7 +13,7 @@ import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { formatDayLabel, formatTime, localDateKey } from '@core/utils/format';
+import { formatDayLabel, formatTime, localDateKey, openNativePicker } from '@core/utils/format';
 
 // Donnees saisies pour une reservation manuelle (le telephone est requis : le
 // back cree un client, et c'est la cle de rappel du restaurateur).
@@ -91,6 +91,7 @@ export interface NewReservationInput {
                 class="border-border bg-background focus-visible:ring-primary rounded-md border px-3 py-2 font-mono text-sm focus-visible:ring-2 focus-visible:outline-none"
                 [value]="date()"
                 [min]="today"
+                (click)="openPicker($event)"
                 (input)="onDate($event)"
               />
             </label>
@@ -220,6 +221,10 @@ export class HkNewReservationDialog {
       /^\d{2}:\d{2}$/.test(this.time()) &&
       !this.timeInPast(),
   );
+
+  protected openPicker(event: Event): void {
+    openNativePicker(event.target as HTMLInputElement);
+  }
 
   protected onDate(event: Event): void {
     this.date.set((event.target as HTMLInputElement).value);
