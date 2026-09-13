@@ -2,7 +2,7 @@ import { Component, input, model } from '@angular/core';
 import { HlmButton } from '@spartan-ng/helm/button';
 import { HlmCommandImports } from '@spartan-ng/helm/command';
 import { HlmPopoverImports } from '@spartan-ng/helm/popover';
-import { HkChip } from '../../atoms/chip/hk-chip';
+import { HkChip } from '@shared/components/atoms/chip/hk-chip';
 import { isoToEmoji } from '@core/utils/format';
 
 export interface SuggestionItem {

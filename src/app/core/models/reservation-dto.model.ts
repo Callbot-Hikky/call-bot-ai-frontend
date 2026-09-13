@@ -1,4 +1,4 @@
-import { Reservation, ReservationStatus } from './reservation.model';
+import { PublicReservation, Reservation, ReservationStatus } from './reservation.model';
 
 import type { PendingTopUp } from './guarantee.model';
 
@@ -130,5 +130,30 @@ export function toRequest(
     status: overrides.status ?? dto.status,
     source: dto.source,
     notes: overrides.notes !== undefined ? overrides.notes : dto.notes,
+  };
+}
+
+// Reponse publique du back (PublicReservationResponse), jamais le telephone.
+export interface PublicReservationDto {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  startsAt: string;
+  endsAt: string;
+  partySize: number;
+  status: string;
+  customerFirstName: string | null;
+}
+
+export function mapPublicReservation(dto: PublicReservationDto): PublicReservation {
+  return {
+    id: dto.id,
+    restaurantId: dto.restaurantId,
+    restaurantName: dto.restaurantName,
+    dateTime: dto.startsAt,
+    endsAt: dto.endsAt,
+    partySize: dto.partySize,
+    status: dto.status as ReservationStatus,
+    customerFirstName: dto.customerFirstName ?? '',
   };
 }

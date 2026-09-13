@@ -7,6 +7,7 @@ import { firstValueFrom } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ReservationDto } from '@core/models/reservation-dto.model';
 import { Reservation, newReservations } from '@core/models/reservation.model';
+import { localDateKey, localIso } from '@core/utils/format';
 
 // En test, environment.useMock vaut false (fileReplacement dev) : on teste le vrai
 // chemin HTTP en simulant les réponses du backend avec HttpTestingController.
@@ -53,6 +54,146 @@ describe('ReservationService', () => {
   });
 
   afterEach(() => httpMock.verify());
+
+  describe('reservation en ligne (endpoints publics)', () => {
+    it('getPublicSlots interroge les creneaux du restaurant, sans session', async () => {
+      const promise = firstValueFrom(service.getPublicSlots('rest-1', 4, '2026-09-12'));
+      const req = httpMock.expectOne(
+        '/api/public/restaurants/rest-1/slots?partySize=4&fromDate=2026-09-12',
+      );
+      expect(req.request.method).toBe('GET');
+      req.flush({ days: [] });
+      expect((await promise).days).toEqual([]);
+    });
+
+    it('createPublic envoie seulement le debut, les couverts et le client : ni table ni fin', async () => {
+      const promise = firstValueFrom(
+        service.createPublic('rest-1', {
+          startsAt: '2026-09-12T19:30:00+02:00',
+          partySize: 2,
+          customer: { firstName: 'Nadia', phone: '06 12 34 56 78' },
+          notes: 'Terrasse',
+        }),
+      );
+      const req = httpMock.expectOne('/api/public/restaurants/rest-1/reservations');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({
+        startsAt: '2026-09-12T19:30:00+02:00',
+        partySize: 2,
+        customer: { firstName: 'Nadia', phone: '06 12 34 56 78' },
+        notes: 'Terrasse',
+      });
+      req.flush({
+        id: 'r-9',
+        restaurantId: 'rest-1',
+        restaurantName: 'Chez Test',
+        startsAt: '2026-09-12T19:30:00+02:00',
+        endsAt: '2026-09-12T21:00:00+02:00',
+        partySize: 2,
+        status: 'pending',
+        customerFirstName: 'Nadia',
+      });
+      const created = await promise;
+      expect(created.id).toBe('r-9');
+      expect(created.dateTime).toBe('2026-09-12T19:30:00+02:00');
+      expect(created.customerFirstName).toBe('Nadia');
+    });
+
+    it('getPublicReservation lit la vue publique et tolere un prenom absent', async () => {
+      const promise = firstValueFrom(service.getPublicReservation('r-9'));
+      httpMock.expectOne('/api/public/reservations/r-9').flush({
+        id: 'r-9',
+        restaurantId: 'rest-1',
+        restaurantName: 'Chez Test',
+        startsAt: '2026-09-12T19:30:00+02:00',
+        endsAt: '2026-09-12T21:00:00+02:00',
+        partySize: 2,
+        status: 'pending',
+        customerFirstName: null,
+      });
+      expect((await promise).customerFirstName).toBe('');
+    });
+  });
+
+  it('setDay change le jour affiche et recharge ce jour-la', () => {
+    service.setDay('2026-06-25');
+    expect(service.day()).toBe('2026-06-25');
+    const req = httpMock.expectOne((r) => r.url.includes('/reservations'));
+    req.flush([dto('1', 'pending'), dto('2', 'confirmed', '2026-06-25T12:00:00Z')]);
+    expect(service.reservations().map((r) => r.id)).toEqual(['2']);
+    // Le meme jour redemande : rien ne part.
+    service.setDay('2026-06-25');
+    httpMock.expectNone((r) => r.url.includes('/reservations'));
+  });
+
+  it('une reponse arrivee apres un changement de jour est ignoree', () => {
+    service.setDay('2026-06-24');
+    const first = httpMock.expectOne((r) => r.url.includes('/reservations'));
+    service.setDay('2026-06-25');
+    const second = httpMock.expectOne((r) => r.url.includes('/reservations'));
+    // La reponse du 25 arrive avant celle du 24 (reseau) : le 24 ne doit pas l'ecraser.
+    second.flush([dto('b', 'confirmed', '2026-06-25T12:00:00Z')]);
+    first.flush([dto('a', 'pending')]);
+    expect(service.day()).toBe('2026-06-25');
+    expect(service.reservations().map((r) => r.id)).toEqual(['b']);
+    expect(service.loading()).toBe(false);
+  });
+
+  it('showToday revient sur le jour courant avec une seule requete', () => {
+    service.setDay('2026-06-25');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([]);
+    service.showToday();
+    expect(service.day()).toBe(localDateKey());
+    expect(service.isToday()).toBe(true);
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([]);
+    httpMock.expectNone((r) => r.url.includes('/reservations'));
+  });
+
+  it('le polling annonce les arrivees du jour courant meme en consultant un autre jour', () => {
+    vi.useFakeTimers();
+    try {
+      const today = localDateKey();
+      const todayAt = (h: number) =>
+        localIso(new Date(`${today}T${String(h).padStart(2, '0')}:00:00`));
+      service.loadToday();
+      httpMock
+        .expectOne((r) => r.url.includes('/reservations'))
+        .flush([dto('t1', 'pending', todayAt(19))]);
+      service.setDay('2026-06-25');
+      httpMock
+        .expectOne((r) => r.url.includes('/reservations'))
+        .flush([dto('t1', 'pending', todayAt(19)), dto('x', 'pending', '2026-06-25T12:00:00Z')]);
+      expect(service.reservations().map((r) => r.id)).toEqual(['x']);
+
+      const announced: string[] = [];
+      service.startLivePolling({ onDestroy: () => undefined } as never, {
+        onNew: (r) => announced.push(r.id),
+      });
+      vi.advanceTimersByTime(20_000);
+      httpMock
+        .expectOne((r) => r.url.includes('/reservations'))
+        .flush([
+          dto('t1', 'pending', todayAt(19)),
+          dto('t2', 'pending', todayAt(20)),
+          dto('x', 'pending', '2026-06-25T12:00:00Z'),
+          dto('y', 'pending', '2026-06-25T13:00:00Z'),
+        ]);
+      // La liste affichee suit le 25 ; le toast ne parle que de ce soir.
+      expect(service.reservations().map((r) => r.id)).toEqual(['x', 'y']);
+      expect(announced).toEqual(['t2']);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('createWalkIn est refuse hors du jour courant', async () => {
+    service.setDay('2026-06-25');
+    httpMock.expectOne((r) => r.url.includes('/reservations')).flush([]);
+    await expect(
+      firstValueFrom(service.createWalkIn({ id: 'tbl-1', name: 'T1', capacity: 4 }, 2)),
+    ).rejects.toThrow("plan d'aujourd'hui");
+    httpMock.expectNone((r) => r.method === 'POST');
+  });
 
   it('charge, filtre par jour et mappe le DTO backend', () => {
     service.loadToday('2026-06-24');

@@ -7,7 +7,7 @@ import { HkMobileNav } from '@shared/components/organisms/mobile-nav/hk-mobile-n
 import { HkCommandPalette } from '@shared/components/organisms/command-palette/hk-command-palette';
 import { AuthService } from '@core/services/auth.service';
 
-// Header sticky : drawer mobile (< lg), titre dérivé de la route, notifications.
+// Header sticky : drawer mobile (< lg), titre dérivé de la route, recherche, déconnexion.
 @Component({
   selector: 'hk-header',
   imports: [HkIconButton, HkMobileNav, HkCommandPalette],
@@ -22,10 +22,6 @@ import { AuthService } from '@core/services/auth.service';
       <h1 class="text-text-strong truncate text-base font-semibold">{{ title() }}</h1>
       <div class="flex-1"></div>
       <hk-command-palette />
-      <div class="relative">
-        <hk-icon-button icon="lucideBell" label="Notifications" />
-        <span class="bg-primary absolute top-1.5 right-1.5 size-2 rounded-full"></span>
-      </div>
       <hk-icon-button icon="lucideLogOut" label="Se déconnecter" (click)="logout()" />
     </header>
   `,

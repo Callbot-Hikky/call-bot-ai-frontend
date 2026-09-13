@@ -20,7 +20,7 @@ const INITIAL_SLOTS_VISIBLE = 6;
             class="flex w-full items-center justify-between px-4 py-3 text-left"
             (click)="toggleDay(day.date)"
           >
-            <span class="font-medium capitalize">
+            <span class="font-medium first-letter:uppercase">
               {{ day.date | date: 'EEEE d MMMM' : undefined : 'fr' }}
             </span>
             <ng-icon
@@ -28,7 +28,7 @@ const INITIAL_SLOTS_VISIBLE = 6;
               size="sm"
               name="lucideChevronDown"
               class="transition-transform"
-              [class.rotate-180]="!isExpanded(day.date)"
+              [class.rotate-180]="isExpanded(day.date)"
             />
           </button>
 
@@ -73,10 +73,14 @@ const INITIAL_SLOTS_VISIBLE = 6;
   `,
 })
 export class HkReservationSlotPicker {
+  private autoExpanded = false;
   days = input.required<RescheduleDay[]>();
   // Créneau à préselectionner (typiquement le dateTime actuel de la resa).
   // Comparé par instant, donc l'offset (`Z` vs `+02:00`) n'a pas d'importance.
   initialSelectedStartsAt = input<string | null>(null);
+  // Ouvre d'emblee le premier jour qui a des creneaux : le client voit tout de suite quelque chose
+  // a choisir, meme quand la journee en cours est deja finie. Desactive par defaut (replanification).
+  expandFirstAvailable = input(false);
   slotPicked = output<RescheduleSlot>();
 
   // Jours dépliés par leur date (YYYY-MM-DD). Tout replié par défaut ; seul le
@@ -102,6 +106,15 @@ export class HkReservationSlotPicker {
       // Clé "YYYY-MM-DD" en heure locale (les `day.date` du back sont en local resto).
       const key = date.toLocaleDateString('sv-SE'); // sv-SE = format ISO YYYY-MM-DD
       this.expanded.update((set) => new Set(set).add(key));
+    });
+    // Une seule fois : un rechargement des creneaux ne rouvre pas un jour que le client a replie.
+    effect(() => {
+      if (!this.expandFirstAvailable() || this.autoExpanded) return;
+      const first = this.days().find((d) => d.slots.length > 0);
+      if (first) {
+        this.autoExpanded = true;
+        this.expanded.update((set) => new Set(set).add(first.date));
+      }
     });
   }
 

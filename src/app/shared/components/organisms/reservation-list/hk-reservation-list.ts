@@ -70,7 +70,11 @@ export interface ReservationSort {
         <hk-empty-state
           icon="lucideCalendar"
           title="Aucune réservation"
-          subtitle="Aucune réservation ne correspond à ces critères."
+          [subtitle]="
+            filtered()
+              ? 'Aucune réservation ne correspond à ces critères.'
+              : 'Aucune réservation pour cette journée.'
+          "
         />
       } @else {
         <div class="divide-border flex flex-col divide-y">
@@ -96,6 +100,8 @@ export class HkReservationList {
   readonly loading = input(false);
   readonly error = input(false);
   readonly sort = input<ReservationSort | null>(null);
+  // Vrai quand un filtre ou une recherche est actif : la liste vide change alors de sens.
+  readonly filtered = input(false);
 
   readonly open = output<Reservation>();
   readonly place = output<Reservation>();

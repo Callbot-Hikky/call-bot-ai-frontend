@@ -43,8 +43,12 @@ export class CallbackService {
   }
 
   getPending(): Observable<CallbackRequest[]> {
-    // Implémentation finale :
+    // Le back n'expose pas encore les demandes de rappel : hors mode mock, la liste est vide
+    // et le bloc n'apparait pas. Implementation finale :
     // return this.http.get<CallbackRequest[]>(this.baseUrl, { params: { status: 'pending' } });
+    if (!environment.useMock) {
+      return of([]);
+    }
     return of(MOCK_CALLBACKS.filter((c) => c.status === 'pending')).pipe(delay(500));
   }
 

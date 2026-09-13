@@ -8,7 +8,10 @@ import {
   bestFitTableId,
   blockedSides,
   buildEditorTables,
+  TABLE_TONE_LABEL,
+  deriveForecastStatus,
   deriveTableStatus,
+  tableTone,
   canMerge,
   eveningLoad,
   layoutTables,
@@ -980,5 +983,51 @@ describe('summarizeRoom', () => {
 
   it('salle vide -> tout a zero', () => {
     expect(summarizeRoom([])).toEqual({ libres: 0, reservees: 0, installees: 0, couverts: 0 });
+  });
+});
+
+describe('deriveForecastStatus (journee previsionnelle)', () => {
+  const resa = (id: string, status: Reservation['status'], time: string): Reservation => ({
+    id,
+    customerName: id,
+    phone: '',
+    dateTime: `2026-09-14T${time}:00+02:00`,
+    partySize: 2,
+    status,
+    source: 'callbot',
+    table: { id: 'T1', name: 'T1', capacity: 4 },
+  });
+
+  it('une table avec une resa vivante est reservee, quelle que soit l heure', () => {
+    const d = deriveForecastStatus('T1', [
+      resa('b', 'confirmed', '21:00'),
+      resa('a', 'pending', '19:00'),
+    ]);
+    expect(d.status).toBe('reservee');
+    expect(d.reservation?.id).toBe('a');
+    // L'heure affichee est locale (la CI tourne en UTC) : on compare via le meme format.
+    expect(d.nextTime).toBe(formatTime('2026-09-14T21:00:00+02:00'));
+    expect(d.lateMinutes).toBeNull();
+  });
+
+  it('installee prime, annulee ne compte pas, sinon libre', () => {
+    expect(deriveForecastStatus('T1', [resa('s', 'seated', '20:00')]).status).toBe('installee');
+    expect(deriveForecastStatus('T1', [resa('c', 'cancelled', '20:00')]).status).toBe('libre');
+    expect(deriveForecastStatus('T2', [resa('a', 'confirmed', '20:00')]).status).toBe('libre');
+  });
+});
+
+describe('tableTone (tonalite affichee)', () => {
+  const view = (status: FloorTableStatus, resStatus?: Reservation['status']) => ({
+    status,
+    reservation: resStatus ? ({ id: 'r', status: resStatus } as unknown as Reservation) : null,
+  });
+
+  it('une resa en attente colore la table en « En attente », une confirmee en « Reservee »', () => {
+    expect(tableTone(view('reservee', 'pending'))).toBe('attente');
+    expect(tableTone(view('reservee', 'confirmed'))).toBe('reservee');
+    expect(tableTone(view('installee', 'seated'))).toBe('installee');
+    expect(tableTone(view('libre'))).toBe('libre');
+    expect(TABLE_TONE_LABEL.attente).toBe('En attente');
   });
 });
