@@ -360,7 +360,7 @@ export class ReservationService {
   }
 
   // Confirmation du client : nouveau créneau (+ éventuel ajustement partySize / notes).
-  // On refetch le DTO pour reconstruire un corps PUT complet — la page cliente n'a pas
+  // On refetch le DTO pour reconstruire un corps PUT complet : la page cliente n'a pas
   // alimenté `_raw` (qui n'est peuplé que par la liste employée).
   reschedule(
     id: string,
