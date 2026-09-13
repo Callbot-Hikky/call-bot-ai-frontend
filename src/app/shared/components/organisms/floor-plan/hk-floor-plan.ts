@@ -24,8 +24,10 @@ import { FloorTable } from '@core/models/table.model';
 import {
   FloorTableView,
   bestFitTableId,
+  TABLE_TONE_LABEL,
   deriveForecastStatus,
   deriveTableStatus,
+  tableTone,
   eveningLoad,
   layoutTables,
   mergeViews,
@@ -152,12 +154,11 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
               <span class="text-[11px] font-medium" [class]="tileStatusClass(v)">
                 @if (v.lateMinutes; as late) {
                   +{{ late }} min de retard
-                } @else if (v.status === 'installee') {
-                  Installée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
-                } @else if (v.status === 'reservee') {
-                  Réservée{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
-                } @else {
+                } @else if (v.status === 'libre') {
                   Libre{{ v.nextTime ? ' · → ' + v.nextTime : '' }}
+                } @else {
+                  {{ toneLabel(v)
+                  }}{{ v.reservation ? ' · ' + formatTime(v.reservation.dateTime) : '' }}
                 }
               </span>
             </button>
@@ -1328,10 +1329,14 @@ export class HkFloorPlan {
     if (v.lateMinutes != null) {
       return ring + 'border-st-cancelled-fg/40 bg-st-cancelled-bg';
     }
-    if (v.status === 'reservee') {
+    const tone = tableTone(v);
+    if (tone === 'attente') {
+      return ring + 'border-st-pending-fg/30 bg-st-pending-bg';
+    }
+    if (tone === 'reservee') {
       return ring + 'border-st-confirmed-fg/30 bg-st-confirmed-bg';
     }
-    if (v.status === 'installee') {
+    if (tone === 'installee') {
       return ring + 'border-st-seated-fg/30 bg-st-seated-bg';
     }
     return ring + 'border-border bg-surface';
@@ -1341,13 +1346,21 @@ export class HkFloorPlan {
     if (v.lateMinutes != null) {
       return 'text-st-cancelled-fg';
     }
-    if (v.status === 'reservee') {
+    const tone = tableTone(v);
+    if (tone === 'attente') {
+      return 'text-st-pending-fg';
+    }
+    if (tone === 'reservee') {
       return 'text-st-confirmed-fg';
     }
-    if (v.status === 'installee') {
+    if (tone === 'installee') {
       return 'text-st-seated-fg';
     }
     return 'text-text-subtle';
+  }
+
+  protected toneLabel(v: FloorTableView): string {
+    return TABLE_TONE_LABEL[tableTone(v)];
   }
 
   protected toggleUnplaced(reservation: Reservation): void {
