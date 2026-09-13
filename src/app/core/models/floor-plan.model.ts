@@ -56,6 +56,26 @@ export interface FloorTableView extends PlacedTable {
   lateMinutes: number | null;
 }
 
+// TONALITE d'affichage d'une table : le statut derive, affine par l'etat de la
+// reservation. Une table reservee par une resa encore EN ATTENTE (bot, web) se
+// distingue d'une resa confirmee : memes couleurs que les badges de la liste
+// (ambre « En attente », vert « Confirmee », bleu « Installee »).
+export type FloorTableTone = 'libre' | 'attente' | 'reservee' | 'installee';
+
+export function tableTone(view: Pick<FloorTableView, 'status' | 'reservation'>): FloorTableTone {
+  if (view.status === 'reservee' && view.reservation?.status === 'pending') {
+    return 'attente';
+  }
+  return view.status;
+}
+
+export const TABLE_TONE_LABEL: Record<FloorTableTone, string> = {
+  libre: 'Libre',
+  attente: 'En attente',
+  reservee: 'Réservée',
+  installee: 'Installée',
+};
+
 export interface DerivedTableStatus {
   status: FloorTableStatus;
   reservation: Reservation | null;

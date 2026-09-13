@@ -8,8 +8,10 @@ import {
   bestFitTableId,
   blockedSides,
   buildEditorTables,
+  TABLE_TONE_LABEL,
   deriveForecastStatus,
   deriveTableStatus,
+  tableTone,
   canMerge,
   eveningLoad,
   layoutTables,
@@ -1012,5 +1014,20 @@ describe('deriveForecastStatus (journee previsionnelle)', () => {
     expect(deriveForecastStatus('T1', [resa('s', 'seated', '20:00')]).status).toBe('installee');
     expect(deriveForecastStatus('T1', [resa('c', 'cancelled', '20:00')]).status).toBe('libre');
     expect(deriveForecastStatus('T2', [resa('a', 'confirmed', '20:00')]).status).toBe('libre');
+  });
+});
+
+describe('tableTone (tonalite affichee)', () => {
+  const view = (status: FloorTableStatus, resStatus?: Reservation['status']) => ({
+    status,
+    reservation: resStatus ? ({ id: 'r', status: resStatus } as unknown as Reservation) : null,
+  });
+
+  it('une resa en attente colore la table en « En attente », une confirmee en « Reservee »', () => {
+    expect(tableTone(view('reservee', 'pending'))).toBe('attente');
+    expect(tableTone(view('reservee', 'confirmed'))).toBe('reservee');
+    expect(tableTone(view('installee', 'seated'))).toBe('installee');
+    expect(tableTone(view('libre'))).toBe('libre');
+    expect(TABLE_TONE_LABEL.attente).toBe('En attente');
   });
 });
