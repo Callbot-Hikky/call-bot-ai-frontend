@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, computed, effect } from '@angular/core';
 import { HkNavItem } from '@shared/components/molecules/nav-item/hk-nav-item';
+import { Router } from '@angular/router';
 import { HkProfileMenu } from '@shared/components/molecules/profile-menu/hk-profile-menu';
 import { HkIconButton } from '@shared/components/atoms/icon-button/hk-icon-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
@@ -72,6 +73,7 @@ import { NAV_ITEMS } from '@core/layout/nav-items';
           [name]="displayName()"
           [restaurant]="restaurantName()"
           [collapsed]="collapsed()"
+          (settings)="router.navigate(['/parametres'])"
           (logout)="onLogout()"
         />
       </div>
@@ -90,6 +92,7 @@ export class HkSidebar {
   }
 
   protected readonly layout = inject(LayoutService);
+  protected readonly router = inject(Router);
   private readonly session = inject(SessionService);
   private readonly restaurants = inject(RestaurantService);
   // Le compte connecte n'a pas de nom : on montre l'adresse, et le restaurant de la session.
