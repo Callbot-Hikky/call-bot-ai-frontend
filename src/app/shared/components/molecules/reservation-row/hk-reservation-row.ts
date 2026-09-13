@@ -103,7 +103,7 @@ import { formatTime } from '@core/utils/format';
           <hk-icon-button
             icon="lucideCheck"
             label="Confirmer la réservation"
-            hkTooltip="Confirmer"
+            hkTooltip="Confirmer la réservation"
             (click)="confirm.emit(reservation())"
           />
         }
@@ -111,13 +111,13 @@ import { formatTime } from '@core/utils/format';
           <hk-icon-button
             icon="lucideX"
             label="Annuler la réservation"
-            hkTooltip="Annuler"
+            hkTooltip="Annuler la réservation"
             (click)="cancelReservation.emit(reservation())"
           />
           <hk-icon-button
             icon="lucidePhone"
             label="Appeler le client"
-            hkTooltip="Appeler"
+            hkTooltip="Appeler le client"
             (click)="call.emit(reservation())"
           />
         }
