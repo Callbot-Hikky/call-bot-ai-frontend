@@ -108,9 +108,13 @@ test.describe('Reservation en ligne : du QR du restaurateur a la confirmation du
     await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
     await page.getByTestId('day-next').locator('button').click();
     await expect(page.getByText('Karim')).toBeVisible();
-    await expect(page.getByTestId('day-today')).toBeVisible();
+    await expect(page.getByTestId('day-today').locator('button')).toBeEnabled();
     await page.getByTestId('day-today').locator('button').click();
     await expect(page.getByText('Aucune réservation pour cette journée')).toBeVisible();
+    await expect(page.getByTestId('day-today').locator('button')).toBeDisabled();
+    // Saisie directe de la date (clavier) : meme resultat que la fleche.
+    await page.getByTestId('day-input').fill(tomorrow[0].startsAt.slice(0, 10));
+    await expect(page.getByText('Karim')).toBeVisible();
   });
 
   test('un creneau pris entre-temps est refuse avec un message, et la liste se met a jour', async ({
