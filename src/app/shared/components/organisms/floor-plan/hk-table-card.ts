@@ -162,50 +162,59 @@ const WALK_IN_GUARD_MIN = 90;
                 >
                   Client arrivé
                 </hk-button>
+                <!-- Retire la resa de CETTE table sans l'annuler : elle revient dans
+                     « Réservations non placées » pour etre posee ailleurs. -->
                 <hk-button
                   [size]="actionSize()"
                   variant="secondary"
                   class="block [&>button]:w-full"
+                  title="La réservation reste, elle attend une autre table"
+                  data-testid="card-unassign"
                   (click)="unassign.emit(res)"
                 >
-                  Libérer la table
+                  Changer de table
                 </hk-button>
               } @else {
                 <!-- Resa CONFIRMEE : le client qui se presente est l'action principale. -->
                 <hk-button
                   [size]="actionSize()"
+                  class="block [&>button]:w-full"
                   data-testid="card-arrived"
                   (click)="markArrived.emit(res)"
                 >
                   Client arrivé
                 </hk-button>
+                <!-- Retire la resa de CETTE table sans l'annuler : elle revient dans
+                     « Réservations non placées » pour etre posee ailleurs. -->
                 <hk-button
                   [size]="actionSize()"
                   variant="secondary"
                   class="block [&>button]:w-full"
+                  title="La réservation reste, elle attend une autre table"
+                  data-testid="card-unassign"
                   (click)="unassign.emit(res)"
                 >
-                  Libérer la table
+                  Changer de table
                 </hk-button>
               }
-              <div class="flex items-center gap-1.5">
-                <hk-button
-                  [size]="actionSize()"
-                  variant="secondary"
-                  class="flex-1 [&>button]:w-full"
-                  (click)="callReservation.emit(res)"
-                >
-                  Appeler
-                </hk-button>
-                <hk-button
-                  [size]="actionSize()"
-                  variant="danger"
-                  class="flex-1 [&>button]:w-full"
-                  (click)="cancelReservation.emit(res)"
-                >
-                  Annuler
-                </hk-button>
-              </div>
+              <hk-button
+                [size]="actionSize()"
+                variant="secondary"
+                class="block [&>button]:w-full"
+                (click)="callReservation.emit(res)"
+              >
+                Appeler le client
+              </hk-button>
+              <hk-button
+                [size]="actionSize()"
+                variant="danger"
+                class="block [&>button]:w-full"
+                title="Le client ne vient plus : la réservation est annulée"
+                data-testid="card-cancel"
+                (click)="cancelReservation.emit(res)"
+              >
+                Annuler la réservation
+              </hk-button>
             </div>
           </div>
         }

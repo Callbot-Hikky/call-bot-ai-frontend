@@ -179,7 +179,7 @@ describe('HkFloorPlan', () => {
     );
     expect(inspector).toBeTruthy();
     expect(inspector.textContent).toContain('Client r1');
-    expect(inspector.textContent).toContain('Libérer la table');
+    expect(inspector.textContent).toContain('Changer de table');
     // La table selectionnee est mise en avant sur le canvas (focus).
     expect(stub.focusTableId()).toBe('t1');
   });

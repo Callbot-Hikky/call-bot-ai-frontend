@@ -86,7 +86,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée - service terminé', 'success');
+          this.toast.show('Service terminé, la table est libre', 'success');
           onDone?.();
         },
         error: () => this.toast.show('Échec de la clôture', 'error'),
@@ -102,10 +102,10 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée');
+          this.toast.show('Réservation retirée de la table : à replacer depuis le plan');
           onDone?.();
         },
-        error: () => this.toast.show('Échec de la libération', 'error'),
+        error: () => this.toast.show('Impossible de retirer la réservation de la table', 'error'),
       });
   }
 
