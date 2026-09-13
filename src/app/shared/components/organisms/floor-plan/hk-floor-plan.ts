@@ -203,13 +203,19 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
     } @else {
       <div
         class="grid gap-4"
-        [class]="serviceMode() ? 'lg:grid-cols-[1fr_400px]' : 'lg:grid-cols-[1fr_320px]'"
+        [class]="
+          serviceMode()
+            ? 'lg:grid-cols-[minmax(0,1fr)_400px]'
+            : 'lg:grid-cols-[minmax(0,1fr)_320px]'
+        "
         [class.h-full]="serviceMode()"
       >
         <div class="flex flex-col gap-3" [class.min-h-0]="serviceMode()">
           <!-- Rangee stable (aide + jauge + boutons) : le bandeau d'affectation
                FLOTTE sur le plan (zero layout shift, pleine largeur). -->
-          <div class="flex items-center justify-between gap-3">
+          <!-- minmax(0,1fr) sur la colonne : la barre ne peut pas pousser le
+               panneau hors de l'ecran (portables 1280 px) ; elle passe a la ligne. -->
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <!-- AIDE : bouton qui ouvre un panneau explicatif des gestes et des
                  modes (2D/3D, simulation, service) - flottant, zero shift.
                  Masque en mode service (poste d'accueil) : pas de bruit d'aide. -->
@@ -229,7 +235,7 @@ export type { AssignEvent, MergeAssignEvent, WalkInEvent } from './hk-floor-plan
             }
             <!-- Chaque bouton porte une explication au survol (title) : on comprend
                  AVANT de cliquer, pas apres. -->
-            <div class="flex shrink-0 items-center gap-2 whitespace-nowrap">
+            <div class="flex flex-wrap items-center justify-end gap-2">
               <!-- Vue 3D / Simuler / Mode service / Exporter n'ont de sens qu'avec
                    des tables : masques en onboarding (salle vide) pour eviter les
                    boutons sans effet. Seul « Modifier » reste, pour creer la salle. -->
