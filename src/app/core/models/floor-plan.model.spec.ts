@@ -1003,7 +1003,8 @@ describe('deriveForecastStatus (journee previsionnelle)', () => {
     ]);
     expect(d.status).toBe('reservee');
     expect(d.reservation?.id).toBe('a');
-    expect(d.nextTime).toBe('21:00');
+    // L'heure affichee est locale (la CI tourne en UTC) : on compare via le meme format.
+    expect(d.nextTime).toBe(formatTime('2026-09-14T21:00:00+02:00'));
     expect(d.lateMinutes).toBeNull();
   });
 
