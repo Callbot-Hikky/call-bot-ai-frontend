@@ -9,7 +9,12 @@ export interface BarDatum {
 @Component({
   selector: 'hk-bar-chart',
   template: `
-    <div class="flex h-44 items-end gap-1.5 sm:gap-2">
+    @if (bars().length === 0) {
+      <div class="text-text-subtle flex h-44 items-center justify-center text-sm">
+        {{ emptyLabel() }}
+      </div>
+    }
+    <div class="flex h-44 items-end gap-1.5 sm:gap-2" [hidden]="bars().length === 0">
       @for (bar of bars(); track bar.label) {
         <div class="flex h-full flex-1 flex-col items-center justify-end gap-1.5">
           <span class="text-text-muted text-xs font-medium tabular-nums">{{ bar.value }}</span>
@@ -30,6 +35,7 @@ export interface BarDatum {
 })
 export class HkBarChart {
   readonly bars = input<BarDatum[]>([]);
+  readonly emptyLabel = input('Aucune donnée pour le moment.');
 
   private readonly max = computed(() => Math.max(1, ...this.bars().map((b) => b.value)));
 

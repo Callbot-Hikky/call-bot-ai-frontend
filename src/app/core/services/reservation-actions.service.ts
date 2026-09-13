@@ -4,6 +4,8 @@ import { forkJoin } from 'rxjs';
 import { ReservationService } from './reservation.service';
 import { ToastService } from './toast.service';
 import { formatCents } from '@core/models/guarantee.model';
+import { ConfirmService } from '@shared/components/molecules/confirm-dialog/hk-confirm-dialog';
+import { filter, switchMap } from 'rxjs';
 import { Reservation } from '@core/models/reservation.model';
 import { AssignEvent, WalkInEvent } from '@shared/components/organisms/floor-plan/hk-floor-plan';
 import { conflictMessage } from '@core/utils/http-error';
@@ -20,6 +22,7 @@ const TERMINAL_STATUSES: readonly Reservation['status'][] = ['cancelled', 'compl
 export class ReservationActionsService {
   private readonly service = inject(ReservationService);
   private readonly toast = inject(ToastService);
+  private readonly confirmDialog = inject(ConfirmService);
 
   // Vrai si la resa est dans un etat terminal -> on bloque et on explique.
   private isTerminal(reservation: Reservation): boolean {
@@ -66,7 +69,11 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'installation"), 'error'),
+        error: (err) =>
+          this.toast.show(
+            conflictMessage(err, err instanceof Error ? err.message : "Échec de l'installation"),
+            'error',
+          ),
       });
   }
 
@@ -121,7 +128,7 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée - service terminé', 'success');
+          this.toast.show('Service terminé, la table est libre', 'success');
           onDone?.();
         },
         error: () => this.toast.show('Échec de la clôture', 'error'),
@@ -137,10 +144,10 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => {
-          this.toast.show('Table libérée');
+          this.toast.show('Réservation retirée de la table : à replacer depuis le plan');
           onDone?.();
         },
-        error: () => this.toast.show('Échec de la libération', 'error'),
+        error: () => this.toast.show('Impossible de retirer la réservation de la table', 'error'),
       });
   }
 
@@ -196,13 +203,27 @@ export class ReservationActionsService {
       });
   }
 
+  // Annuler est irreversible : on demande confirmation avant tout appel reseau.
   cancel(reservation: Reservation, destroyRef: DestroyRef): void {
     if (this.isTerminal(reservation)) {
       return;
     }
-    this.service
-      .cancel(reservation.id)
-      .pipe(takeUntilDestroyed(destroyRef))
+    const who = reservation.customerName?.trim() || 'ce client';
+    this.confirmDialog
+      .ask(
+        {
+          title: `Annuler la réservation de ${who} ?`,
+          message:
+            'Le client sera prévenu et la table redeviendra libre. Cette action ne peut pas être annulée.',
+          confirmLabel: 'Annuler la réservation',
+        },
+        destroyRef,
+      )
+      .pipe(
+        filter(Boolean),
+        switchMap(() => this.service.cancel(reservation.id)),
+        takeUntilDestroyed(destroyRef),
+      )
       .subscribe(() => this.toast.show('Réservation annulée'));
   }
 

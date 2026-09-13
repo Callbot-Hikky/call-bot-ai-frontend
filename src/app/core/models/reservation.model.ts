@@ -65,6 +65,28 @@ export interface RescheduleSlotsResponse {
   days: RescheduleDay[];
 }
 
+// Reservation en ligne : plafond de couverts aligne sur le back (BookingPolicy.MAX_PARTY_SIZE).
+export const BOOKING_MAX_PARTY_SIZE = 15;
+
+// Ce qu'un client voit de sa propre reservation, sans session : rien qu'il n'ait saisi lui-meme.
+export interface PublicReservation {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  dateTime: string;
+  endsAt: string;
+  partySize: number;
+  status: ReservationStatus;
+  customerFirstName: string;
+}
+
+export interface PublicReservationInput {
+  startsAt: string;
+  partySize: number;
+  customer: { firstName: string; phone: string };
+  notes?: string;
+}
+
 // LIVE (LOT B3) : diff par id apres un refresh silencieux. Retourne les
 // reservations presentes dans `after` mais absentes de `beforeIds` (les nouvelles
 // arrivees, a annoncer par toast + pulse).

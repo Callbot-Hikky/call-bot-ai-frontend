@@ -12,10 +12,11 @@ import {
 } from '@angular/core';
 import type Konva from 'konva';
 import {
-  FloorTableStatus,
   FloorTableView,
   blockedSides,
   tableTimeLabel,
+  FloorTableTone,
+  tableTone,
 } from '@core/models/floor-plan.model';
 import { WallSegment, tableSizePx } from '@core/models/floor-plan-editor.model';
 import {
@@ -38,6 +39,7 @@ type KonvaModule = typeof Konva;
 // On lit les tokens OKLCH du design system depuis le conteneur, avec repli.
 // Semantique ALIGNEE sur les badges de la vue Liste (intuitif + coherent) :
 //  - libre     : blanc, contour discret (rien a signaler) ;
+//  - attente   : AMBRE st-pending (resa pas encore confirmee, comme le badge « En attente ») ;
 //  - reservee  : VERT st-confirmed (creneau confirme, comme le badge « Confirmée ») ;
 //  - installee : BLEU st-seated (des clients sont a table, comme le badge « Installée »).
 interface StatusColors {
@@ -46,11 +48,16 @@ interface StatusColors {
   text: string;
 }
 
-const COLOR_VARS: Record<FloorTableStatus, { fill: string; stroke: string; text: string }> = {
+const COLOR_VARS: Record<FloorTableTone, { fill: string; stroke: string; text: string }> = {
   libre: {
     fill: '--surface',
     stroke: '--border-strong',
     text: '--st-completed-fg',
+  },
+  attente: {
+    fill: '--st-pending-bg',
+    stroke: '--st-pending-fg',
+    text: '--st-pending-fg',
   },
   reservee: {
     fill: '--st-confirmed-bg',
@@ -64,8 +71,9 @@ const COLOR_VARS: Record<FloorTableStatus, { fill: string; stroke: string; text:
   },
 };
 
-const FALLBACK_COLORS: Record<FloorTableStatus, StatusColors> = {
+const FALLBACK_COLORS: Record<FloorTableTone, StatusColors> = {
   libre: { fill: '#ffffff', stroke: '#d6d6d2', text: '#8a8a84' },
+  attente: { fill: '#f6efe2', stroke: '#8a6a2f', text: '#8a6a2f' },
   reservee: { fill: '#e8f4ee', stroke: '#37795d', text: '#37795d' },
   installee: { fill: '#e9eef9', stroke: '#54719f', text: '#54719f' },
 };
@@ -521,7 +529,7 @@ export class HkFloorPlanCanvas {
     required: number | null,
     focusId: string | null = null,
   ): void {
-    const colors = this.colorsFor(view.status);
+    const colors = this.colorsFor(tableTone(view));
     const fits = required == null || view.table.capacity >= required;
     const showHint = highlight && view.status === 'libre' && fits;
     const isBest = view.status === 'libre' && view.table.id === bestId && fits;
@@ -746,9 +754,9 @@ export class HkFloorPlanCanvas {
     this.pulsedGroup = null;
   }
 
-  private colorsFor(status: FloorTableStatus): StatusColors {
-    const vars = COLOR_VARS[status];
-    const fallback = FALLBACK_COLORS[status];
+  private colorsFor(tone: FloorTableTone): StatusColors {
+    const vars = COLOR_VARS[tone];
+    const fallback = FALLBACK_COLORS[tone];
     return {
       fill: this.readVar(vars.fill, fallback.fill),
       stroke: this.readVar(vars.stroke, fallback.stroke),

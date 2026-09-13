@@ -10,6 +10,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-header';
+import { HkDayPicker } from '@shared/components/molecules/day-picker/hk-day-picker';
 import { HkStatRow, StatItem } from '@shared/components/organisms/stat-row/hk-stat-row';
 import {
   HkReservationList,
@@ -33,8 +34,9 @@ import { CallbackService } from '@core/services/callback.service';
 import { ToastService } from '@core/services/toast.service';
 import { Reservation, ReservationStatus } from '@core/models/reservation.model';
 import { CallbackRequest } from '@core/models/callback-request.model';
-import { formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime, localDateKey } from '@core/utils/format';
 import { conflictMessage } from '@core/utils/http-error';
+import { bindDayToQuery } from '@core/utils/day-query';
 
 // Ordre métier des statuts pour le tri.
 const STATUS_ORDER: Record<ReservationStatus, number> = {
@@ -56,6 +58,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
   selector: 'app-reservations',
   imports: [
     HkPageHeader,
+    HkDayPicker,
     HkStatRow,
     HkCallbackRequests,
     HkFilterBar,
@@ -66,7 +69,12 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
     HkIcon,
   ],
   template: `
-    <hk-page-header [subtitle]="today">
+    <hk-page-header [subtitle]="dayLabel()">
+      <hk-day-picker
+        [day]="service.day()"
+        [today]="service.today()"
+        (dayChange)="service.setDay($event)"
+      />
       <hk-button size="sm" data-testid="open-new-resa" (click)="newResaState.set('open')">
         <hk-icon name="lucidePlus" [size]="16" />
         Nouvelle réservation
@@ -90,6 +98,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
         [loading]="service.loading()"
         [error]="service.error()"
         [sort]="sort()"
+        [filtered]="statusFilter() !== 'all' || search().trim() !== ''"
         (sortChange)="sort.set($event)"
         (open)="openDetail($event)"
         (place)="onPlace($event)"
@@ -103,6 +112,7 @@ const STATUS_ORDER: Record<ReservationStatus, number> = {
 
     <hk-new-reservation-dialog
       [(state)]="newResaState"
+      [day]="service.day()"
       [busy]="creatingManual()"
       (createReservation)="onCreateManual($event)"
     />
@@ -142,11 +152,7 @@ export class ReservationsPage {
   // Creation manuelle en cours -> desactive le submit du dialog (anti double envoi).
   protected readonly creatingManual = signal(false);
 
-  protected readonly today = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  protected readonly dayLabel = computed(() => formatDayLabel(this.service.day()));
 
   // Drawer synchronisé par id : reflète toujours l'état à jour du service.
   protected readonly selected = computed(
@@ -218,6 +224,8 @@ export class ReservationsPage {
   });
 
   constructor() {
+    // Le jour affiche suit l'URL (?jour=...) : il survit au rechargement.
+    bindDayToQuery();
     // Retour depuis la page Plan : donnees deja en memoire -> refresh silencieux
     // (pas de skeletons), sinon chargement initial complet.
     if (this.service.reservations().length > 0) {
@@ -263,7 +271,9 @@ export class ReservationsPage {
         next: (created) => {
           this.creatingManual.set(false);
           this.newResaState.set('closed');
-          this.toast.show(`Réservation créée pour ${created.customerName}`, 'success', {
+          const day = localDateKey(new Date(created.dateTime));
+          const when = day === this.service.today() ? '' : ` (${formatDayLabel(day)})`;
+          this.toast.show(`Réservation créée pour ${created.customerName}${when}`, 'success', {
             label: 'Placer sur le plan',
             run: () => this.onPlace(created),
           });
@@ -281,6 +291,8 @@ export class ReservationsPage {
   // « Placer » depuis la liste : bascule sur la page Plan avec la resa
   // PRESELECTIONNEE (bandeau d'affectation ouvert, meilleure table surlignee).
   protected onPlace(reservation: Reservation): void {
+    // Le plan s'ouvre sur le jour de la reservation (sinon elle n'y serait pas).
+    this.service.setDay(localDateKey(new Date(reservation.dateTime)));
     void this.router.navigate(['/plan'], { queryParams: { placer: reservation.id } });
   }
 

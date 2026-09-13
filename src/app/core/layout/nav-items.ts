@@ -21,6 +21,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { icon: 'lucidePhone', label: 'Appels', route: '/appels' },
   { icon: 'lucideStore', label: 'Mon restaurant', route: '/mon-restaurant' },
+  { icon: 'lucideUtensilsCrossed', label: 'Carte et QR codes', route: '/menu' },
   { icon: 'lucideSettings', label: 'Paramètres', route: '/parametres' },
 ];
 

@@ -18,6 +18,7 @@ import {
   NO_BLOCKED_SIDES,
   blockedSides,
   freeRingAngles,
+  tableTone,
 } from '@core/models/floor-plan.model';
 import { TableShape, WallSegment } from '@core/models/floor-plan-editor.model';
 import { formatTime } from '@core/utils/format';
@@ -49,13 +50,14 @@ const CAMERA_INTRO_MS = 1700;
 const CAMERA_RESET_MS = 750;
 
 // Palette « restaurant » : sol chaud, murs sable, bois pour les tables libres,
-// nappe verte (reservee) / bleue (installee) / rouge (retard) - memes codes
+// nappe ambre (en attente) / verte (confirmee) / bleue (installee) / rouge (retard) - memes codes
 // couleur que la legende 2D.
 const COLOR_FLOOR = 0xf3efe7;
 const COLOR_WALL = 0xd6cfc4;
 const COLOR_WOOD = 0xd4b28c;
 const COLOR_LEG = 0x7d6a55;
 const COLOR_CHAIR = 0xcfc8bc;
+const COLOR_PENDING = 0xd9a441;
 const COLOR_RESERVED = 0x30a46c;
 const COLOR_SEATED = 0x3d7fd9;
 const COLOR_LATE = 0xd64545;
@@ -64,6 +66,7 @@ const COLOR_PLATE = 0xfdfcfa;
 // Couleurs CSS des sous-titres d'etiquette (canvas 2D).
 const LABEL_LATE = '#d64545';
 const LABEL_SEATED = '#3d7fd9';
+const LABEL_PENDING = '#8a6a2f';
 const LABEL_RESERVED = '#30a46c';
 const LABEL_MUTED = '#8a8378';
 
@@ -177,7 +180,7 @@ export function chairSlots(
 // PURE (testable sans WebGL) : c'est l'info de decision de l'hote, comme en 2D.
 //  - retard      : « Marc · +25 min » (rouge) ;
 //  - installee   : « Marc · 19:30 » (bleu) ;
-//  - reservee    : « Marc · 19:30 » (vert) ;
+//  - reservee    : « Marc · 19:30 » (vert, ambre si encore en attente) ;
 //  - libre avec resa plus tard : « → 21:00 » (gris) ;
 //  - libre sans rien : pas de sous-titre.
 export function tableLabelParts(v: FloorTableView): {
@@ -203,7 +206,7 @@ export function tableLabelParts(v: FloorTableView): {
     return {
       title,
       subtitle: time ? `${customer} · ${time}` : customer,
-      color: LABEL_RESERVED,
+      color: tableTone(v) === 'attente' ? LABEL_PENDING : LABEL_RESERVED,
     };
   }
   if (v.nextTime) {
@@ -601,7 +604,9 @@ export class HkFloorPlan3d {
         : v.status === 'installee'
           ? COLOR_SEATED
           : v.status === 'reservee'
-            ? COLOR_RESERVED
+            ? tableTone(v) === 'attente'
+              ? COLOR_PENDING
+              : COLOR_RESERVED
             : COLOR_WOOD;
 
     const isRound = v.shape === 'round';

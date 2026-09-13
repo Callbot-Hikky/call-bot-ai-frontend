@@ -25,26 +25,42 @@ import { formatTime } from '@core/utils/format';
         <span class="text-foreground w-12 font-mono text-sm tabular-nums">{{ time() }}</span>
 
         <span class="flex min-w-0 flex-1 flex-col">
-          <span class="flex items-center gap-2">
+          <span class="flex min-w-0 items-center gap-2">
+            <!-- Le nom garde sa place sur mobile : c'est la note, facultative, qui cede. -->
             <span class="text-foreground truncate text-sm font-medium">
               {{ reservation().customerName }}
             </span>
             @if (reservation().source === 'callbot') {
               <span
-                class="bg-brand-100 text-brand-700 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                class="bg-brand-100 text-brand-700 shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
               >
                 Bot
+              </span>
+            } @else if (reservation().source === 'web') {
+              <span
+                class="shrink-0 rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700"
+              >
+                En ligne
               </span>
             }
             @if (reservation().notes) {
               <!-- La note existe : indice discret, texte complet au survol (title). -->
-              <span class="text-text-subtle truncate text-xs italic">
+              <span class="text-text-subtle hidden truncate text-xs italic sm:inline">
                 {{ reservation().notes }}
               </span>
             }
           </span>
           <span class="text-muted-foreground font-mono text-xs tabular-nums">
             {{ reservation().phone }}
+          </span>
+          <!-- Mobile : le statut passe sous le nom, la ligne ne se dispute plus la largeur. -->
+          <span class="mt-1 flex items-center gap-2 sm:hidden">
+            <hk-badge [status]="reservation().status" />
+            @if (lateMinutes(); as minutes) {
+              <span class="text-st-cancelled-fg text-[11px] font-semibold">
+                +{{ minutes }} min de retard
+              </span>
+            }
           </span>
         </span>
 
@@ -59,7 +75,7 @@ import { formatTime } from '@core/utils/format';
           {{ reservation().table?.name ?? '-' }}
         </span>
 
-        <span class="flex flex-col gap-0.5 sm:w-28">
+        <span class="hidden flex-col gap-0.5 sm:flex sm:w-28">
           <span><hk-badge [status]="reservation().status" /></span>
           @if (lateMinutes(); as minutes) {
             <!-- RETARD : la liste montre la meme urgence que la pastille du plan. -->
@@ -87,7 +103,7 @@ import { formatTime } from '@core/utils/format';
           <hk-icon-button
             icon="lucideCheck"
             label="Confirmer la réservation"
-            hkTooltip="Confirmer"
+            hkTooltip="Confirmer la réservation"
             (click)="confirm.emit(reservation())"
           />
         }
@@ -107,13 +123,13 @@ import { formatTime } from '@core/utils/format';
           <hk-icon-button
             icon="lucideX"
             label="Annuler la réservation"
-            hkTooltip="Annuler"
+            hkTooltip="Annuler la réservation"
             (click)="cancelReservation.emit(reservation())"
           />
           <hk-icon-button
             icon="lucidePhone"
             label="Appeler le client"
-            hkTooltip="Appeler"
+            hkTooltip="Appeler le client"
             (click)="call.emit(reservation())"
           />
         }

@@ -56,6 +56,26 @@ export interface FloorTableView extends PlacedTable {
   lateMinutes: number | null;
 }
 
+// TONALITE d'affichage d'une table : le statut derive, affine par l'etat de la
+// reservation. Une table reservee par une resa encore EN ATTENTE (bot, web) se
+// distingue d'une resa confirmee : memes couleurs que les badges de la liste
+// (ambre « En attente », vert « Confirmee », bleu « Installee »).
+export type FloorTableTone = 'libre' | 'attente' | 'reservee' | 'installee';
+
+export function tableTone(view: Pick<FloorTableView, 'status' | 'reservation'>): FloorTableTone {
+  if (view.status === 'reservee' && view.reservation?.status === 'pending') {
+    return 'attente';
+  }
+  return view.status;
+}
+
+export const TABLE_TONE_LABEL: Record<FloorTableTone, string> = {
+  libre: 'Libre',
+  attente: 'En attente',
+  reservee: 'Réservée',
+  installee: 'Installée',
+};
+
 export interface DerivedTableStatus {
   status: FloorTableStatus;
   reservation: Reservation | null;
@@ -152,6 +172,37 @@ export function deriveTableStatus(
   }
 
   return { status: 'libre', reservation: null, ...none };
+}
+
+// JOURNEE PREVISIONNELLE (un autre jour que le jour courant) : l'horloge ne dit
+// rien sur ce jour-la. On lit la journee entiere : une table avec une resa
+// vivante est « reservee » (la premiere affichee, la suivante en `nextTime`),
+// une resa installee reste « installee », sinon la table est libre. Pas de
+// retard : le concept n'a de sens qu'en temps reel.
+export function deriveForecastStatus(
+  tableId: string,
+  reservations: readonly Reservation[],
+): DerivedTableStatus {
+  const linked = reservations.filter((r) => r.table?.id === tableId);
+  const none = { nextTime: null, nextDateTime: null, lateMinutes: null };
+  const seated = linked.find((r) => r.status === 'seated');
+  if (seated) {
+    return { status: 'installee', reservation: seated, ...none };
+  }
+  const upcoming = linked
+    .filter((r) => r.status === 'confirmed' || r.status === 'pending')
+    .sort((a, b) => a.dateTime.localeCompare(b.dateTime));
+  if (upcoming.length === 0) {
+    return { status: 'libre', reservation: null, ...none };
+  }
+  const [first, second] = upcoming;
+  return {
+    status: 'reservee',
+    reservation: first,
+    nextTime: second ? formatTime(second.dateTime) : null,
+    nextDateTime: second?.dateTime ?? null,
+    lateMinutes: null,
+  };
 }
 
 // RETARD d'une reservation attendue (badge de la LISTE) : memes seuils que la
