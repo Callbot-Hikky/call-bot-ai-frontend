@@ -68,7 +68,11 @@ export class ReservationActionsService {
       .pipe(takeUntilDestroyed(destroyRef))
       .subscribe({
         next: () => this.toast.show(`Clients installés en ${event.table.name}`, 'success'),
-        error: (err) => this.toast.show(conflictMessage(err, "Échec de l'installation"), 'error'),
+        error: (err) =>
+          this.toast.show(
+            conflictMessage(err, err instanceof Error ? err.message : "Échec de l'installation"),
+            'error',
+          ),
       });
   }
 
