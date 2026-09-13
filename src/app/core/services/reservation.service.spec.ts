@@ -191,7 +191,7 @@ describe('ReservationService', () => {
     httpMock.expectOne((r) => r.url.includes('/reservations')).flush([]);
     await expect(
       firstValueFrom(service.createWalkIn({ id: 'tbl-1', name: 'T1', capacity: 4 }, 2)),
-    ).rejects.toThrow('plan du jour');
+    ).rejects.toThrow("plan d'aujourd'hui");
     httpMock.expectNone((r) => r.method === 'POST');
   });
 

@@ -8,6 +8,7 @@ import {
   bestFitTableId,
   blockedSides,
   buildEditorTables,
+  deriveForecastStatus,
   deriveTableStatus,
   canMerge,
   eveningLoad,
@@ -980,5 +981,35 @@ describe('summarizeRoom', () => {
 
   it('salle vide -> tout a zero', () => {
     expect(summarizeRoom([])).toEqual({ libres: 0, reservees: 0, installees: 0, couverts: 0 });
+  });
+});
+
+describe('deriveForecastStatus (journee previsionnelle)', () => {
+  const resa = (id: string, status: Reservation['status'], time: string): Reservation => ({
+    id,
+    customerName: id,
+    phone: '',
+    dateTime: `2026-09-14T${time}:00+02:00`,
+    partySize: 2,
+    status,
+    source: 'callbot',
+    table: { id: 'T1', name: 'T1', capacity: 4 },
+  });
+
+  it('une table avec une resa vivante est reservee, quelle que soit l heure', () => {
+    const d = deriveForecastStatus('T1', [
+      resa('b', 'confirmed', '21:00'),
+      resa('a', 'pending', '19:00'),
+    ]);
+    expect(d.status).toBe('reservee');
+    expect(d.reservation?.id).toBe('a');
+    expect(d.nextTime).toBe('21:00');
+    expect(d.lateMinutes).toBeNull();
+  });
+
+  it('installee prime, annulee ne compte pas, sinon libre', () => {
+    expect(deriveForecastStatus('T1', [resa('s', 'seated', '20:00')]).status).toBe('installee');
+    expect(deriveForecastStatus('T1', [resa('c', 'cancelled', '20:00')]).status).toBe('libre');
+    expect(deriveForecastStatus('T2', [resa('a', 'confirmed', '20:00')]).status).toBe('libre');
   });
 });

@@ -78,7 +78,7 @@ import { GeometryMap, WallSegment } from '@core/models/floor-plan-editor.model';
         class="block h-full min-h-0"
         [serviceMode]="true"
         [live]="live()"
-        [referenceNow]="referenceNow()"
+        [forecast]="forecast()"
         [portrait]="portrait()"
         [(selectedTableId)]="selectedTableId"
         [(view3d)]="view3d"
@@ -132,7 +132,7 @@ export class HkServiceOverlay {
   // spatial ecrase - le poste d'accueil reste utilisable sur un telephone tenu droit.
   readonly portrait = input(false);
   readonly live = input(true);
-  readonly referenceNow = input<Date | null>(null);
+  readonly forecast = input(false);
   readonly loading = input(false);
   readonly error = input(false);
 
