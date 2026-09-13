@@ -13,7 +13,7 @@ import { BrnSheetContent } from '@spartan-ng/brain/sheet';
 import { BrnDialogState } from '@spartan-ng/brain/dialog';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
-import { formatTime } from '@core/utils/format';
+import { formatDayLabel, formatTime, localDateKey } from '@core/utils/format';
 
 // Donnees saisies pour une reservation manuelle (le telephone est requis : le
 // back cree un client, et c'est la cle de rappel du restaurateur).
@@ -81,7 +81,9 @@ export interface NewReservationInput {
 
             <div class="grid grid-cols-2 gap-3">
               <label class="flex flex-col gap-1.5">
-                <span class="text-text-strong text-sm font-medium">Heure (aujourd'hui)</span>
+                <span class="text-text-strong text-sm font-medium">
+                  Heure ({{ isToday() ? "aujourd'hui" : dayLabel() }})
+                </span>
                 <input
                   type="time"
                   required
@@ -92,7 +94,7 @@ export interface NewReservationInput {
                 />
                 @if (timeInPast()) {
                   <span class="text-st-cancelled-fg text-xs" data-testid="new-resa-past">
-                    Cette heure est déjà passée aujourd'hui.
+                    Cette heure est déjà passée.
                   </span>
                 }
               </label>
@@ -143,7 +145,12 @@ export class HkNewReservationDialog {
   // Creation en cours (pilotee par la page) : desactive le submit -> pas de
   // double envoi si on clique deux fois avant la reponse reseau.
   readonly busy = input(false);
+  // Jour de la reservation : celui que la page affiche (cle « YYYY-MM-DD »), aujourd'hui sinon.
+  readonly day = input<string>(localDateKey());
   readonly createReservation = output<NewReservationInput>();
+
+  protected readonly isToday = computed(() => this.day() === localDateKey());
+  protected readonly dayLabel = computed(() => formatDayLabel(this.day()));
 
   constructor() {
     // Champs REINITIALISES a l'ouverture (pas au submit : en cas d'echec de
@@ -165,19 +172,22 @@ export class HkNewReservationDialog {
   protected readonly partySize = signal(2);
   protected readonly notes = signal('');
 
-  // Heure choisie ANTERIEURE a maintenant (le jour est fige a aujourd'hui) : une
-  // reservation dans le passe n'a pas de sens. Recalcule a chaque frappe (lit
-  // l'heure courante a la volee) - suffisant pour une saisie interactive.
+  // Heure choisie ANTERIEURE a maintenant, sur le jour affiche : une reservation
+  // dans le passe n'a pas de sens. Recalcule a chaque frappe (lit l'heure courante
+  // a la volee) - suffisant pour une saisie interactive.
   protected readonly timeInPast = computed(() => {
     const t = this.time();
     if (!/^\d{2}:\d{2}$/.test(t)) {
       return false;
     }
-    const [h, m] = t.split(':').map(Number);
-    const chosen = new Date();
-    chosen.setHours(h, m, 0, 0);
-    return chosen.getTime() < Date.now();
+    return this.dateTimeFor(t).getTime() < Date.now();
   });
+
+  private dateTimeFor(time: string): Date {
+    const [hours, minutes] = time.split(':').map(Number);
+    const [y, m, d] = this.day().split('-').map(Number);
+    return new Date(y, m - 1, d, hours, minutes, 0, 0);
+  }
 
   protected readonly valid = computed(
     () =>
@@ -200,9 +210,7 @@ export class HkNewReservationDialog {
     if (!this.valid() || this.busy()) {
       return;
     }
-    const [hours, minutes] = this.time().split(':').map(Number);
-    const dateTime = new Date();
-    dateTime.setHours(hours, minutes, 0, 0);
+    const dateTime = this.dateTimeFor(this.time());
     this.createReservation.emit({
       firstName: this.firstName().trim(),
       phone: this.phone().trim(),
