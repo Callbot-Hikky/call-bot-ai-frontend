@@ -1,4 +1,12 @@
 <div class="flex flex-col gap-6">
+  <!-- 0. Branchement du numéro : sans lui, l'assistant ne reçoit aucun appel et tout
+       le reste de la page est sans objet. Il vient donc en premier. -->
+  <hk-call-forwarding-setup
+    [setup]="forwarding()"
+    [loading]="forwardingLoading()"
+    (changed)="saveForwarding($event)"
+  />
+
   <!-- 1. Compte de paiement : la porte d'entrée de tout le reste. -->
   <section hlmCard>
     <div hlmCardHeader>
