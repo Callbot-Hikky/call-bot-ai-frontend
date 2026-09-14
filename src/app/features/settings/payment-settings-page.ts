@@ -5,10 +5,13 @@ import { lucideCreditCard, lucideRefreshCw, lucideTriangleAlert } from '@ng-icon
 import { HlmButtonImports } from '@spartan-ng/helm/button';
 import { HlmCardImports } from '@spartan-ng/helm/card';
 
+import { HkCallForwardingSetup } from '@shared/components/organisms/call-forwarding-setup/hk-call-forwarding-setup';
 import { GuaranteeService } from '@core/services/guarantee.service';
+import { TelephonyService } from '@core/services/telephony.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { formatCents } from '@core/models/guarantee.model';
+import type { ForwardMode, ForwardingSetup } from '@core/models/telephony.model';
 import type {
   ConnectAccount,
   GuaranteeMode,
@@ -25,16 +28,19 @@ import type {
  */
 @Component({
   selector: 'app-payment-settings-page',
-  imports: [NgIcon, ...HlmButtonImports, ...HlmCardImports],
+  imports: [NgIcon, HkCallForwardingSetup, ...HlmButtonImports, ...HlmCardImports],
   providers: [provideIcons({ lucideCreditCard, lucideRefreshCw, lucideTriangleAlert })],
   templateUrl: './payment-settings-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PaymentSettingsPage implements OnInit {
   private readonly guarantee = inject(GuaranteeService);
+  private readonly telephony = inject(TelephonyService);
   private readonly session = inject(SessionService);
   private readonly toast = inject(ToastService);
 
+  protected readonly forwarding = signal<ForwardingSetup | null>(null);
+  protected readonly forwardingLoading = signal(true);
   protected readonly account = signal<ConnectAccount | null>(null);
   protected readonly settings = signal<GuaranteeSettings | null>(null);
   protected readonly payouts = signal<readonly Payout[]>([]);
@@ -74,6 +80,13 @@ export class PaymentSettingsPage implements OnInit {
     if (!restaurantId) {
       return;
     }
+    this.telephony.getForwarding(restaurantId).subscribe({
+      next: (setup) => {
+        this.forwarding.set(setup);
+        this.forwardingLoading.set(false);
+      },
+      error: () => this.forwardingLoading.set(false),
+    });
     this.guarantee.getConnectAccount(restaurantId).subscribe({
       next: (account) => this.account.set(account),
       error: () => this.account.set(null),
@@ -85,6 +98,17 @@ export class PaymentSettingsPage implements OnInit {
     this.guarantee.getSettings(restaurantId).subscribe({
       next: (settings) => this.settings.set(settings),
       error: () => this.settings.set(null),
+    });
+  }
+
+  /**
+   * Le mode de renvoi est enregistré dès le clic : le restaurateur va composer le code
+   * sur son téléphone dans la foulée, il ne repassera pas par un bouton « Enregistrer ».
+   */
+  protected saveForwarding(patch: { mode: ForwardMode; ringSeconds: number }): void {
+    this.telephony.updateForwarding(this.restaurantId, patch).subscribe({
+      next: (setup) => this.forwarding.set(setup),
+      error: () => this.toast.show('Le réglage du renvoi n’a pas pu être enregistré.', 'error'),
     });
   }
 
