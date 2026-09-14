@@ -59,4 +59,18 @@ describe('TelephonyService', () => {
     req.flush({ did: '+33974067183', mode: 'safety_net', ringSeconds: 10, verifiedAt: null });
     await promise;
   });
+
+  it("updateForwarding : laisse remonter l'échec au lieu de simuler un enregistrement", async () => {
+    // L'endpoint n'existe pas encore. Un faux succès ferait croire au restaurateur
+    // que son mode de renvoi est mémorisé, alors qu'il repartira au rechargement.
+    const promise = firstValueFrom(
+      service.updateForwarding('r1', { mode: 'front_line', ringSeconds: 10 }),
+    );
+
+    http
+      .expectOne((r) => r.url.endsWith('/telephony/forwarding'))
+      .flush(null, { status: 404, statusText: 'Not Found' });
+
+    await expect(promise).rejects.toBeTruthy();
+  });
 });

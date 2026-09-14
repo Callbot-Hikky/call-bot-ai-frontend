@@ -10,9 +10,11 @@ import type { ForwardMode, ForwardingSetup } from '@core/models/telephony.model'
  * Configuration du renvoi d'appel d'un restaurant.
  *
  * <p>L'endpoint backend n'existe pas encore : la table `phone_numbers` (DID →
- * restaurant) et `GET /api/telephony/forwarding` restent à écrire. En attendant,
- * un 404 n'est pas une erreur — on retombe sur le DID de développement défini dans
- * `environment.ts`, ce qui permet de construire et valider l'écran dès maintenant.
+ * restaurant) et `GET /api/telephony/forwarding` restent à écrire. En attendant, la
+ * lecture retombe sur le DID en dur de `environment.ts` — un 404 n'y est donc pas
+ * une erreur. Les codes MMI étant calculés côté client, l'écran est pleinement
+ * utilisable ainsi ; seules la mémorisation du choix et la pastille « Renvoi actif »
+ * attendent le backend.
  *
  * <p>Quand l'endpoint arrivera, il n'y aura qu'à supprimer `fallback()`.
  */
@@ -27,13 +29,20 @@ export class TelephonyService {
       .pipe(catchError(() => of(this.fallback())));
   }
 
+  /**
+   * L'erreur n'est PAS avalée ici, contrairement à la lecture : tant que l'endpoint
+   * n'existe pas, le PUT échoue, et le restaurateur doit l'apprendre plutôt que de
+   * voir une confirmation mensongère. Son choix reste appliqué à l'écran — le
+   * composant garde ses propres overrides — donc les codes MMI à composer sont
+   * justes ; c'est seulement la mémorisation qui manque.
+   */
   updateForwarding(
     restaurantId: string,
     patch: { mode: ForwardMode; ringSeconds: number },
-  ): Observable<ForwardingSetup | null> {
-    return this.http
-      .put<ForwardingSetup>(`${this.baseUrl}/forwarding`, patch, { params: { restaurantId } })
-      .pipe(catchError(() => of({ ...this.fallback(), ...patch } as ForwardingSetup | null)));
+  ): Observable<ForwardingSetup> {
+    return this.http.put<ForwardingSetup>(`${this.baseUrl}/forwarding`, patch, {
+      params: { restaurantId },
+    });
   }
 
   /**
