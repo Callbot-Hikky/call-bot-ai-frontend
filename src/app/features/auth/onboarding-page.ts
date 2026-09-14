@@ -9,6 +9,9 @@ import { TableService } from '@core/services/table.service';
 import { RestaurantContextService } from '@core/services/restaurant-context.service';
 import { SessionService } from '@core/services/session.service';
 import { HkRestaurantContextForm } from '@shared/components/organisms/restaurant-context-form/hk-restaurant-context-form';
+import { HkCallForwardingSetup } from '@shared/components/organisms/call-forwarding-setup/hk-call-forwarding-setup';
+import { TelephonyService } from '@core/services/telephony.service';
+import type { ForwardMode, ForwardingSetup } from '@core/models/telephony.model';
 import { toDto } from '@core/models/restaurant-context-dto.model';
 
 interface ServiceHours {
@@ -49,12 +52,12 @@ const DEFAULT_DAYS: DayHours[] = [
 @Component({
   selector: 'hk-onboarding-page',
   standalone: true,
-  imports: [FormsModule, HkRestaurantContextForm],
+  imports: [FormsModule, HkRestaurantContextForm, HkCallForwardingSetup],
   template: `
     <div class="bg-surface-2 min-h-screen p-4">
       <div class="mx-auto w-full max-w-2xl space-y-6 py-8">
         <div class="flex items-center gap-2">
-          @for (s of [1, 2, 3, 4]; track s) {
+          @for (s of [1, 2, 3, 4, 5]; track s) {
             <div
               class="h-1.5 flex-1 rounded-full"
               [class.bg-primary]="step() >= s"
@@ -62,7 +65,7 @@ const DEFAULT_DAYS: DayHours[] = [
             ></div>
           }
         </div>
-        <p class="text-fg-muted text-sm">Étape {{ step() }} sur 4</p>
+        <p class="text-fg-muted text-sm">Étape {{ step() }} sur 5</p>
 
         @if (error()) {
           <p class="text-st-cancelled-fg text-sm">{{ error() }}</p>
@@ -72,7 +75,9 @@ const DEFAULT_DAYS: DayHours[] = [
           <form (ngSubmit)="submitCoordinates()" class="space-y-4">
             <h1 class="text-fg text-xl font-semibold">Votre restaurant</h1>
             <p class="text-fg-muted text-sm">
-              Le téléphone est le numéro sur lequel l'assistant vocal recevra les appels.
+              Le téléphone est le numéro public de votre restaurant, celui que vos clients
+              composent. Il ne change pas : nous lui rattacherons une ligne dédiée à la dernière
+              étape.
             </p>
             <label class="text-fg-muted block text-sm">
               Nom
@@ -239,16 +244,46 @@ const DEFAULT_DAYS: DayHours[] = [
             </div>
             <div class="flex gap-3">
               <button
+                (click)="submitTables()"
+                [disabled]="loading()"
+                class="bg-primary text-primary-fg rounded-md px-4 py-2 font-medium disabled:opacity-60"
+              >
+                {{ loading() ? 'Enregistrement…' : 'Continuer' }}
+              </button>
+              <button (click)="submitTables(true)" class="text-fg-muted rounded-md px-4 py-2">
+                Passer
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (step() === 5) {
+          <div class="space-y-4">
+            <h1 class="text-fg text-xl font-semibold">Brancher votre numéro</h1>
+            <p class="text-fg-muted text-sm">
+              Dernière étape, et la seule qui se passe sur votre téléphone. Sans elle, l'assistant
+              ne recevra aucun appel.
+            </p>
+            <hk-call-forwarding-setup
+              [setup]="forwarding()"
+              [loading]="forwardingLoading()"
+              (changed)="saveForwarding($event)"
+            />
+            <div class="flex gap-3">
+              <button
                 (click)="finish()"
                 [disabled]="loading()"
                 class="bg-primary text-primary-fg rounded-md px-4 py-2 font-medium disabled:opacity-60"
               >
-                {{ loading() ? 'Finalisation…' : 'Terminer' }}
+                {{ loading() ? 'Finalisation…' : "C'est fait" }}
               </button>
-              <button (click)="finish(true)" class="text-fg-muted rounded-md px-4 py-2">
-                Terminer sans tables
+              <button (click)="finish()" class="text-fg-muted rounded-md px-4 py-2">
+                Plus tard
               </button>
             </div>
+            <p class="text-fg-muted text-xs">
+              Vous retrouverez ces codes à tout moment dans Paramètres.
+            </p>
           </div>
         }
       </div>
@@ -260,6 +295,7 @@ export class OnboardingPage {
   private readonly hours = inject(RestaurantHoursService);
   private readonly tablesService = inject(TableService);
   private readonly contextStore = inject(RestaurantContextService);
+  private readonly telephony = inject(TelephonyService);
   private readonly session = inject(SessionService);
   private readonly router = inject(Router);
 
@@ -277,6 +313,9 @@ export class OnboardingPage {
   readonly days = signal<DayHours[]>(
     DEFAULT_DAYS.map((d) => ({ ...d, services: d.services.map((s) => ({ ...s })) })),
   );
+
+  readonly forwarding = signal<ForwardingSetup | null>(null);
+  readonly forwardingLoading = signal(false);
 
   readonly tableCount = signal(4);
   readonly tableCapacity = signal(4);
@@ -377,7 +416,7 @@ export class OnboardingPage {
     }
   }
 
-  async finish(skipTables = false): Promise<void> {
+  async submitTables(skipTables = false): Promise<void> {
     const id = this.restaurantId();
     if (!id || this.loading()) {
       return;
@@ -393,9 +432,48 @@ export class OnboardingPage {
           await firstValueFrom(this.tablesService.create({ name: `Table ${i}`, capacity }));
         }
       }
-      await this.router.navigateByUrl('/dashboard');
+      this.loadForwarding(id);
+      this.step.set(5);
     } catch {
-      this.error.set('La finalisation a échoué, réessayez.');
+      this.error.set("Les tables n'ont pas pu être créées.");
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  /**
+   * Le DID peut ne pas être encore attribué : l'écran affiche alors « en cours
+   * d'attribution » plutôt qu'un blocage. Le branchement se fera depuis Paramètres.
+   */
+  private loadForwarding(restaurantId: string): void {
+    this.forwardingLoading.set(true);
+    this.telephony.getForwarding(restaurantId).subscribe({
+      next: (setup) => {
+        this.forwarding.set(setup);
+        this.forwardingLoading.set(false);
+      },
+      error: () => this.forwardingLoading.set(false),
+    });
+  }
+
+  saveForwarding(patch: { mode: ForwardMode; ringSeconds: number }): void {
+    const id = this.restaurantId();
+    if (!id) {
+      return;
+    }
+    this.telephony.updateForwarding(id, patch).subscribe({
+      next: (setup) => this.forwarding.set(setup),
+      error: () => undefined,
+    });
+  }
+
+  async finish(): Promise<void> {
+    if (this.loading()) {
+      return;
+    }
+    this.loading.set(true);
+    try {
+      await this.router.navigateByUrl('/dashboard');
     } finally {
       this.loading.set(false);
     }

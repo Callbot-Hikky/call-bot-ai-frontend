@@ -6,4 +6,7 @@ export const environment = {
   apiUrl: '/api',
   useMock: false,
   restaurantId: '22b60047-3341-4b71-bed8-e22bc08c3603',
+  // DID de développement : repli tant que `GET /api/telephony/forwarding`
+  // n'existe pas côté backend. À retirer une fois l'endpoint en place.
+  forwardingDid: '+33974067183',
 };

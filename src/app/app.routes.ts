@@ -120,6 +120,9 @@ export const routes: Routes = [
         loadComponent: () =>
           import('@features/settings/payment-settings-page').then((m) => m.PaymentSettingsPage),
       },
+      // Stripe renvoie le restaurateur sur cette URL a la fin de l'onboarding Connect :
+      // elle doit continuer d'aboutir sur les reglages, servis par /parametres ci-dessus.
+      { path: 'parametres/paiements', redirectTo: 'parametres' },
       {
         path: 'mon-restaurant',
         loadComponent: () =>
