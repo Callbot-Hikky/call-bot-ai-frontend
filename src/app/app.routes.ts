@@ -6,6 +6,7 @@ import { LoginPage } from './features/auth/login-page';
 import { RegisterPage } from './features/auth/register-page';
 import { OnboardingPage } from './features/auth/onboarding-page';
 import { authGuard } from './core/guards/auth.guard';
+import { subscriptionGuard } from './core/guards/subscription.guard';
 
 export const routes: Routes = [
   // Page de validation du design system (hors shell), temporaire.
@@ -16,7 +17,8 @@ export const routes: Routes = [
   {
     path: 'onboarding',
     component: OnboardingPage,
-    canActivate: [authGuard],
+    // L'abonnement se paie avant de configurer le restaurant : sans lui, retour a /offre.
+    canActivate: [authGuard, subscriptionGuard],
     title: 'Configuration',
   },
 
@@ -84,7 +86,9 @@ export const routes: Routes = [
   {
     path: '',
     component: AppShell,
-    canActivate: [authGuard],
+    // Meme raison qu'a l'onboarding : sans abonnement actif, retour a /offre plutot
+    // qu'un tableau de bord qui ne pourra rien creer.
+    canActivate: [authGuard, subscriptionGuard],
     // Pages chargees a la demande : le bundle initial ne porte que la coquille et l'auth.
     children: [
       {

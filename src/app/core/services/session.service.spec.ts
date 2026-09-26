@@ -20,12 +20,18 @@ describe('SessionService', () => {
 
   const tick = () => new Promise((r) => setTimeout(r, 0));
 
-  function flushMe(organizationId: string | null) {
+  function flushMe(organizationId: string | null, hasActiveSubscription = true) {
     const req = http.expectOne((r) => r.url.endsWith('/me'));
     if (organizationId === null) {
       req.flush('', { status: 401, statusText: 'Unauthorized' });
     } else {
-      req.flush({ id: 'u1', email: 'a@b.co', organizationId, role: 'OWNER' });
+      req.flush({
+        id: 'u1',
+        email: 'a@b.co',
+        organizationId,
+        role: 'OWNER',
+        hasActiveSubscription,
+      });
     }
   }
 
@@ -68,6 +74,20 @@ describe('SessionService', () => {
     expect(service.isAuthenticated()).toBe(true);
     expect(service.restaurantId()).toBeNull();
     expect(service.needsOnboarding()).toBe(true);
+  });
+
+  // Le bug corrigé : un compte créé sans payer ne doit jamais atterrir sur l'onboarding,
+  // même s'il n'a pas encore de restaurant.
+  it('organisation sans abonnement actif → onboarding non requis, abonnement requis', async () => {
+    const promise = service.refresh();
+    flushMe('org1', false);
+    await tick();
+    http.expectOne((r) => r.url.endsWith('/restaurants')).flush([]);
+    await promise;
+
+    expect(service.isAuthenticated()).toBe(true);
+    expect(service.needsSubscription()).toBe(true);
+    expect(service.needsOnboarding()).toBe(false);
   });
 
   it('selectRestaurant change le restaurant courant', async () => {

@@ -120,14 +120,23 @@ export class LoginPage {
     try {
       await firstValueFrom(this.auth.login(this.email(), this.password()));
       await this.session.refresh();
-      await this.router.navigateByUrl(
-        this.session.needsOnboarding() ? '/onboarding' : '/dashboard',
-      );
+      await this.router.navigateByUrl(this.nextUrl());
     } catch (err: unknown) {
       this.error.set(this.messageFor(err));
     } finally {
       this.loading.set(false);
     }
+  }
+
+  // Meme sequence qu'a l'inscription : abonnement avant configuration du restaurant.
+  // Un compte cree puis abandonne avant paiement retombe ici sur /offre, jamais sur
+  // /onboarding directement.
+  private nextUrl(): string {
+    if (this.session.needsSubscription()) {
+      return '/offre';
+    }
+
+    return this.session.needsOnboarding() ? '/onboarding' : '/dashboard';
   }
 
   // Distinguer "identifiants faux" d'une panne : un back eteint renvoyait le meme

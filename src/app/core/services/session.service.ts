@@ -8,6 +8,7 @@ export interface SessionUser {
   email: string;
   organizationId: string;
   role: string;
+  hasActiveSubscription: boolean;
 }
 
 export interface RestaurantSummary {
@@ -33,8 +34,14 @@ export class SessionService {
   readonly status = this._status.asReadonly();
 
   readonly isAuthenticated = computed(() => this._status() === 'authenticated');
+  // L'abonnement se paie avant de configurer un restaurant (voir RestaurantAccess
+  // cote back, qui refuse la creation sans abonnement actif) : sans lui, l'onboarding
+  // n'est pas encore accessible, quel que soit l'etat des restaurants.
+  readonly needsSubscription = computed(
+    () => this.isAuthenticated() && this.user()?.hasActiveSubscription !== true,
+  );
   readonly needsOnboarding = computed(
-    () => this.isAuthenticated() && this._restaurantId() === null,
+    () => this.isAuthenticated() && !this.needsSubscription() && this._restaurantId() === null,
   );
 
   async refresh(): Promise<void> {
