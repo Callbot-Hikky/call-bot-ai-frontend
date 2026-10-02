@@ -143,6 +143,7 @@ export interface PublicReservationDto {
   partySize: number;
   status: string;
   customerFirstName: string | null;
+  paymentToken: string | null;
 }
 
 export function mapPublicReservation(dto: PublicReservationDto): PublicReservation {
@@ -155,5 +156,6 @@ export function mapPublicReservation(dto: PublicReservationDto): PublicReservati
     partySize: dto.partySize,
     status: dto.status as ReservationStatus,
     customerFirstName: dto.customerFirstName ?? '',
+    paymentToken: dto.paymentToken ?? undefined,
   };
 }
