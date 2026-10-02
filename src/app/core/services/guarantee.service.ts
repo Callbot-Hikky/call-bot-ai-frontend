@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { environment } from '@env/environment';
+import { assertHttpsUrl } from '@core/utils/redirect';
 import type {
   ConnectAccount,
   ConnectOnboarding,
@@ -48,10 +49,12 @@ export class GuaranteeService {
 
   // Les liens Stripe expirent en quelques minutes : jamais mis en cache.
   startOnboarding(restaurantId: string): Observable<ConnectOnboarding> {
-    return this.http.post<ConnectOnboarding>(
-      `${environment.apiUrl}/restaurants/${restaurantId}/payment-account/onboarding`,
-      {},
-    );
+    return this.http
+      .post<ConnectOnboarding>(
+        `${environment.apiUrl}/restaurants/${restaurantId}/payment-account/onboarding`,
+        {},
+      )
+      .pipe(map((onboarding) => ({ ...onboarding, url: assertHttpsUrl(onboarding.url) })));
   }
 
   getPayouts(restaurantId: string): Observable<Payout[]> {

@@ -1,8 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { environment } from '@env/environment';
+import { assertHttpsUrl } from '@core/utils/redirect';
 import type {
   Cancellation,
   GuestModification,
@@ -29,7 +30,9 @@ export class ReservationPaymentService {
 
   // Ouvre la page Stripe hébergée et renvoie l'URL vers laquelle rediriger.
   startCheckout(token: string): Observable<PaymentRedirect> {
-    return this.http.post<PaymentRedirect>(`${this.baseUrl}/paiement/${token}/checkout`, {});
+    return this.http
+      .post<PaymentRedirect>(`${this.baseUrl}/paiement/${token}/checkout`, {})
+      .pipe(map((redirect) => ({ ...redirect, url: assertHttpsUrl(redirect.url) })));
   }
 
   // Complement de couverts : jeton distinct de celui du paiement initial, porte par
@@ -39,7 +42,9 @@ export class ReservationPaymentService {
   }
 
   startTopUpCheckout(token: string): Observable<PaymentRedirect> {
-    return this.http.post<PaymentRedirect>(`${this.baseUrl}/complement/${token}/checkout`, {});
+    return this.http
+      .post<PaymentRedirect>(`${this.baseUrl}/complement/${token}/checkout`, {})
+      .pipe(map((redirect) => ({ ...redirect, url: assertHttpsUrl(redirect.url) })));
   }
 
   getByCancellationToken(token: string): Observable<PublicReservation> {

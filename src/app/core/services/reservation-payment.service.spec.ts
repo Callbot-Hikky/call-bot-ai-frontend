@@ -43,6 +43,29 @@ describe('ReservationPaymentService', () => {
     expect((await promise).url).toBe('https://checkout.stripe.com/cs_1');
   });
 
+  // L'adresse recue deplace le navigateur du convive : une adresse non verifiee
+  // serait une redirection ouverte. Seule une adresse absolue en https passe.
+  it.each([
+    ['javascript:alert(1)', 'un schema executable'],
+    ['http://checkout.stripe.com/cs_1', 'du http en clair'],
+    ['/paiement/local', 'une adresse relative'],
+    ['', 'une adresse vide'],
+  ])('startCheckout refuse %s (%s)', async (url) => {
+    const promise = firstValueFrom(service.startCheckout('tok-1'));
+    http.expectOne((r) => r.url.endsWith('/paiement/tok-1/checkout')).flush({ url });
+
+    await expect(promise).rejects.toThrow('Adresse de paiement invalide.');
+  });
+
+  it('startTopUpCheckout applique la meme verification', async () => {
+    const promise = firstValueFrom(service.startTopUpCheckout('top-1'));
+    http
+      .expectOne((r) => r.url.endsWith('/complement/top-1/checkout'))
+      .flush({ url: 'javascript:alert(1)' });
+
+    await expect(promise).rejects.toThrow('Adresse de paiement invalide.');
+  });
+
   // TICKET 09 : le complement a sa propre route et son propre jeton. Le jeton du
   // paiement initial ne doit jamais mener au complement, ni l'inverse.
   it('getByTopUpToken : GET la route du complement, pas celle du paiement', async () => {
