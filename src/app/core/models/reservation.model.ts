@@ -68,6 +68,12 @@ export interface RescheduleSlotsResponse {
 // Reservation en ligne : plafond de couverts aligne sur le back (BookingPolicy.MAX_PARTY_SIZE).
 export const BOOKING_MAX_PARTY_SIZE = 15;
 
+// DUREE D'UN SERVICE : une table est tenue 2 h. Source unique de la regle, qui
+// servait a trois endroits : le endsAt envoye au back a la creation (manuelle et
+// walk-in) et la fenetre d'occupation du plan de salle (ACTIVE_AFTER_MIN).
+export const SERVICE_DURATION_MIN = 120;
+export const SERVICE_DURATION_MS = SERVICE_DURATION_MIN * 60_000;
+
 // Ce qu'un client voit de sa propre reservation, sans session : rien qu'il n'ait saisi lui-meme.
 export interface PublicReservation {
   id: string;

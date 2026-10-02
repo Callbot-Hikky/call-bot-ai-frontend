@@ -1,4 +1,4 @@
-import { Reservation } from './reservation.model';
+import { Reservation, SERVICE_DURATION_MIN } from './reservation.model';
 import { FloorTable } from './table.model';
 import { formatTime } from '@core/utils/format';
 import {
@@ -19,7 +19,8 @@ export type FloorTableStatus = 'libre' | 'reservee' | 'installee';
 // front n'expose pas endsAt. Une resa confirmed/pending est « active » sur sa
 // table de 45 min AVANT son heure a 120 min APRES (duree de service type).
 export const ACTIVE_BEFORE_MIN = 45;
-export const ACTIVE_AFTER_MIN = 120;
+// Meme regle que la duree envoyee au back a la creation : une table tenue 2 h.
+export const ACTIVE_AFTER_MIN = SERVICE_DURATION_MIN;
 // Retard signale a partir de +15 min apres l'heure prevue (sans installation).
 export const LATE_THRESHOLD_MIN = 15;
 

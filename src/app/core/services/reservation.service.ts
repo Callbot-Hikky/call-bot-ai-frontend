@@ -12,6 +12,7 @@ import {
   Reservation,
   ReservationStatus,
   RestaurantTable,
+  SERVICE_DURATION_MS,
   newReservations,
 } from '@core/models/reservation.model';
 import {
@@ -266,7 +267,7 @@ export class ReservationService {
       tableId: table.id,
       callId: null,
       startsAt: localIso(now),
-      endsAt: localIso(new Date(now.getTime() + 2 * 60 * 60 * 1000)),
+      endsAt: localIso(new Date(now.getTime() + SERVICE_DURATION_MS)),
       partySize,
       status: 'seated',
       source: 'manual',
@@ -293,6 +294,15 @@ export class ReservationService {
   // CLIENT d'abord (POST /customers - le back n'accepte pas de nom en ligne sur
   // la resa), puis la reservation non placee. Elle arrive dans « Réservations
   // non placées » : le plan (placement auto / fusion guidee) prend le relais.
+  //
+  // DEUX APPELS, SANS COMPENSATION - et c'est tenable parce que le premier est
+  // IDEMPOTENT : `POST /customers` fait un upsert sur (restaurant, telephone), il
+  // relit la fiche existante au lieu de refuser un doublon. Si le second appel
+  // echoue, le restaurateur revalide simplement le formulaire, reste ouvert avec
+  // sa saisie : le meme client est reutilise et la reservation part. Ce qui
+  // subsiste dans le pire des cas est une fiche client sans reservation, un etat
+  // legitime (un habitue existe avant de reserver). Une transaction cote serveur
+  // reste preferable, mais rien n'est ni bloque ni perdu.
   createManual(input: {
     firstName: string;
     phone: string;
@@ -333,7 +343,7 @@ export class ReservationService {
             tableId: null,
             callId: null,
             startsAt: localIso(input.dateTime),
-            endsAt: localIso(new Date(input.dateTime.getTime() + 2 * 60 * 60 * 1000)),
+            endsAt: localIso(new Date(input.dateTime.getTime() + SERVICE_DURATION_MS)),
             partySize: input.partySize,
             status: 'confirmed',
             source: 'manual',
