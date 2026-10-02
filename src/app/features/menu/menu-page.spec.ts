@@ -49,6 +49,15 @@ const IMAGES = [
   },
 ];
 
+const PDF = {
+  id: 'p',
+  kind: 'pdf' as const,
+  contentType: 'application/pdf',
+  position: 0,
+  sizeBytes: 10,
+  url: '/api/restaurants/r-1/menu/files/p',
+};
+
 describe('MenuPage', () => {
   let fixture: ComponentFixture<MenuPage>;
   let http: HttpTestingController;
@@ -167,6 +176,26 @@ describe('MenuPage', () => {
     http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [pdf] }));
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+  });
+
+  // Une apostrophe dans une interpolation fermait la chaine : Angular ne signale rien et
+  // rend le {{ ... }} en texte brut. On verifie donc la phrase entiere, pas un fragment.
+  it('un seul PDF : le bandeau affiche la phrase au singulier, sans interpolation brute', async () => {
+    await render(dto({ mode: 'none', files: [PDF] }));
+    const inline: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-inline"]',
+    );
+    expect(inline.textContent).toContain("Votre PDF est prêt. Il n'est pas encore visible");
+    expect(inline.textContent).not.toContain('{{');
+  });
+
+  it('plusieurs PDF : le bandeau passe au pluriel', async () => {
+    await render(dto({ mode: 'none', files: [PDF, { ...PDF, id: 'p2', position: 1 }] }));
+    const inline: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-inline"]',
+    );
+    expect(inline.textContent).toContain('Vos PDF sont prêts. Ils ne sont pas encore visibles');
+    expect(inline.textContent).not.toContain('{{');
   });
 
   it('aucun etat d enregistrement tant que rien n a ete modifie', async () => {

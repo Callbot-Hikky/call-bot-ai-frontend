@@ -25,6 +25,7 @@ import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
+  DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
   MenuFile,
@@ -40,18 +41,20 @@ interface ModeCard {
   description: string;
 }
 
+// Ces tuiles decrivent le MODE, jamais ses limites : le compte et le poids exacts
+// viennent du serveur et sont affiches par pdfHint()/imageHint().
 const MODE_CARDS: ModeCard[] = [
   {
     mode: 'pdf',
     icon: 'lucideFileText',
     title: 'PDF',
-    description: "Jusqu'à 5 PDF : plats, vins, desserts.",
+    description: 'Vos cartes en PDF : plats, vins, desserts.',
   },
   {
     mode: 'images',
     icon: 'lucideImage',
     title: 'Photos',
-    description: "Jusqu'à 8 photos de votre carte.",
+    description: 'Des photos de votre carte, prises au téléphone.',
   },
   {
     mode: 'manual',
@@ -72,6 +75,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
 // photos ou saisie), preparer le contenu de chaque mode, voir l'etat.
 // Cliquer une carte publie ce mode ; si son contenu manque, le back refuse et
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
+//
+// PLAN DU GABARIT, dans l'ordre : le bandeau de publication, les trois tuiles de
+// mode, puis un @switch qui n'ouvre QUE la zone du mode consulte (PDF, photos ou
+// saisie), et enfin les deux QR. Le gabarit est long parce que les trois zones
+// sont exclusives et ne partagent ni leur contenu ni leurs actions : les extraire
+// donnerait trois composants a un seul appelant, chacun reclamant en entree la
+// moitie de l'etat de cette page.
 @Component({
   selector: 'app-menu',
   imports: [
@@ -296,11 +306,10 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 >
                   <span class="flex items-center gap-2">
                     <hk-icon name="lucideTriangleAlert" [size]="16" />
-                    {{ pdfs().length > 1 ? 'Vos PDF sont prêts. Ils ne sont' : 'Votre PDF est prêt. Il n'est' }}
-                    pas encore visible{{ pdfs().length > 1 ? 's' : '' }} par vos clients.
+                    {{ pdfPendingText() }}
                   </span>
                   <hk-button size="sm" [disabled]="service.saving()" (click)="publish('pdf')">
-                    {{ pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF' }}
+                    {{ pdfPublishLabel() }}
                   </hk-button>
                 </div>
               }
@@ -427,7 +436,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                   [multiple]="true"
                   [disabled]="service.saving()"
                   label="Glissez vos cartes en PDF ici"
-                  hint="ou cliquez pour les choisir. Jusqu'à 5 PDF (plats, vins, desserts), 10 Mo maximum chacun."
+                  [hint]="pdfHint()"
                   (filesPicked)="onFiles($event)"
                 />
               }
@@ -541,7 +550,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
                 [multiple]="true"
                 [disabled]="service.saving() || !canAddImage()"
                 [label]="canAddImage() ? 'Glissez vos photos ici' : 'Limite de photos atteinte'"
-                hint="ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, 5 Mo max chacune."
+                [hint]="imageHint()"
                 (filesPicked)="onFiles($event)"
               />
             </section>
@@ -630,7 +639,28 @@ export class MenuPage {
       .sort((a, b) => a.position - b.position),
   );
   protected readonly canAddPdf = computed(
-    () => this.pdfs().length < (this.menu()?.limits.pdfMaxCount ?? 5),
+    () => this.pdfs().length < (this.menu()?.limits.pdfMaxCount ?? DEFAULT_LIMITS.pdfMaxCount),
+  );
+  // Libelles du bandeau « pas encore publie ». Ils vivent ici et non dans le template :
+  // le pluriel porte sur la phrase entiere, et une apostrophe a l'interieur d'une
+  // interpolation ferme la chaine, ce qui affiche le {{ ... }} brut a l'ecran.
+  // Les limites affichees viennent du serveur : les reecrire a la main ici, c'est
+  // mentir au restaurateur le jour ou le serveur change de politique.
+  protected readonly pdfHint = computed(() => {
+    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    return `ou cliquez pour les choisir. Jusqu'à ${limits.pdfMaxCount} PDF (plats, vins, desserts), ${humanSize(limits.pdfMaxBytes)} maximum chacun.`;
+  });
+  protected readonly imageHint = computed(() => {
+    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    return `ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, ${humanSize(limits.imageMaxBytes)} max chacune.`;
+  });
+  protected readonly pdfPendingText = computed(() =>
+    this.pdfs().length > 1
+      ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
+      : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
+  );
+  protected readonly pdfPublishLabel = computed(() =>
+    this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF',
   );
   // Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue.
   protected previewUrl(file: MenuFile): string | null {
@@ -642,7 +672,8 @@ export class MenuPage {
       .sort((a, b) => a.position - b.position),
   );
   protected readonly canAddImage = computed(
-    () => this.images().length < (this.menu()?.limits.imageMaxCount ?? 8),
+    () =>
+      this.images().length < (this.menu()?.limits.imageMaxCount ?? DEFAULT_LIMITS.imageMaxCount),
   );
   // Rien tant que rien n'a ete modifie : « Enregistré » sur une page intacte n'apprend rien.
   protected readonly saveLabel = computed(() => {
