@@ -125,7 +125,7 @@ const PHONE_PATTERN = /^\+?[0-9 .()-]{6,20}$/;
             </p>
           } @else if (noSlotAtAll()) {
             <p class="text-text-muted text-sm" data-testid="no-slots">
-              Aucun créneau disponible ces 7 prochains jours pour
+              Aucun créneau disponible ces {{ daysAhead() }} prochains jours pour
               {{ partySize() }} personne{{ partySize() > 1 ? 's' : '' }}. Essayez un autre nombre de
               personnes, ou appelez le restaurant.
             </p>
@@ -278,6 +278,10 @@ export class ReservationSchedulePage {
     const days = this.days();
     return days !== null && days.every((d) => d.slots.length === 0);
   });
+  // Combien de jours le restaurant ouvre a la reservation : on compte ceux que le
+  // serveur vient de renvoyer. Ecrire le chiffre ici ferait mentir la page le jour
+  // ou la fenetre change, ce qui est deja arrive (elle est passee de 7 a 30).
+  protected readonly daysAhead = computed(() => this.days()?.length ?? 0);
   // Chaque chargement a un numero : une reponse en retard ne remplace jamais la plus recente.
   private slotsRun = 0;
 
@@ -397,6 +401,13 @@ export class ReservationSchedulePage {
         next: (created) => {
           this.submitting.set(false);
           this.sheetState.set('closed');
+          // Table retenue le temps du reglement : le convive est devant son ecran, on
+          // l'emmene payer tout de suite. L'annoncer confirmee serait un mensonge, elle
+          // est liberee automatiquement si le paiement n'arrive pas.
+          if (created.paymentToken) {
+            void this.router.navigate(['/client/reservations/payer', created.paymentToken]);
+            return;
+          }
           void this.router.navigate(['/client/reservations', created.id, 'confirmed']);
         },
         error: (err: unknown) => {
