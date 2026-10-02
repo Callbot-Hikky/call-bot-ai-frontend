@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { OnInit } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleCheckBig, lucideTriangleAlert } from '@ng-icons/lucide';
@@ -9,6 +18,9 @@ import { ReservationPaymentService } from '@core/services/reservation-payment.se
 import { formatDateTime } from './format';
 import { formatCents } from '@core/models/guarantee.model';
 import type { Cancellation, PublicReservation } from '@core/models/guarantee.model';
+
+// La fenetre de remboursement est exprimee en heures par le backend.
+const HOUR_MS = 3_600_000;
 
 /**
  * Page d'annulation par le convive, ouverte depuis son lien.
@@ -30,6 +42,7 @@ export class ReservationCancelPage implements OnInit {
   readonly token = input.required<string>();
 
   private readonly payments = inject(ReservationPaymentService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly reservation = signal<PublicReservation | null>(null);
   protected readonly result = signal<Cancellation | null>(null);
@@ -55,7 +68,7 @@ export class ReservationCancelPage implements OnInit {
       return false;
     }
     const windowHours = current.refundWindowHours ?? 0;
-    const deadline = new Date(current.startsAt).getTime() - windowHours * 3_600_000;
+    const deadline = new Date(current.startsAt).getTime() - windowHours * HOUR_MS;
     return Date.now() < deadline;
   });
 
@@ -64,23 +77,26 @@ export class ReservationCancelPage implements OnInit {
   }
 
   private load(): void {
-    this.payments.getByCancellationToken(this.token()).subscribe({
-      next: (reservation) => {
-        this.reservation.set(reservation);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.linkDead.set(true);
-        this.loading.set(false);
-      },
-    });
+    this.payments
+      .getByCancellationToken(this.token())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (reservation) => {
+          this.reservation.set(reservation);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.linkDead.set(true);
+          this.loading.set(false);
+        },
+      });
   }
 
   protected readonly formatDateTime = formatDateTime;
 
   protected formatRefund(cents: number | null): string {
     const current = this.reservation();
-    return cents ? formatCents(cents, current?.currency ?? 'eur') : '';
+    return cents ? formatCents(cents, current?.currency) : '';
   }
 
   protected confirmCancellation(): void {
@@ -90,15 +106,18 @@ export class ReservationCancelPage implements OnInit {
     this.cancelling.set(true);
     this.errorMessage.set(null);
 
-    this.payments.cancel(this.token()).subscribe({
-      next: (result) => {
-        this.result.set(result);
-        this.cancelling.set(false);
-      },
-      error: () => {
-        this.cancelling.set(false);
-        this.errorMessage.set("L'annulation n'a pas abouti. Appelez le restaurant.");
-      },
-    });
+    this.payments
+      .cancel(this.token())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.result.set(result);
+          this.cancelling.set(false);
+        },
+        error: () => {
+          this.cancelling.set(false);
+          this.errorMessage.set("L'annulation n'a pas abouti. Appelez le restaurant.");
+        },
+      });
   }
 }
