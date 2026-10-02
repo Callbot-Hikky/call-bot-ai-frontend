@@ -4,6 +4,13 @@
  * <p>Extraits le jour où `formatDateTime` en était à sa quatrième copie identique. Quatre
  * pages qui affichent la même réservation doivent l'écrire de la même façon ; quatre
  * copies finissent par diverger sur une majuscule ou un fuseau.
+ *
+ * <p>Ce qui n'est volontairement PAS partagé : l'échafaudage
+ * `loading / linkDead / errorMessage` que les quatre pages déclarent chacune. La
+ * ressemblance est de surface, la règle diffère à chaque fois : un lien de paiement
+ * meurt quand la garantie n'est plus attendue, un complément quand il n'est plus en
+ * cours, une modification quand elle est fermée. Une base commune imposerait de
+ * paramétrer cette règle, soit plus d'indirection que de lignes économisées.
  */
 
 const DATE_TIME = new Intl.DateTimeFormat('fr-FR', {

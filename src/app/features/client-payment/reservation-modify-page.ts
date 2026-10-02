@@ -114,7 +114,7 @@ export class ReservationModifyPage implements OnInit {
     }
     const cents = this.coversGivenUp() * (current.centsPerGuest ?? 0);
 
-    return cents > 0 ? formatCents(cents, current.currency ?? 'eur') : null;
+    return cents > 0 ? formatCents(cents, current.currency) : null;
   });
 
   /** Ce qui sera demandé si le convive valide une hausse sur une réservation payante. */
@@ -129,7 +129,7 @@ export class ReservationModifyPage implements OnInit {
     }
     const cents = this.coversAdded() * (current.centsPerGuest ?? 0);
 
-    return cents > 0 ? formatCents(cents, current.currency ?? 'eur') : null;
+    return cents > 0 ? formatCents(cents, current.currency) : null;
   });
 
   /** Un changement réel : re-choisir l'horaire déjà en place n'en est pas un. */
@@ -271,6 +271,6 @@ export class ReservationModifyPage implements OnInit {
   protected readonly formatTime = formatTime;
 
   protected formatAmount(cents: number): string {
-    return formatCents(cents, this.reservation()?.currency ?? 'eur');
+    return formatCents(cents, this.reservation()?.currency);
   }
 }
