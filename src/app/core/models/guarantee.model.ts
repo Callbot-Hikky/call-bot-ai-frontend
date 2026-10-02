@@ -118,6 +118,14 @@ export interface PublicModification {
 }
 
 // Un créneau libre : l'heure, et la table qui pourrait le tenir.
+/**
+ * Un creneau propose au convive.
+ *
+ * <p>`tableId` et `capacity` viennent du backend mais ne sont lus nulle part ici : le
+ * convive choisit une heure, pas une table. Les laisser dans la reponse publique
+ * revele l'agencement interne de la salle a qui ouvre les outils du navigateur.
+ * A retirer du contrat public cote backend ; le front n'a rien a en faire.
+ */
 export interface RescheduleSlot {
   startsAt: string;
   endsAt: string;
@@ -152,9 +160,15 @@ export interface Cancellation {
   refundedAmountCents: number | null;
 }
 
-export function formatCents(amountCents: number, currency = 'eur'): string {
+/**
+ * La devise par defaut est declaree ICI et nulle part ailleurs : chaque page qui
+ * ecrivait son propre repli « eur » etait un endroit de plus a corriger le jour ou
+ * un restaurant encaisse dans une autre monnaie. `null` est accepte parce que le
+ * contrat public la laisse absente sur une reservation sans montant.
+ */
+export function formatCents(amountCents: number, currency?: string | null): string {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
-    currency: currency.toUpperCase(),
+    currency: (currency ?? 'eur').toUpperCase(),
   }).format(amountCents / 100);
 }
