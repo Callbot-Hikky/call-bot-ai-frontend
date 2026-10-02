@@ -17,6 +17,10 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 // Le SVG (vectoriel, pour l'imprimeur) est toujours produit ; le PNG (pour un
 // flyer, un reseau social) demande un canvas et n'existe donc que dans un vrai
 // navigateur.
+// Duree du retour visuel apres copie : assez long pour etre lu, assez court
+// pour ne pas laisser croire que le bouton est bloque.
+const COPIED_FEEDBACK_MS = 2000;
+
 @Component({
   selector: 'hk-qr-card',
   imports: [HkButton, HkIcon],
@@ -158,6 +162,10 @@ export class HkQrCard {
   // Un lien change pendant la generation : seul le dernier resultat est garde.
   private async generate(url: string): Promise<void> {
     const run = ++this.generation;
+    // Le PNG du lien precedent part tout de suite. Le SVG est peint avant que le
+    // PNG soit pret : sans ca, le bouton « telecharger en PNG » servirait le QR de
+    // l'ancien lien pendant que l'ecran affiche deja le nouveau.
+    this.png.set(null);
     const options = { margin: 1, errorCorrectionLevel: 'M' as const };
     // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
     // Module CommonJS : en build de production, les fonctions sont sous « default ».
@@ -178,7 +186,9 @@ export class HkQrCard {
       if (run === this.generation) this.png.set(png);
     } catch {
       // Pas de canvas (tests) : le SVG suffit a l'affichage et a l'impression.
-      this.png.set(null);
+      // Meme garde que les autres branches : un echec tardif d'une generation
+      // abandonnee ne doit pas effacer le PNG d'un lien plus recent.
+      if (run === this.generation) this.png.set(null);
     }
   }
 
@@ -188,7 +198,7 @@ export class HkQrCard {
       this.copied.set(true);
       this.copyFailed.set(false);
       if (this.copiedTimer) clearTimeout(this.copiedTimer);
-      this.copiedTimer = setTimeout(() => this.copied.set(false), 2000);
+      this.copiedTimer = setTimeout(() => this.copied.set(false), COPIED_FEEDBACK_MS);
     } catch {
       this.copyFailed.set(true);
     }
