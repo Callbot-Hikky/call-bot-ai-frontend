@@ -321,6 +321,118 @@ describe('ReservationService', () => {
     await result;
     expect(service.reservations().find((r) => r.id === '1')?.status).toBe('cancelled');
   });
+
+  // Reservation MANUELLE : deux appels enchaines (le back cree le client a part,
+  // puis la resa le reference). C'est le point le plus fragile du parcours.
+  describe('createManual', () => {
+    const input = {
+      firstName: 'Camille',
+      phone: '+33 6 12 34 56 78',
+      dateTime: new Date(2026, 5, 24, 20, 0, 0),
+      partySize: 4,
+      notes: 'Terrasse',
+    };
+
+    it('cree le client puis la reservation, sans table et pour 2 h', async () => {
+      const result = firstValueFrom(service.createManual(input));
+
+      const customer = httpMock.expectOne((r) => r.url.endsWith('/customers'));
+      expect(customer.request.method).toBe('POST');
+      expect(customer.request.body).toMatchObject({
+        restaurantId: 'rest-1',
+        phone: input.phone,
+        firstName: 'Camille',
+      });
+      customer.flush({ id: 'cust-9' });
+
+      const created = httpMock.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/reservations'),
+      );
+      const body = created.request.body as Record<string, unknown>;
+      expect(body).toMatchObject({
+        customerId: 'cust-9',
+        tableId: null,
+        partySize: 4,
+        status: 'confirmed',
+        source: 'manual',
+        notes: 'Terrasse',
+      });
+      // La table est choisie plus tard sur le plan : la resa nait non placee.
+      expect(body['startsAt']).toBe(localIso(input.dateTime));
+      expect(body['endsAt']).toBe(
+        localIso(new Date(input.dateTime.getTime() + 2 * 60 * 60 * 1000)),
+      );
+
+      created.flush({ ...dto('r-9', 'confirmed'), id: 'r-9' });
+      await result;
+    });
+
+    // Le POST client est un upsert cote backend : revalider apres un echec du
+    // second appel reutilise la meme fiche au lieu d'etre refuse. C'est ce qui
+    // rend l'absence de compensation acceptable.
+    it('apres un echec de la reservation, revalider repart du meme client', async () => {
+      const premier = firstValueFrom(service.createManual(input));
+      httpMock.expectOne((r) => r.url.endsWith('/customers')).flush({ id: 'cust-9' });
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/reservations'))
+        .flush('boom', { status: 500, statusText: 'Server Error' });
+      await expect(premier).rejects.toBeDefined();
+
+      // Seconde tentative : le backend renvoie la MEME fiche (upsert par telephone).
+      const second = firstValueFrom(service.createManual(input));
+      const client = httpMock.expectOne((r) => r.url.endsWith('/customers'));
+      expect((client.request.body as { phone: string }).phone).toBe(input.phone);
+      client.flush({ id: 'cust-9' });
+
+      const creation = httpMock.expectOne(
+        (r) => r.method === 'POST' && r.url.endsWith('/reservations'),
+      );
+      expect((creation.request.body as { customerId: string }).customerId).toBe('cust-9');
+      creation.flush({ ...dto('r-9', 'confirmed'), id: 'r-9' });
+      await second;
+    });
+
+    it('sans nom saisi, le client est cree sans prenom', () => {
+      firstValueFrom(service.createManual({ ...input, firstName: '' }));
+      const customer = httpMock.expectOne((r) => r.url.endsWith('/customers'));
+      expect((customer.request.body as { firstName: string | null }).firstName).toBeNull();
+      customer.flush({ id: 'cust-9' });
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/reservations'))
+        .flush(dto('r-9', 'confirmed'));
+    });
+
+    it('la reponse sans customer affiche quand meme le nom saisi', async () => {
+      service.loadToday(localDateKey(input.dateTime));
+      httpMock.expectOne((r) => r.method === 'GET').flush([]);
+
+      const result = firstValueFrom(service.createManual(input));
+      httpMock.expectOne((r) => r.url.endsWith('/customers')).flush({ id: 'cust-9' });
+      // Le back ne renvoie pas le client (pas de ?expand) : le service greffe la saisie.
+      const bare = { ...dto('r-9', 'confirmed'), id: 'r-9', customer: undefined };
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/reservations'))
+        .flush({ ...bare, startsAt: localIso(input.dateTime) });
+
+      expect((await result).customerName).toContain('Camille');
+      expect(service.reservations().map((r) => r.id)).toContain('r-9');
+    });
+
+    it('creee pour un autre jour, elle n entre pas dans la liste affichee', async () => {
+      service.loadToday('2026-06-24');
+      httpMock.expectOne((r) => r.method === 'GET').flush([]);
+
+      const autreJour = new Date(2026, 5, 28, 20, 0, 0);
+      const result = firstValueFrom(service.createManual({ ...input, dateTime: autreJour }));
+      httpMock.expectOne((r) => r.url.endsWith('/customers')).flush({ id: 'cust-9' });
+      httpMock
+        .expectOne((r) => r.method === 'POST' && r.url.endsWith('/reservations'))
+        .flush({ ...dto('r-9', 'confirmed'), id: 'r-9', startsAt: localIso(autreJour) });
+
+      await result;
+      expect(service.reservations().map((r) => r.id)).not.toContain('r-9');
+    });
+  });
 });
 
 // LOT B3 : diff par id apres refresh (detection des nouvelles reservations).
