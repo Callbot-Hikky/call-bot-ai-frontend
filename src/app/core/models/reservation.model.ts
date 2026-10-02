@@ -84,6 +84,9 @@ export interface PublicReservation {
   partySize: number;
   status: ReservationStatus;
   customerFirstName: string;
+  // Present uniquement quand la table attend un reglement : le navigateur peut alors
+  // emmener le convive payer tout de suite, au lieu de le renvoyer a son message.
+  paymentToken?: string;
 }
 
 export interface PublicReservationInput {
