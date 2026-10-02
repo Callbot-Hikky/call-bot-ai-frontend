@@ -22,7 +22,15 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: 'lucidePhone', label: 'Appels', route: '/appels' },
   { icon: 'lucideStore', label: 'Mon restaurant', route: '/mon-restaurant' },
   { icon: 'lucideUtensilsCrossed', label: 'Carte et QR codes', route: '/menu' },
-  { icon: 'lucideSettings', label: 'Paramètres', route: '/parametres' },
+  {
+    icon: 'lucideSettings',
+    label: 'Paramètres',
+    route: '/parametres',
+    children: [
+      { icon: 'lucideCreditCard', label: 'Téléphone et paiements', route: '/parametres' },
+      { icon: 'lucideBookOpen', label: 'Assistant', route: '/assistant' },
+    ],
+  },
 ];
 
 // Navigation A PLAT (drawer mobile) : les groupes sont remplaces par leurs
