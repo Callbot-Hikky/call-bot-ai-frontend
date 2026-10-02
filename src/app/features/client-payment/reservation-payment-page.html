@@ -9,8 +9,8 @@
         <ng-icon name="lucideTriangleAlert" class="text-muted-foreground mb-2" size="36" />
         <h3 hlmCardTitle>Ce lien n'est plus valable</h3>
         <p hlmCardDescription>
-          Votre réservation est peut-être déjà confirmée, ou le délai de 30 minutes est écoulé et la
-          table a été remise à la vente.
+          Votre réservation est peut-être déjà confirmée, ou le délai est écoulé et la table a été
+          remise à la vente.
         </p>
       </div>
       <div hlmCardContent>
@@ -85,6 +85,12 @@
             Payer {{ amount() }}
           }
         </button>
+        @if (validUntil(); as heure) {
+          <!-- L'echeance vient du backend, et n'est annoncee que si elle tient encore. -->
+          <p class="text-muted-foreground text-center text-xs">
+            Ce lien reste valable jusqu'à {{ heure }}.
+          </p>
+        }
         <p class="text-muted-foreground text-center text-xs">
           Paiement sécurisé par Stripe. Aucune donnée bancaire ne passe par Alloquence.
         </p>
