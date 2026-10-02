@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import type { OnInit } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCreditCard, lucideTriangleAlert } from '@ng-icons/lucide';
@@ -30,6 +39,7 @@ export class ReservationTopUpPage implements OnInit {
   readonly token = input.required<string>();
 
   private readonly payments = inject(ReservationPaymentService);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly topUp = signal<PublicTopUp | null>(null);
   protected readonly loading = signal(true);
@@ -52,19 +62,22 @@ export class ReservationTopUpPage implements OnInit {
   }
 
   private load(): void {
-    this.payments.getByTopUpToken(this.token()).subscribe({
-      next: (topUp) => {
-        this.topUp.set(topUp);
-        // `closed` : le délai est passé. Afficher un bouton qui échouera serait pire
-        // que de le dire.
-        this.linkDead.set(topUp.status !== 'pending');
-        this.loading.set(false);
-      },
-      error: () => {
-        this.linkDead.set(true);
-        this.loading.set(false);
-      },
-    });
+    this.payments
+      .getByTopUpToken(this.token())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (topUp) => {
+          this.topUp.set(topUp);
+          // `closed` : le délai est passé. Afficher un bouton qui échouera serait pire
+          // que de le dire.
+          this.linkDead.set(topUp.status !== 'pending');
+          this.loading.set(false);
+        },
+        error: () => {
+          this.linkDead.set(true);
+          this.loading.set(false);
+        },
+      });
   }
 
   protected readonly formatDateTime = formatDateTime;
@@ -76,16 +89,19 @@ export class ReservationTopUpPage implements OnInit {
     this.redirecting.set(true);
     this.errorMessage.set(null);
 
-    this.payments.startTopUpCheckout(this.token()).subscribe({
-      next: (redirect) => {
-        window.location.href = redirect.url;
-      },
-      error: () => {
-        this.redirecting.set(false);
-        this.errorMessage.set(
-          "Impossible d'ouvrir le paiement. Le délai est peut-être écoulé : rappelez le restaurant.",
-        );
-      },
-    });
+    this.payments
+      .startTopUpCheckout(this.token())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (redirect) => {
+          window.location.href = redirect.url;
+        },
+        error: () => {
+          this.redirecting.set(false);
+          this.errorMessage.set(
+            "Impossible d'ouvrir le paiement. Le délai est peut-être écoulé : rappelez le restaurant.",
+          );
+        },
+      });
   }
 }
