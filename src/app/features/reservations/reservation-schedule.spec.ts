@@ -126,6 +126,34 @@ describe('ReservationSchedulePage', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/client/reservations', 'r-1', 'confirmed']);
   });
 
+  // Table retenue le temps du reglement : on emmene le convive payer tout de suite
+  // plutot que de lui annoncer une table confirmee qui sera liberee sans paiement.
+  it('frais de reservation actives : le convive part sur le paiement, pas sur la confirmation', async () => {
+    await render();
+    fixture.componentInstance['onSlotPicked'](SLOT);
+    fixture.componentInstance['firstName'].set('Nadia');
+    fixture.componentInstance['phone'].set('06 12 34 56 78');
+    fixture.componentInstance['confirm']();
+    await fixture.whenStable();
+
+    http
+      .expectOne((r) => r.method === 'POST')
+      .flush({
+        id: 'r-1',
+        restaurantId: RID,
+        restaurantName: "La Table d'Ines",
+        startsAt: SLOT.startsAt,
+        endsAt: SLOT.endsAt,
+        partySize: 2,
+        status: 'awaiting_payment',
+        customerFirstName: 'Nadia',
+        paymentToken: 'tok-123',
+      });
+    await fixture.whenStable();
+
+    expect(router.navigate).toHaveBeenCalledWith(['/client/reservations/payer', 'tok-123']);
+  });
+
   it('un creneau pris entre-temps (409) est explique en francais et la liste est rechargee', async () => {
     await render();
     fixture.componentInstance['onSlotPicked'](SLOT);
@@ -179,6 +207,22 @@ describe('ReservationSchedulePage', () => {
     await fixture.whenStable();
     expect(fixture.componentInstance['days']()?.[0].slots).toHaveLength(1);
     expect(fixture.componentInstance['slotsLoading']()).toBe(false);
+  });
+
+  // La fenetre de reservation a deja change (7 puis 30 jours) : le message doit
+  // suivre ce que le serveur renvoie, jamais un chiffre recopie dans le gabarit.
+  it('aucun creneau : le message annonce le nombre de jours reellement proposes', async () => {
+    const trenteJoursVides = Array.from({ length: 30 }, (_, i) => ({
+      date: `2026-09-${String(i + 1).padStart(2, '0')}`,
+      slots: [],
+    }));
+    await render(200, trenteJoursVides);
+
+    const texte: string = fixture.nativeElement.querySelector(
+      '[data-testid="no-slots"]',
+    ).textContent;
+    expect(texte).toContain('30 prochains jours');
+    expect(texte).not.toContain('7 prochains jours');
   });
 
   it('une panne du serveur au chargement propose de reessayer, sans laisser reserver', async () => {
