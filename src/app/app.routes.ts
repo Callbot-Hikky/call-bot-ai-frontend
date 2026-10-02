@@ -124,6 +124,15 @@ export const routes: Routes = [
       // elle doit continuer d'aboutir sur les reglages, servis par /parametres ci-dessus.
       { path: 'parametres/paiements', redirectTo: 'parametres' },
       {
+        path: 'assistant',
+        loadComponent: () =>
+          import('@features/assistant/assistant-knowledge-page').then(
+            (m) => m.AssistantKnowledgePage,
+          ),
+        title: 'Assistant',
+        data: { title: "Ce que l'assistant doit savoir" },
+      },
+      {
         path: 'mon-restaurant',
         loadComponent: () =>
           import('./features/my-restaurant/my-restaurant').then((m) => m.MyRestaurantPage),
