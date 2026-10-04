@@ -154,6 +154,18 @@ export function isFullDto(value: unknown): value is RestaurantContextDto {
     'dietary' in value &&
     'equipments' in value &&
     'payments' in value &&
-    'details' in value
+    'details' in value &&
+    hasDetailsLists(value.details)
+  );
+}
+
+function hasDetailsLists(details: unknown): boolean {
+  return (
+    !!details &&
+    typeof details === 'object' &&
+    'cuisine_type' in details &&
+    Array.isArray(details.cuisine_type) &&
+    'ambiance' in details &&
+    Array.isArray(details.ambiance)
   );
 }
