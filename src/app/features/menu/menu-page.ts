@@ -5,7 +5,9 @@ import {
   computed,
   effect,
   inject,
+  linkedSignal,
   signal,
+  untracked,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -14,28 +16,48 @@ import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-h
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
-import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
-import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
-import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
-import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { humanSize } from '@core/utils/format';
+import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
+import { MenuFileRow } from './menu-file-row';
+import { MoveDirection } from '@shared/components/molecules/file-row-actions/hk-file-row-actions';
+import { MenuPdfSection } from './menu-pdf-section/menu-pdf-section';
+import { MenuImagesSection } from './menu-images-section/menu-images-section';
+import { MenuManualSection } from './menu-manual-section/menu-manual-section';
 import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
-  DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
+  Menu,
   MenuFile,
   MenuMode,
   emptyManual,
+  filesOfKind,
   isSafeAdminFileUrl,
 } from '@core/models/menu.model';
 
+/** Les trois modes qu'on peut ouvrir a l'ecran : « none » n'en est pas un. */
+type EditableMode = Exclude<MenuMode, 'none'>;
+
+/**
+ * Tout ce que l'ecran dit d'un format : son decompte sur la tuile, s'il a de quoi
+ * etre publie, le libelle de son bouton et la façon de le nommer dans la phrase
+ * « Vos clients voient ... ». Regroupe ici parce que ces quatre informations
+ * dependent des memes donnees et changent ensemble.
+ */
+interface ModeSummary {
+  readonly count: string;
+  readonly ready: boolean;
+  readonly publishAction: string;
+  readonly publishedLabel: string;
+  readonly pendingText: string;
+}
+
 interface ModeCard {
-  mode: Exclude<MenuMode, 'none'>;
+  mode: EditableMode;
   icon: string;
   title: string;
   description: string;
@@ -76,12 +98,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
 // Cliquer une carte publie ce mode ; si son contenu manque, le back refuse et
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
 //
-// PLAN DU GABARIT, dans l'ordre : le bandeau de publication, les trois tuiles de
-// mode, puis un @switch qui n'ouvre QUE la zone du mode consulte (PDF, photos ou
-// saisie), et enfin les deux QR. Le gabarit est long parce que les trois zones
-// sont exclusives et ne partagent ni leur contenu ni leurs actions : les extraire
-// donnerait trois composants a un seul appelant, chacun reclamant en entree la
-// moitie de l'etat de cette page.
+// PLAN DU GABARIT, dans l'ordre : les deux QR (en tete, pour rester visibles sans
+// defiler), les trois tuiles de mode, le bandeau de publication, puis un @switch
+// qui n'ouvre QUE la zone du mode consulte. Chacune de ces trois zones vit dans
+// son propre composant (MenuPdfSection, MenuImagesSection, MenuManualSection) :
+// cette page coordonne, elles affichent. Elle garde donc l'etat et les appels au
+// service ; les sections ne recoivent que de quoi dessiner et remontent des
+// intentions.
 @Component({
   selector: 'app-menu',
   imports: [
@@ -89,518 +112,18 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkButton,
     HkIcon,
     HkSkeleton,
-    HkFileDropzone,
-    HkMenuManualForm,
-    HkPdfPages,
     HkQrCard,
-    HkFocusOnInit,
     RouterLink,
+    MenuPdfSection,
+    MenuImagesSection,
+    MenuManualSection,
+    HkInlineConfirm,
   ],
-  template: `
-    <hk-page-header
-      subtitle="Les liens à partager avec vos clients, et la carte qu'ils découvrent en les suivant."
-    >
-      <span class="text-text-subtle text-xs" data-testid="save-state" aria-live="polite">
-        {{ saveLabel() }}
-      </span>
-    </hk-page-header>
-
-    @if (!restaurantId()) {
-      <div class="bg-card border-border/70 rounded-lg border p-10 text-center shadow-md">
-        <p class="text-text-strong font-medium">Aucun restaurant n'est rattaché à votre compte.</p>
-        <p class="text-muted-foreground text-sm">
-          Terminez d'abord la configuration de votre restaurant.
-        </p>
-        <a routerLink="/mon-restaurant" class="text-primary mt-3 inline-block text-sm underline">
-          Configurer mon restaurant
-        </a>
-      </div>
-    } @else if (service.error()) {
-      <div
-        class="bg-card border-border/70 flex flex-col items-center gap-3 rounded-lg border p-10 text-center shadow-md"
-      >
-        <hk-icon name="lucideTriangleAlert" [size]="32" class="text-st-cancelled-fg" />
-        <p class="text-text-strong text-base font-medium">Impossible de charger le menu</p>
-        <p class="text-muted-foreground text-sm">Vérifiez votre connexion et réessayez.</p>
-        <hk-button size="sm" variant="secondary" data-testid="menu-retry" (click)="retry()">
-          <hk-icon name="lucideRefreshCw" [size]="14" />
-          Réessayer
-        </hk-button>
-      </div>
-    } @else if (service.loading() || !menu()) {
-      <div class="flex flex-col gap-6">
-        <div class="grid gap-4 sm:grid-cols-3">
-          <hk-skeleton height="7rem" />
-          <hk-skeleton height="7rem" />
-          <hk-skeleton height="7rem" />
-        </div>
-        <hk-skeleton height="12rem" />
-      </div>
-    } @else {
-      <div class="flex flex-col gap-8">
-        <section class="flex flex-col gap-4" aria-labelledby="qr-title">
-          <div class="flex flex-col gap-1">
-            <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
-            <p class="text-text-subtle text-sm">
-              À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
-              directement à la bonne page, sans compte ni application.
-            </p>
-          </div>
-          <div class="grid gap-4 lg:grid-cols-2">
-            <hk-qr-card
-              title="Voir le menu"
-              description="Vos clients découvrent votre carte telle que vous l'avez publiée."
-              [url]="menuUrl()"
-              [fileName]="'menu-' + slug()"
-            />
-            <hk-qr-card
-              title="Réserver une table"
-              description="Vos clients choisissent un créneau et réservent en ligne, sans appeler."
-              [url]="bookingUrl()"
-              [fileName]="'reservation-' + slug()"
-            />
-          </div>
-          @if (menu()!.mode === 'none') {
-            <p class="text-text-subtle text-sm" data-testid="qr-hint">
-              Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
-              bientôt ».
-            </p>
-          }
-        </section>
-
-        <div class="flex flex-col gap-1">
-          <h2 class="text-text-strong text-lg font-semibold">Votre carte</h2>
-          <p class="text-text-subtle text-sm">
-            Choisissez comment vos clients la voient : des PDF, des photos ou une saisie à la main.
-            Les formats ne se mélangent pas : un seul est publié à la fois, vos clients ne voient
-            que celui-là.
-          </p>
-        </div>
-        <!-- Mobile : trois tuiles compactes sur une ligne, comme des onglets. Grand ecran : trois cartes.
-             Le contour vert suit le format ouvert ; le badge « Publié » dit lequel est en ligne. -->
-        <div class="grid grid-cols-3 gap-2 sm:gap-4" role="group" aria-label="Mode de publication">
-          @for (card of cards; track card.mode) {
-            <button
-              type="button"
-              [attr.data-testid]="'mode-' + card.mode"
-              class="bg-card hover:border-primary flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center shadow-sm transition-colors focus-visible:ring-2 sm:items-start sm:gap-2 sm:p-4 sm:text-left"
-              [class.border-primary]="editing() === card.mode"
-              [class.bg-primary/5]="editing() === card.mode"
-              [class.border-border]="editing() !== card.mode"
-              [attr.aria-pressed]="editing() === card.mode"
-              [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
-              [disabled]="service.saving()"
-              (click)="open(card.mode)"
-            >
-              <div class="flex w-full flex-col items-center gap-1.5 sm:flex-row sm:justify-between">
-                <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
-                @if (menu()!.mode === card.mode) {
-                  <span
-                    class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-[11px] font-medium sm:text-xs"
-                  >
-                    Publié
-                  </span>
-                } @else if (editing() === card.mode) {
-                  <span
-                    class="bg-muted text-text-subtle hidden rounded-full px-2 py-0.5 text-xs font-medium sm:inline"
-                  >
-                    En préparation
-                  </span>
-                }
-              </div>
-              <span class="text-text-strong text-sm font-semibold sm:text-base">{{
-                card.title
-              }}</span>
-              <span class="text-text-subtle hidden text-xs sm:block">{{ card.description }}</span>
-              <span class="text-text-subtle text-xs">{{ countFor(card.mode) }}</span>
-            </button>
-          }
-        </div>
-
-        <div
-          class="bg-card border-border/70 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3"
-          data-testid="publish-state"
-          aria-live="polite"
-        >
-          @if (menu()!.mode !== 'none') {
-            <p class="text-text-strong text-sm">
-              <span
-                class="bg-st-confirmed-bg text-st-confirmed-fg mr-2 rounded-full px-2 py-0.5 text-xs font-medium"
-              >
-                Publié
-              </span>
-              Vos clients voient {{ publishedLabel(menu()!.mode) }}.
-            </p>
-            @if (pendingUnpublish()) {
-              <div
-                class="flex flex-wrap items-center gap-2 text-sm"
-                role="alert"
-                hkFocusOnInit
-                (keydown.escape)="pendingUnpublish.set(false)"
-              >
-                <span>Vos clients verront « La carte arrive bientôt ». Confirmer ?</span>
-                <hk-button
-                  variant="danger"
-                  size="sm"
-                  data-testid="confirm-unpublish"
-                  [disabled]="service.saving()"
-                  (click)="confirmUnpublish()"
-                >
-                  Oui, ne rien publier
-                </hk-button>
-                <hk-button
-                  variant="ghost"
-                  size="sm"
-                  data-testid="cancel-unpublish"
-                  (click)="pendingUnpublish.set(false)"
-                >
-                  Annuler
-                </hk-button>
-              </div>
-            } @else {
-              <hk-button
-                variant="ghost"
-                size="sm"
-                data-testid="unpublish"
-                [disabled]="service.saving()"
-                (click)="pendingUnpublish.set(true)"
-              >
-                Ne rien publier pour l'instant
-              </hk-button>
-            }
-          } @else {
-            <p class="text-text-subtle text-sm" data-testid="nothing-published">
-              Rien n'est publié pour l'instant : vos clients voient « La carte arrive bientôt ».
-              @if (!isReady(editing())) {
-                Préparez un format ci-dessous, puis publiez-le.
-              }
-            </p>
-            @if (isReady(editing())) {
-              <hk-button
-                size="sm"
-                data-testid="publish-current"
-                [disabled]="service.saving()"
-                (click)="publish(editing())"
-              >
-                {{ publishAction(editing()) }}
-              </hk-button>
-            }
-          }
-        </div>
-
-        <div class="flex flex-col gap-1">
-          <h3 class="text-text-strong text-base font-semibold">Préparation</h3>
-          <p class="text-text-subtle text-sm">
-            Préparez chaque format ici, puis choisissez celui que vos clients verront.
-          </p>
-        </div>
-
-        @switch (editing()) {
-          @case ('pdf') {
-            <section class="flex flex-col gap-4" aria-label="Carte en PDF">
-              @if (pdfs().length > 0 && menu()!.mode !== 'pdf') {
-                <div
-                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-                  data-testid="publish-inline"
-                  role="status"
-                >
-                  <span class="flex items-center gap-2">
-                    <hk-icon name="lucideTriangleAlert" [size]="16" />
-                    {{ pdfPendingText() }}
-                  </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('pdf')">
-                    {{ pdfPublishLabel() }}
-                  </hk-button>
-                </div>
-              }
-              @if (pdfs().length > 0) {
-                <!-- L'ajout reste en tete : les apercus qui suivent peuvent etre longs. -->
-                <div class="flex flex-wrap items-center justify-between gap-3">
-                  <p class="text-text-subtle text-xs" data-testid="pdf-count">
-                    {{ pdfs().length }}/{{ menu()!.limits.pdfMaxCount }} PDF. Plats, vins, desserts
-                    : vos clients les voient à la suite, dans cet ordre.
-                  </p>
-                  @if (canAddPdf()) {
-                    <hk-file-dropzone
-                      [compact]="true"
-                      label="Ajouter un PDF"
-                      [accept]="pdfMimes"
-                      [maxBytes]="menu()!.limits.pdfMaxBytes"
-                      [multiple]="true"
-                      [disabled]="service.saving()"
-                      (filesPicked)="onFiles($event)"
-                    />
-                  } @else {
-                    <span class="text-text-subtle text-xs">Limite de PDF atteinte.</span>
-                  }
-                </div>
-              }
-              @for (
-                pdf of pdfs();
-                track pdf.id;
-                let i = $index;
-                let first = $first;
-                let last = $last
-              ) {
-                <div
-                  class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4"
-                  data-testid="pdf-row"
-                >
-                  <hk-icon name="lucideFileText" [size]="24" class="text-primary" />
-                  <div class="flex-1">
-                    <p class="text-text-strong text-sm font-medium">
-                      PDF {{ i + 1
-                      }}<span class="text-text-subtle font-normal"> / {{ pdfs().length }}</span>
-                    </p>
-                    <p class="text-text-subtle text-xs">{{ humanSize(pdf.sizeBytes) }}</p>
-                  </div>
-                  <a
-                    [href]="previewUrl(pdf)"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-primary flex items-center gap-1 text-sm underline"
-                    data-testid="open-pdf"
-                  >
-                    <hk-icon name="lucideExternalLink" [size]="14" />
-                    Ouvrir
-                  </a>
-                  <hk-button
-                    variant="ghost"
-                    size="sm"
-                    [attr.data-testid]="'move-up-' + pdf.id"
-                    [disabled]="first || service.saving()"
-                    (click)="move(pdf.id, -1, 'pdf')"
-                  >
-                    <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
-                      >Monter le PDF</span
-                    >
-                  </hk-button>
-                  <hk-button
-                    variant="ghost"
-                    size="sm"
-                    [attr.data-testid]="'move-down-' + pdf.id"
-                    [disabled]="last || service.saving()"
-                    (click)="move(pdf.id, 1, 'pdf')"
-                  >
-                    <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
-                      >Descendre le PDF</span
-                    >
-                  </hk-button>
-                  <hk-button
-                    variant="ghost"
-                    size="sm"
-                    [attr.data-testid]="'remove-file-' + pdf.id"
-                    [disabled]="service.saving()"
-                    (click)="askRemove(pdf.id)"
-                  >
-                    <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only"
-                      >Supprimer</span
-                    >
-                  </hk-button>
-                </div>
-                @if (pendingFile() === pdf.id) {
-                  <div
-                    class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
-                    role="alert"
-                    hkFocusOnInit
-                    (keydown.escape)="pendingFile.set(null)"
-                  >
-                    <span>Supprimer ce PDF ?</span>
-                    <hk-button
-                      variant="danger"
-                      size="sm"
-                      data-testid="confirm-remove-file"
-                      (click)="confirmRemove()"
-                      >Supprimer</hk-button
-                    >
-                    <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
-                      >Annuler</hk-button
-                    >
-                  </div>
-                }
-                @if (previewUrl(pdf); as url) {
-                  <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
-                  <div class="mx-auto w-full max-w-2xl">
-                    <hk-pdf-pages
-                      data-testid="pdf-preview"
-                      [url]="url"
-                      [title]="'Aperçu du PDF ' + (i + 1)"
-                    />
-                  </div>
-                }
-              }
-              @if (pdfs().length === 0) {
-                <hk-file-dropzone
-                  [accept]="pdfMimes"
-                  [maxBytes]="menu()!.limits.pdfMaxBytes"
-                  [multiple]="true"
-                  [disabled]="service.saving()"
-                  label="Glissez vos cartes en PDF ici"
-                  [hint]="pdfHint()"
-                  (filesPicked)="onFiles($event)"
-                />
-              }
-            </section>
-          }
-          @case ('images') {
-            <section class="flex flex-col gap-4" aria-label="Carte en photos">
-              @if (images().length > 0 && menu()!.mode !== 'images') {
-                <div
-                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-                  data-testid="publish-inline"
-                  role="status"
-                >
-                  <span class="flex items-center gap-2">
-                    <hk-icon name="lucideTriangleAlert" [size]="16" />
-                    Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.
-                  </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('images')">
-                    Publier les photos
-                  </hk-button>
-                </div>
-              }
-              @if (images().length > 0) {
-                <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="image-list">
-                  @for (
-                    file of images();
-                    track file.id;
-                    let i = $index;
-                    let first = $first;
-                    let last = $last
-                  ) {
-                    <li class="bg-card border-border/70 flex flex-col gap-2 rounded-lg border p-2">
-                      <img
-                        data-testid="image-thumb"
-                        [src]="previewUrl(file)"
-                        [alt]="'Photo ' + (i + 1) + ' de la carte'"
-                        class="bg-muted h-56 w-full rounded-md object-contain"
-                        loading="lazy"
-                      />
-                      <div class="flex items-center justify-between gap-1">
-                        <span class="text-text-subtle text-xs tabular-nums"
-                          >{{ i + 1 }}/{{ images().length }}</span
-                        >
-                        <div class="flex gap-1">
-                          <hk-button
-                            variant="ghost"
-                            size="sm"
-                            [attr.data-testid]="'move-up-' + file.id"
-                            [disabled]="first || service.saving()"
-                            (click)="move(file.id, -1)"
-                          >
-                            <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
-                              >Monter la photo</span
-                            >
-                          </hk-button>
-                          <hk-button
-                            variant="ghost"
-                            size="sm"
-                            [attr.data-testid]="'move-down-' + file.id"
-                            [disabled]="last || service.saving()"
-                            (click)="move(file.id, 1)"
-                          >
-                            <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
-                              >Descendre la photo</span
-                            >
-                          </hk-button>
-                          <hk-button
-                            variant="ghost"
-                            size="sm"
-                            [attr.data-testid]="'remove-file-' + file.id"
-                            [disabled]="service.saving()"
-                            (click)="askRemove(file.id)"
-                          >
-                            <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only"
-                              >Supprimer</span
-                            >
-                          </hk-button>
-                        </div>
-                      </div>
-                      @if (pendingFile() === file.id) {
-                        <div
-                          class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs"
-                          role="alert"
-                          hkFocusOnInit
-                          (keydown.escape)="pendingFile.set(null)"
-                        >
-                          <span>Supprimer cette photo ?</span>
-                          <hk-button
-                            variant="danger"
-                            size="sm"
-                            data-testid="confirm-remove-file"
-                            (click)="confirmRemove()"
-                            >Supprimer</hk-button
-                          >
-                          <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
-                            >Annuler</hk-button
-                          >
-                        </div>
-                      }
-                    </li>
-                  }
-                </ul>
-              }
-              <p class="text-text-subtle text-xs" data-testid="image-count">
-                {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiché est
-                l'ordre vu par vos clients.
-              </p>
-              <hk-file-dropzone
-                [accept]="imageMimes"
-                [maxBytes]="menu()!.limits.imageMaxBytes"
-                [multiple]="true"
-                [disabled]="service.saving() || !canAddImage()"
-                [label]="canAddImage() ? 'Glissez vos photos ici' : 'Limite de photos atteinte'"
-                [hint]="imageHint()"
-                (filesPicked)="onFiles($event)"
-              />
-            </section>
-          }
-          @case ('manual') {
-            <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
-              @if (draft().sections.length > 0 && menu()!.mode !== 'manual') {
-                <div
-                  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-                  data-testid="publish-inline"
-                  role="status"
-                >
-                  <span class="flex items-center gap-2">
-                    <hk-icon name="lucideTriangleAlert" [size]="16" />
-                    Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
-                  </span>
-                  <hk-button size="sm" [disabled]="service.saving()" (click)="publish('manual')">
-                    Publier la saisie
-                  </hk-button>
-                </div>
-              }
-              <hk-menu-manual-form
-                [menu]="draft()"
-                (menuChange)="onManualChange($event)"
-                [disabled]="service.loading()"
-              />
-              <div class="flex items-center gap-3">
-                <hk-button
-                  size="sm"
-                  data-testid="save-manual"
-                  [disabled]="service.saving()"
-                  (click)="saveNow()"
-                >
-                  <hk-icon name="lucideSave" [size]="16" />
-                  Enregistrer maintenant
-                </hk-button>
-                <span class="text-text-subtle text-xs"
-                  >Vos modifications sont enregistrées automatiquement.</span
-                >
-              </div>
-            </section>
-          }
-        }
-      </div>
-    }
-  `,
+  templateUrl: './menu-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MenuPage {
-  protected readonly service = inject(MenuService);
+  private readonly service = inject(MenuService);
   private readonly session = inject(SessionService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
@@ -626,55 +149,100 @@ export class MenuPage {
   protected readonly imageMimes = [FILE_TYPE_MIME.jpeg, FILE_TYPE_MIME.png, FILE_TYPE_MIME.webp];
 
   protected readonly menu = this.service.menu;
+  protected readonly loading = this.service.loading;
+  protected readonly saving = this.service.saving;
+  protected readonly failed = this.service.error;
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
-  protected readonly editing = signal<MenuMode>('pdf');
+  // La source est la carte *chargee*, pas `menu` : le service remet un objet neuf
+  // dans `menu` a chaque reponse (ajout, suppression, enregistrement automatique),
+  // et repartir de celui-la refermerait la zone sous les doigts de l'utilisateur.
+  // `loadedMenu`, lui, ne change qu'au terme d'un chargement.
+  protected readonly editing = linkedSignal<Menu | null, EditableMode>({
+    source: this.service.loadedMenu,
+    computation: (loaded, previous) => {
+      const mode = loaded?.mode;
+      return mode && mode !== 'none' ? mode : (previous?.value ?? 'pdf');
+    },
+  });
+  // Meme raison : la frappe en cours ne doit pas reculer quand la reponse d'un
+  // enregistrement automatique arrive avec une version anterieure de la saisie.
+  protected readonly draft = linkedSignal<Menu | null, ManualMenu>({
+    source: this.service.loadedMenu,
+    computation: (loaded) => loaded?.manual ?? emptyManual(),
+  });
+  // Chaque format decrit en un seul endroit, au lieu de quatre methodes paralleles
+  // qu'il fallait penser a completer ensemble. Les phrases sont composees ici et non
+  // dans le gabarit : une apostrophe dans une interpolation ferme la chaine et
+  // affiche le {{ ... }} brut a l'ecran.
+  protected readonly modes = computed<Record<EditableMode, ModeSummary>>(() => {
+    const pdfs = this.pdfs().length;
+    const images = this.images().length;
+    const sections = this.draft().sections.length;
+    return {
+      pdf: {
+        count: pdfs === 0 ? 'Aucun fichier' : `${pdfs} PDF`,
+        ready: pdfs > 0,
+        publishAction: pdfs > 1 ? 'Publier les PDF' : 'Publier le PDF',
+        publishedLabel: pdfs > 1 ? 'vos cartes en PDF' : 'votre carte en PDF',
+        pendingText:
+          pdfs > 1
+            ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
+            : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
+      },
+      images: {
+        count: images === 0 ? 'Aucune photo' : `${images} photo${images > 1 ? 's' : ''}`,
+        ready: images > 0,
+        publishAction: 'Publier les photos',
+        publishedLabel: 'vos photos',
+        pendingText: 'Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.',
+      },
+      manual: {
+        count: sections === 0 ? 'Aucune section' : `${sections} section${sections > 1 ? 's' : ''}`,
+        ready: sections > 0,
+        publishAction: 'Publier la saisie',
+        publishedLabel: 'votre carte saisie',
+        pendingText: "Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.",
+      },
+    };
+  });
+  // Le resume du format en preparation, celui que le bandeau propose de publier.
+  protected readonly editingSummary = computed(() => this.modes()[this.editing()]);
+  // Le format publie, ou rien. Le gabarit s'y accroche plutot qu'a `menu()!.mode` :
+  // il n'a plus a affirmer que le menu est charge, ni a traiter le cas « none ».
+  protected readonly publishedMode = computed<EditableMode | null>(() => {
+    const mode = this.menu()?.mode;
+    return mode && mode !== 'none' ? mode : null;
+  });
+  // Le bandeau d'une section ne propose la publication que lorsqu'un AUTRE format
+  // est en ligne : c'est alors le seul endroit d'ou le publier. Quand rien n'est
+  // publie, le bandeau de la page le propose deja, et deux boutons identiques
+  // apparaitraient cote a cote.
+  protected readonly publishFromSection = computed(() => {
+    const published = this.publishedMode();
+    return published !== null && published !== this.editing();
+  });
+  // Les memes limites que celles dont le service se sert pour refuser un fichier :
+  // l'ecran ne peut donc pas annoncer un chiffre et le refus un autre.
+  protected readonly limits = this.service.limits;
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
-  protected readonly draft = signal<ManualMenu>(emptyManual());
-  private draftInitialized = false;
 
-  protected readonly pdfs = computed(() =>
-    (this.menu()?.files ?? [])
-      .filter((f) => f.kind === 'pdf')
-      .sort((a, b) => a.position - b.position),
-  );
-  protected readonly canAddPdf = computed(
-    () => this.pdfs().length < (this.menu()?.limits.pdfMaxCount ?? DEFAULT_LIMITS.pdfMaxCount),
-  );
-  // Libelles du bandeau « pas encore publie ». Ils vivent ici et non dans le template :
-  // le pluriel porte sur la phrase entiere, et une apostrophe a l'interieur d'une
-  // interpolation ferme la chaine, ce qui affiche le {{ ... }} brut a l'ecran.
-  // Les limites affichees viennent du serveur : les reecrire a la main ici, c'est
-  // mentir au restaurateur le jour ou le serveur change de politique.
+  private readonly pdfs = computed(() => filesOfKind(this.menu()?.files ?? [], 'pdf'));
+  // Textes de la zone de depot. Les limites viennent du serveur : les reecrire a la
+  // main ici, c'est mentir au restaurateur le jour ou le serveur change de politique.
   protected readonly pdfHint = computed(() => {
-    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     return `ou cliquez pour les choisir. Jusqu'à ${limits.pdfMaxCount} PDF (plats, vins, desserts), ${humanSize(limits.pdfMaxBytes)} maximum chacun.`;
   });
   protected readonly imageHint = computed(() => {
-    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     return `ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, ${humanSize(limits.imageMaxBytes)} max chacune.`;
   });
-  protected readonly pdfPendingText = computed(() =>
-    this.pdfs().length > 1
-      ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
-      : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
-  );
-  protected readonly pdfPublishLabel = computed(() =>
-    this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF',
-  );
-  // Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue.
-  protected previewUrl(file: MenuFile): string | null {
-    return isSafeAdminFileUrl(file.url) ? file.url : null;
-  }
-  protected readonly images = computed(() =>
-    (this.menu()?.files ?? [])
-      .filter((f) => f.kind === 'image')
-      .sort((a, b) => a.position - b.position),
-  );
-  protected readonly canAddImage = computed(
-    () =>
-      this.images().length < (this.menu()?.limits.imageMaxCount ?? DEFAULT_LIMITS.imageMaxCount),
-  );
+  // Lignes pretes a afficher : l'adresse d'apercu et la taille sont calculees ici,
+  // une seule fois, au lieu d'etre recalculees a chaque rendu depuis le gabarit.
+  protected readonly pdfRows = computed<MenuFileRow[]>(() => this.pdfs().map(toRow));
+  protected readonly imageRows = computed<MenuFileRow[]>(() => this.images().map(toRow));
+  private readonly images = computed(() => filesOfKind(this.menu()?.files ?? [], 'image'));
   // Rien tant que rien n'a ete modifie : « Enregistré » sur une page intacte n'apprend rien.
   protected readonly saveLabel = computed(() => {
     if (!this.service.touched()) {
@@ -686,18 +254,21 @@ export class MenuPage {
   });
 
   constructor() {
-    const restaurantId = this.restaurantId();
-    if (restaurantId) {
-      this.service.load(restaurantId);
-      this.restaurants.loadRestaurant(restaurantId);
-    }
+    // Le restaurant de la session peut changer pendant que la page vit : le menu
+    // doit suivre, sinon les deux QR designeraient un restaurant et la carte un autre.
     effect(() => {
-      const menu = this.menu();
-      if (menu && !this.draftInitialized) {
-        this.draft.set(menu.manual);
-        this.editing.set(menu.mode === 'none' ? 'pdf' : menu.mode);
-        this.draftInitialized = true;
+      const restaurantId = this.restaurantId();
+      if (!restaurantId) {
+        return;
       }
+      // `untracked` : `loadRestaurant` consulte le restaurant deja en memoire pour
+      // eviter un GET en double. Sans cette barriere, l'effet dependrait de cette
+      // lecture et se rejouerait a l'arrivee de la reponse, rechargeant le menu une
+      // seconde fois et jetant au passage une saisie encore en attente d'envoi.
+      untracked(() => {
+        this.service.load(restaurantId);
+        this.restaurants.loadRestaurant(restaurantId);
+      });
     });
     // Une saisie encore en attente part avant de quitter la page.
     this.destroyRef.onDestroy(() => this.service.flushManualSave());
@@ -710,25 +281,6 @@ export class MenuPage {
     }
   }
 
-  protected countFor(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf': {
-        const n = this.pdfs().length;
-        return n === 0 ? 'Aucun fichier' : `${n} PDF`;
-      }
-      case 'images': {
-        const n = this.images().length;
-        return n === 0 ? 'Aucune photo' : `${n} photo${n > 1 ? 's' : ''}`;
-      }
-      case 'manual': {
-        const n = this.draft().sections.length;
-        return n === 0 ? 'Aucune section' : `${n} section${n > 1 ? 's' : ''}`;
-      }
-      default:
-        return '';
-    }
-  }
-
   protected confirmUnpublish(): void {
     this.pendingUnpublish.set(false);
     this.publish('none');
@@ -736,15 +288,13 @@ export class MenuPage {
 
   // Un clic sur une carte ouvre sa preparation, rien de plus : publier reste un geste
   // explicite (bouton « Publier ... »), pour ne jamais changer la carte visible par surprise.
-  protected open(mode: MenuMode): void {
-    if (mode !== 'none') {
-      this.editing.set(mode);
-    }
+  protected open(mode: EditableMode): void {
+    this.editing.set(mode);
   }
 
   // Le back garde son refus (409) comme garde-fou, mais on ne le provoque pas pour rien.
   protected publish(mode: MenuMode): void {
-    if (this.menu()?.mode === mode || (mode !== 'none' && !this.isReady(mode))) {
+    if (this.menu()?.mode === mode || (mode !== 'none' && !this.modes()[mode].ready)) {
       return;
     }
     this.service
@@ -819,7 +369,7 @@ export class MenuPage {
   }
 
   // Le reordonnancement porte sur un seul genre : PDF entre eux, photos entre elles.
-  protected move(fileId: string, direction: -1 | 1, kind: 'pdf' | 'image' = 'image'): void {
+  protected move(fileId: string, direction: MoveDirection, kind: MenuFile['kind']): void {
     const ids = (kind === 'pdf' ? this.pdfs() : this.images()).map((f) => f.id);
     const index = ids.indexOf(fileId);
     const target = index + direction;
@@ -845,48 +395,6 @@ export class MenuPage {
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
   }
-
-  // Un format se publie des qu'il a du contenu : le bandeau propose alors le bouton.
-  protected isReady(mode: MenuMode): boolean {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 0;
-      case 'images':
-        return this.images().length > 0;
-      case 'manual':
-        return this.draft().sections.length > 0;
-      default:
-        return false;
-    }
-  }
-
-  protected publishAction(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF';
-      case 'images':
-        return 'Publier les photos';
-      case 'manual':
-        return 'Publier la saisie';
-      default:
-        return '';
-    }
-  }
-
-  protected publishedLabel(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 1 ? 'vos cartes en PDF' : 'votre carte en PDF';
-      case 'images':
-        return 'vos photos';
-      case 'manual':
-        return 'votre carte saisie';
-      default:
-        return '';
-    }
-  }
-
-  protected readonly humanSize = humanSize;
 }
 
 // « Le Bistrot du Coin » -> « le-bistrot-du-coin » : minuscules, sans accents, tirets.
@@ -900,4 +408,14 @@ function toSlug(name: string): string {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40) || 'restaurant'
   );
+}
+
+// Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue :
+// une adresse qui ne correspond pas n'affiche rien plutot que n'importe quoi.
+function toRow(file: MenuFile): MenuFileRow {
+  return {
+    file,
+    previewUrl: isSafeAdminFileUrl(file.url) ? file.url : null,
+    size: humanSize(file.sizeBytes),
+  };
 }

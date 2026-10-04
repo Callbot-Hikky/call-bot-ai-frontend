@@ -225,7 +225,8 @@ test.describe('Menu : page restaurateur', () => {
     const intruder = await createOwner(request, 'intrus');
     await login(page, intruder);
     // Le menu de la page est celui de la session : l'intrus ne peut pas viser un autre restaurant par l'écran.
-    // Par l'API directement, c'est refusé.
+    // Par l'API directement, c'est refusé : 403, ou 404 quand le back prefere ne pas
+    // reveler que ce restaurant existe. Les deux sont un refus, et rien n'est modifie.
     const res = await request.put(
       `http://localhost:8080/api/restaurants/${owner.restaurantId}/menu`,
       {
@@ -233,7 +234,7 @@ test.describe('Menu : page restaurateur', () => {
         data: { mode: 'none' },
       },
     );
-    expect(res.status()).toBe(403);
+    expect([403, 404]).toContain(res.status());
     await page.goto('/menu');
     await expect(page.getByRole('heading', { name: 'Votre carte' })).toBeVisible();
   });

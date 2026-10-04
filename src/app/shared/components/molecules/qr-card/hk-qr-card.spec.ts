@@ -40,6 +40,19 @@ describe('HkQrCard', () => {
     );
   });
 
+  it('affiche le QR dans une image, sans injecter de HTML dans la page', () => {
+    // Le dessin passe par une balise <img> et une data: URL, jamais par innerHTML :
+    // c'est un contournement de sanitisation en moins. L'assertion ne porte que sur
+    // la zone du QR : ailleurs, les icones de l'interface sont des <svg> legitimes,
+    // et viser tout le composant ferait passer ce test pour la mauvaise raison.
+    const figure: HTMLElement = fixture.nativeElement.querySelector('[data-testid="qr-figure"]');
+    const img = figure.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute('src')).toMatch(/^data:image\/(png|svg\+xml)/);
+    expect(figure.querySelector('svg')).toBeNull();
+    expect(figure.innerHTML).not.toContain('<svg');
+  });
+
   it('propose les telechargements PNG et SVG avec un nom de fichier parlant', () => {
     const svgLink: HTMLAnchorElement = fixture.nativeElement.querySelector(
       '[data-testid="download-svg"]',
@@ -64,5 +77,25 @@ describe('HkQrCard', () => {
     expect(link.getAttribute('href')).toBe(url);
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('une generation qui echoue affiche le message et laisse le lien utilisable', async () => {
+    // Une URL trop longue depasse la capacite d'un QR code : la librairie leve.
+    // L'ecran doit le dire, pas planter.
+    const huge = 'https://exemple.test/' + 'x'.repeat(5000);
+    const broken = TestBed.createComponent(HkQrCard);
+    broken.componentRef.setInput('title', 'Voir le menu');
+    broken.componentRef.setInput('url', huge);
+    broken.componentRef.setInput('fileName', 'menu-casse');
+    broken.autoDetectChanges();
+
+    await vi.waitFor(() =>
+      expect(broken.nativeElement.querySelector('[data-testid="qr-error"]')).not.toBeNull(),
+    );
+    expect(broken.nativeElement.textContent).toContain('Le lien reste valable');
+    // Le lien lui-meme reste affiche et copiable.
+    expect(broken.nativeElement.querySelector('[data-testid="qr-url"]')?.textContent).toContain(
+      huge,
+    );
   });
 });

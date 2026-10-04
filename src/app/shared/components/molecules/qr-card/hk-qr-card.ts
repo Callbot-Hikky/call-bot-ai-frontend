@@ -3,12 +3,12 @@ import {
   Component,
   DestroyRef,
   computed,
-  effect,
   inject,
   input,
+  resource,
   signal,
 } from '@angular/core';
-import { DomSanitizer, SafeHtml, SafeUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 
@@ -17,103 +17,36 @@ import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 // Le SVG (vectoriel, pour l'imprimeur) est toujours produit ; le PNG (pour un
 // flyer, un reseau social) demande un canvas et n'existe donc que dans un vrai
 // navigateur.
+
 // Duree du retour visuel apres copie : assez long pour etre lu, assez court
 // pour ne pas laisser croire que le bouton est bloque.
 const COPIED_FEEDBACK_MS = 2000;
 
+// Niveau « M » : environ 15 % du dessin peut etre abime sans empecher la lecture.
+// C'est le bon compromis pour un code pose sur une table de restaurant ; « L » (7 %)
+// est trop fragile, « H » (30 %) densifie le motif et impose de l'imprimer plus grand.
+// Marge reduite a 1 module au lieu de 4 : la carte apporte deja son propre blanc.
+const QR_OPTIONS = { margin: 1, errorCorrectionLevel: 'M' as const };
+
+// 512 px : assez net pour une publication sur un reseau social, assez leger
+// pour tenir dans une data: URL sans alourdir la page.
+const PNG_WIDTH = 512;
+
+interface QrImages {
+  svg: string;
+  /** Absent quand le navigateur n'offre pas de canvas : le SVG suffit a tout. */
+  png: string | null;
+}
+
 @Component({
   selector: 'hk-qr-card',
   imports: [HkButton, HkIcon],
-  template: `
-    <div
-      class="bg-card border-border/70 flex flex-col gap-4 rounded-lg border p-4 shadow-sm sm:flex-row sm:items-start"
-    >
-      <div
-        class="border-border/60 flex size-40 shrink-0 items-center justify-center self-center rounded-md border bg-white p-2 sm:self-start"
-      >
-        @if (png(); as src) {
-          <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
-        } @else if (svgHtml(); as html) {
-          <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
-        } @else {
-          @if (failed()) {
-            <span class="text-st-cancelled-fg text-xs" role="alert" data-testid="qr-error">
-              Le QR code n'a pas pu être généré. Le lien reste valable.
-            </span>
-          } @else {
-            <span class="text-text-subtle text-xs">Génération du QR code…</span>
-          }
-        }
-      </div>
-
-      <div class="flex min-w-0 flex-1 flex-col gap-3">
-        <div class="flex flex-col gap-1">
-          <p class="text-text-strong font-semibold">{{ title() }}</p>
-          @if (description()) {
-            <p class="text-text-subtle text-sm">{{ description() }}</p>
-          }
-        </div>
-        <p
-          class="text-text-muted bg-muted rounded-md px-2 py-1 font-mono text-xs break-all"
-          data-testid="qr-url"
-        >
-          {{ url() }}
-        </p>
-        <div class="flex flex-wrap items-center gap-2">
-          <hk-button size="sm" variant="secondary" data-testid="copy-url" (click)="copy()">
-            <hk-icon name="lucideCopy" [size]="14" />
-            {{ copied() ? 'Lien copié' : 'Copier le lien' }}
-          </hk-button>
-          @if (pngHref(); as href) {
-            <a
-              data-testid="download-png"
-              [href]="href"
-              [download]="fileName() + '.png'"
-              class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
-            >
-              <hk-icon name="lucideDownload" [size]="14" />
-              PNG
-            </a>
-          } @else {
-            <hk-button size="sm" variant="secondary" data-testid="download-png" [disabled]="true">
-              <hk-icon name="lucideDownload" [size]="14" />
-              PNG
-            </hk-button>
-          }
-          @if (svgHref(); as href) {
-            <a
-              data-testid="download-svg"
-              [href]="href"
-              [download]="fileName() + '.svg'"
-              class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
-            >
-              <hk-icon name="lucideDownload" [size]="14" />
-              SVG
-            </a>
-          }
-          <a
-            data-testid="open-url"
-            [href]="url()"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-primary inline-flex items-center gap-1 text-sm underline"
-          >
-            <hk-icon name="lucideExternalLink" [size]="14" />
-            Ouvrir la page
-          </a>
-        </div>
-        @if (copyFailed()) {
-          <p class="text-st-cancelled-fg text-xs" role="alert">
-            Copie impossible depuis ce navigateur. Sélectionnez le lien ci-dessus pour le copier.
-          </p>
-        }
-      </div>
-    </div>
-  `,
+  templateUrl: './hk-qr-card.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkQrCard {
   readonly title = input.required<string>();
+  // Ce que le QR encode : exactement ce lien, rien d'autre.
   readonly url = input.required<string>();
   // Nom des fichiers telecharges, sans extension : « menu-chez-hikky ».
   readonly fileName = input.required<string>();
@@ -122,21 +55,50 @@ export class HkQrCard {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly destroyRef = inject(DestroyRef);
   private copiedTimer: ReturnType<typeof setTimeout> | null = null;
-  private generation = 0;
 
-  protected readonly svg = signal('');
-  protected readonly png = signal<string | null>(null);
-  protected readonly failed = signal(false);
   protected readonly copied = signal(false);
   protected readonly copyFailed = signal(false);
-  // Ce que le QR encode : exactement le lien, rien d'autre.
 
-  // Le SVG et le PNG sortent de la bibliotheque qrcode a partir de NOTRE lien :
-  // ils sont surs par construction, d'ou le contournement explicite de la
-  // sanitisation (Angular refuse par defaut les data: SVG et le HTML inline).
-  protected readonly svgHtml = computed<SafeHtml | null>(() =>
-    this.svg() ? this.sanitizer.bypassSecurityTrustHtml(this.svg()) : null,
+  /**
+   * Le dessin suit le lien : changer de lien relance la generation et abandonne
+   * la precedente. C'est `resource` qui tient le fil, pas un compteur a la main,
+   * donc un resultat en retard ne peut plus ecraser un lien plus recent.
+   *
+   * Consequence voulue : pendant une regeneration, la carte repasse par
+   * « Generation du QR code... » au lieu de garder l'ancien dessin a l'ecran.
+   * Un QR affiche ne correspond donc JAMAIS a un autre lien que celui affiche
+   * juste a cote, et le bouton de telechargement ne peut plus servir l'ancien.
+   */
+  private readonly images = resource<QrImages, string>({
+    params: () => this.url(),
+    loader: async ({ params: url }) => {
+      // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
+      // Module CommonJS : en build de production, les fonctions sont sous « default ».
+      const QRCode = resolveQrModule(await import('qrcode'));
+      const svg = await QRCode.toString(url, { ...QR_OPTIONS, type: 'svg' });
+      try {
+        return { svg, png: await QRCode.toDataURL(url, { ...QR_OPTIONS, width: PNG_WIDTH }) };
+      } catch {
+        // Pas de canvas (tests, environnements restreints) : le SVG suffit a
+        // l'affichage comme a l'impression, le bouton PNG reste simplement inactif.
+        return { svg, png: null };
+      }
+    },
+  });
+
+  // hasValue() avant value() : lire la valeur d'une ressource en erreur releve
+  // l'erreur, ce qui rendrait inatteignable le message de repli juste en dessous.
+  protected readonly svg = computed(() => (this.images.hasValue() ? this.images.value().svg : ''));
+  // data:image/png est accepte tel quel par la sanitisation d'Angular : il sert
+  // directement d'adresse d'image et de lien de telechargement, sans contournement.
+  protected readonly png = computed(() =>
+    this.images.hasValue() ? this.images.value().png : null,
   );
+  protected readonly failed = computed(() => this.images.error() !== undefined);
+
+  // Le SVG sort de la bibliotheque qrcode a partir de NOTRE lien : il est sur par
+  // construction, d'ou le contournement explicite de la sanitisation (Angular
+  // refuse par defaut les data: SVG).
   protected readonly svgHref = computed<SafeUrl | null>(() =>
     this.svg()
       ? this.sanitizer.bypassSecurityTrustUrl(
@@ -144,52 +106,11 @@ export class HkQrCard {
         )
       : null,
   );
-  // data:image/png est accepte tel quel par la sanitisation d'Angular : pas de contournement.
-  protected readonly pngHref = computed<string | null>(() => this.png());
 
   constructor() {
-    effect(() => {
-      const url = this.url();
-      if (url) {
-        void this.generate(url);
-      }
-    });
     this.destroyRef.onDestroy(() => {
       if (this.copiedTimer) clearTimeout(this.copiedTimer);
     });
-  }
-
-  // Un lien change pendant la generation : seul le dernier resultat est garde.
-  private async generate(url: string): Promise<void> {
-    const run = ++this.generation;
-    // Le PNG du lien precedent part tout de suite. Le SVG est peint avant que le
-    // PNG soit pret : sans ca, le bouton « telecharger en PNG » servirait le QR de
-    // l'ancien lien pendant que l'ecran affiche deja le nouveau.
-    this.png.set(null);
-    const options = { margin: 1, errorCorrectionLevel: 'M' as const };
-    // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
-    // Module CommonJS : en build de production, les fonctions sont sous « default ».
-    const loaded: unknown = await import('qrcode');
-    const QRCode = resolveQrModule(loaded);
-    let svg: string;
-    try {
-      svg = await QRCode.toString(url, { ...options, type: 'svg' });
-    } catch {
-      if (run === this.generation) this.failed.set(true);
-      return;
-    }
-    if (run !== this.generation) return;
-    this.failed.set(false);
-    this.svg.set(svg);
-    try {
-      const png = await QRCode.toDataURL(url, { ...options, width: 512 });
-      if (run === this.generation) this.png.set(png);
-    } catch {
-      // Pas de canvas (tests) : le SVG suffit a l'affichage et a l'impression.
-      // Meme garde que les autres branches : un echec tardif d'une generation
-      // abandonnee ne doit pas effacer le PNG d'un lien plus recent.
-      if (run === this.generation) this.png.set(null);
-    }
   }
 
   protected async copy(): Promise<void> {
@@ -211,8 +132,7 @@ type QrModule = typeof import('qrcode');
 // sous « default » (production, module CommonJS) : on prend celui qui a les fonctions.
 function resolveQrModule(loaded: unknown): QrModule {
   const candidate = loaded as Partial<QrModule> & { default?: Partial<QrModule> };
-  if (typeof candidate.toDataURL === 'function') {
-    return candidate as QrModule;
-  }
-  return candidate.default as QrModule;
+  return typeof candidate.toDataURL === 'function'
+    ? (candidate as QrModule)
+    : (candidate.default as QrModule);
 }

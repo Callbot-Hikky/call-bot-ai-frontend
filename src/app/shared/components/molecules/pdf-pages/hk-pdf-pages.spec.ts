@@ -10,7 +10,7 @@ class Host {
   readonly url = signal('/api/public/restaurants/r/menu/files/f');
 }
 
-function fakeDocument(pages: number): PdfDocumentLike {
+function fakeDocument(pages: number, render = () => ({ promise: Promise.resolve() })) {
   return {
     numPages: pages,
     getPage: () =>
@@ -19,10 +19,10 @@ function fakeDocument(pages: number): PdfDocumentLike {
           width: 100 * scale,
           height: 140 * scale,
         }),
-        render: () => ({ promise: Promise.resolve() }),
+        render,
       }),
     destroy: () => undefined,
-  };
+  } satisfies PdfDocumentLike;
 }
 
 describe('HkPdfPages', () => {
@@ -61,6 +61,59 @@ describe('HkPdfPages', () => {
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelector('[data-testid="pdf-error"]').textContent).toContain(
       'plein écran',
+    );
+  });
+
+  // Les cadres sont poses par le gabarit, le dessin arrive apres le rendu : si ce
+  // branchement casse, les canvas sont bien la mais restent blancs.
+  it('peint chaque page une fois ses cadres dans la page', async () => {
+    const render = vi.fn(() => ({ promise: Promise.resolve() }));
+    await setup(() => Promise.resolve(fakeDocument(3, render)));
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(3);
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(3));
+  });
+
+  it('les cadres portent les dimensions calculees, pour une mise en page stable', async () => {
+    await setup(() => Promise.resolve(fakeDocument(1)));
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+
+    const canvas: HTMLCanvasElement = fixture.nativeElement.querySelector('canvas');
+    expect(canvas.width).toBeGreaterThan(0);
+    expect(canvas.height).toBeGreaterThan(0);
+    // La page du faux document est au format 100x140 : le cadre garde ses proportions.
+    expect(canvas.height / canvas.width).toBeCloseTo(1.4, 1);
+  });
+
+  // Compter les cadres ne prouve rien : deux documents d'une meme longueur en
+  // donnent autant, et le @for peut reutiliser les memes noeuds. Ce qu'il faut
+  // verifier, c'est que le second document est REDESSINE.
+  it('changer de document redessine les pages, meme a nombre de pages egal', async () => {
+    const render = vi.fn(() => ({ promise: Promise.resolve() }));
+    await setup(() => Promise.resolve(fakeDocument(2, render)));
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(2));
+
+    fixture.componentInstance.url.set('/api/public/restaurants/r/menu/files/autre');
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(2);
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(4));
+  });
+
+  it('une page illisible affiche le message et ne laisse pas des cadres blancs', async () => {
+    // Sans garde, le rejet casserait la chaine de dessin en silence.
+    const render = vi.fn(() => ({ promise: Promise.reject(new Error('page')) }));
+    await setup(() => Promise.resolve(fakeDocument(2, render)));
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(fixture.nativeElement.querySelector('[data-testid="pdf-error"]')).not.toBeNull(),
     );
   });
 });

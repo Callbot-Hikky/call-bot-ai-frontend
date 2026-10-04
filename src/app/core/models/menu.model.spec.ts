@@ -1,14 +1,17 @@
+import { withManualKeys } from '@core/models/menu.model';
 import {
   MANUAL_LIMITS,
   addItem,
   addSection,
   detectFileType,
   emptyManual,
+  filesOfKind,
   isManualMenu,
   menuErrorMessage,
   normalizePrice,
   removeItem,
   removeSection,
+  setItemPrice,
   updateItem,
   validateManual,
 } from './menu.model';
@@ -66,17 +69,17 @@ describe('menu.model', () => {
 
     it('refuse plus de 20 sections et plus de 50 plats par section (document venu du back)', () => {
       // Les helpers sont bornes, mais un document stocke peut depasser : la validation le refuse.
-      const tooManySections = {
-        version: 1 as const,
+      const tooManySections = withManualKeys({
+        version: 1,
         sections: Array.from({ length: MANUAL_LIMITS.sections + 1 }, (_, i) => ({
           name: `S${i}`,
           items: [],
         })),
-      };
+      });
       expect(validateManual(tooManySections).some((e) => e.includes('sections'))).toBe(true);
 
-      const dense = {
-        version: 1 as const,
+      const dense = withManualKeys({
+        version: 1,
         sections: [
           {
             name: 'Plats',
@@ -87,7 +90,7 @@ describe('menu.model', () => {
             })),
           },
         ],
-      };
+      });
       expect(validateManual(dense).some((e) => e.includes('plats'))).toBe(true);
     });
 
@@ -120,6 +123,9 @@ describe('menu.model', () => {
       menu = addItem(menu, 0);
       menu = updateItem(menu, 0, 0, { name: 'Tajine ', price: '18,5' });
       expect(menu.sections[0].items[0]).toEqual({
+        // La cle de suivi est posee a la creation : on la verifie presente sans
+        // dependre de sa valeur, qui n'a aucun sens metier.
+        key: expect.any(String),
         name: 'Tajine ',
         description: '',
         price: '18.50',
@@ -133,6 +139,7 @@ describe('menu.model', () => {
       menu = updateItem(menu, 0, 0, { name: '  Tajine  ', description: ' Aux pruneaux ' });
       menu = trimItem(menu, 0, 0);
       expect(menu.sections[0].items[0]).toEqual({
+        key: expect.any(String),
         name: 'Tajine',
         description: 'Aux pruneaux',
         price: '',
@@ -194,7 +201,7 @@ describe('menu.model', () => {
         new HttpErrorResponse({ status, error: { error: code } });
       expect(menuErrorMessage(err(415, 'unsupported_file_type'), 'x')).toContain('PDF');
       expect(menuErrorMessage(err(413, 'file_too_large'), 'x')).toContain('volumineux');
-      expect(menuErrorMessage(err(409, 'too_many_files'), 'x')).toContain('8');
+      expect(menuErrorMessage(err(409, 'too_many_files'), 'x')).toContain('limite de fichiers');
       expect(menuErrorMessage(err(409, 'mode_not_ready'), 'x')).toContain('contenu');
       expect(menuErrorMessage(err(403, 'forbidden'), 'x')).toContain('restaurant');
     });
@@ -222,5 +229,52 @@ describe('menu.model : page publique', () => {
         '/api/public/restaurants/../menu/files/06a7fb1d-3c23-4632-a7d0-a6754249c2a4',
       ),
     ).toBe(false);
+  });
+
+  describe('filesOfKind', () => {
+    it('ne garde qu un genre et le range par position', () => {
+      const files = [
+        {
+          id: 'b',
+          kind: 'pdf' as const,
+          contentType: 'application/pdf',
+          position: 1,
+          sizeBytes: 1,
+          url: '',
+        },
+        {
+          id: 'x',
+          kind: 'image' as const,
+          contentType: 'image/png',
+          position: 0,
+          sizeBytes: 1,
+          url: '',
+        },
+        {
+          id: 'a',
+          kind: 'pdf' as const,
+          contentType: 'application/pdf',
+          position: 0,
+          sizeBytes: 1,
+          url: '',
+        },
+      ];
+      expect(filesOfKind(files, 'pdf').map((f) => f.id)).toEqual(['a', 'b']);
+      expect(filesOfKind(files, 'image').map((f) => f.id)).toEqual(['x']);
+      // Le tableau d'origine n'est pas reordonne.
+      expect(files.map((f) => f.id)).toEqual(['b', 'x', 'a']);
+    });
+  });
+
+  describe('setItemPrice', () => {
+    it('garde la valeur brute, la ou updateItem normaliserait', () => {
+      let menu = addItem(addSection(emptyManual(), 'Plats'), 0);
+      // « 18. » n'est pas un prix : seule cette porte le laisse passer, le temps
+      // de la frappe. Un prix complet, lui, est normalise par updateItem.
+      menu = setItemPrice(menu, 0, 0, '18.');
+      expect(menu.sections[0].items[0].price).toBe('18.');
+      menu = updateItem(menu, 0, 0, { price: '18,5' });
+      expect(menu.sections[0].items[0].price).toBe('18.50');
+    });
   });
 });

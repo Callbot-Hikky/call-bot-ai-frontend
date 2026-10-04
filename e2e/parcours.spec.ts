@@ -38,11 +38,18 @@ test.describe('Parcours restaurateur : du compte neuf a la premiere reservation'
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
     await page.getByRole('button', { name: 'Continuer' }).click();
 
-    // Etapes 3 et 4.
+    // Etape 3 : le contexte de l'etablissement, facultatif ici.
     await expect(page.getByRole('heading', { name: 'Votre établissement' })).toBeVisible();
     await page.getByRole('button', { name: 'Passer' }).click();
+    // Etape 4 : on cree le jeu de tables par defaut, la reservation plus bas en a besoin.
     await expect(page.getByRole('heading', { name: 'Vos tables' })).toBeVisible();
-    await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+    await page.getByRole('button', { name: 'Continuer', exact: true }).click();
+    // Etape 5 : le renvoi d'appel se fait sur le telephone, impossible a jouer ici.
+    // Niveau 1 : le composant de renvoi d'appel repete ce titre dans un h2.
+    await expect(
+      page.getByRole('heading', { name: 'Brancher votre numéro', level: 1 }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Plus tard', exact: true }).click();
     await page.waitForURL(/\/dashboard/);
     await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible();
 

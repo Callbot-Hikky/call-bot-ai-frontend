@@ -7,6 +7,7 @@ import {
   PublicMenu,
   emptyManual,
   isManualMenu,
+  withManualKeys,
 } from './menu.model';
 
 // Formes EXACTES des reponses du back (MenuResponse, MenuFileResponse, MenuLimits).
@@ -33,7 +34,7 @@ export function mapMenu(dto: MenuDto): Menu {
   return {
     restaurantId: dto.restaurantId,
     mode: dto.mode,
-    manual: isManualMenu(dto.manual) ? dto.manual : emptyManual(),
+    manual: isManualMenu(dto.manual) ? withManualKeys(dto.manual) : emptyManual(),
     files: dto.files.map(mapFile),
     limits: dto.limits ?? DEFAULT_LIMITS,
   };
@@ -62,7 +63,7 @@ export function mapPublicMenu(dto: PublicMenuDto): PublicMenu {
   return {
     restaurantName: dto.restaurantName,
     mode: dto.mode,
-    manual: isManualMenu(dto.manual) ? dto.manual : null,
+    manual: isManualMenu(dto.manual) ? withManualKeys(dto.manual) : null,
     files: dto.files.map(mapFile),
   };
 }

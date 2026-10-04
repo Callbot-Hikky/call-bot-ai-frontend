@@ -1,0 +1,24 @@
+<div class="flex flex-col gap-4" role="img" [attr.aria-label]="title()">
+  @if (state() === 'loading') {
+    <hk-skeleton height="60vh" />
+  }
+  @if (state() === 'error') {
+    <p class="text-text-muted text-sm" data-testid="pdf-error">
+      La carte n'a pas pu être affichée ici. Ouvrez-la en plein écran ci-dessous.
+    </p>
+  }
+  <!-- Un cadre par page, aux dimensions calculees apres l'ouverture du document :
+       la mise en page ne bouge plus ensuite, meme si le dessin arrive plus tard. -->
+  <div class="flex flex-col gap-4">
+    @for (frame of frames(); track frame.n) {
+      <canvas
+        #page
+        [width]="frame.width"
+        [height]="frame.height"
+        [attr.data-page]="frame.n"
+        [attr.aria-label]="'Page ' + frame.n"
+        class="border-border/70 h-auto w-full rounded-lg border bg-white shadow-sm"
+      ></canvas>
+    }
+  </div>
+</div>

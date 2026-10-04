@@ -1,3 +1,6 @@
+import { withManualKeys, withoutManualKeys } from '@core/models/menu.model';
+import { MENU_GATEWAY } from './menu-gateway';
+import { HttpMenuGateway } from './http-menu-gateway';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -30,13 +33,23 @@ function pngFile(size = 64): File {
   return new File([bytes], 'carte.png', { type: 'image/png' });
 }
 
+function pdfFile(size = 64): File {
+  const bytes = new Uint8Array(size);
+  bytes.set([0x25, 0x50, 0x44, 0x46, 0x2d], 0); // %PDF-
+  return new File([bytes], 'carte.pdf', { type: 'application/pdf' });
+}
+
 describe('MenuService', () => {
   let service: MenuService;
   let http: HttpTestingController;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MENU_GATEWAY, useClass: HttpMenuGateway },
+      ],
     });
     service = TestBed.inject(MenuService);
     http = TestBed.inject(HttpTestingController);
@@ -103,13 +116,14 @@ describe('MenuService', () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto({ mode: 'manual' }));
 
-    const manual = {
-      version: 1 as const,
+    const manual = withManualKeys({
+      version: 1,
       sections: [{ name: 'Plats', items: [{ name: 'Tajine', description: '', price: '18.00' }] }],
-    };
+    });
     const promise = firstValueFrom(service.saveManual(manual));
     const req = http.expectOne((r) => r.method === 'PUT');
-    expect(req.request.body).toEqual({ mode: 'manual', manual });
+    // Les cles de suivi ne partent pas sur le reseau : le back ne les connait pas.
+    expect(req.request.body).toEqual({ mode: 'manual', manual: withoutManualKeys(manual) });
     req.flush(dto({ mode: 'manual', manual }));
 
     await promise;
@@ -121,7 +135,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
 
       service.scheduleManualSave(manual);
       expect(service.saveState()).toBe('dirty');
@@ -142,7 +156,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
       const promise = firstValueFrom(service.saveManual(manual));
       http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'manual', manual }));
@@ -159,12 +173,13 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'none' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
 
       const promise = firstValueFrom(service.setMode('manual'));
       const req = http.expectOne((r) => r.method === 'PUT');
-      expect(req.request.body).toEqual({ mode: 'manual', manual });
+      // Les cles de suivi ne partent pas sur le reseau : le back ne les connait pas.
+      expect(req.request.body).toEqual({ mode: 'manual', manual: withoutManualKeys(manual) });
       req.flush(dto({ mode: 'manual', manual }));
       await promise;
       vi.advanceTimersByTime(1000);
@@ -177,7 +192,7 @@ describe('MenuService', () => {
   it('saveManual : une saisie videe alors qu elle est publiee depublie au lieu d echouer', async () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-    const empty = { version: 1 as const, sections: [] };
+    const empty = withManualKeys({ version: 1, sections: [] });
 
     const promise = firstValueFrom(service.saveManual(empty));
     const req = http.expectOne((r) => r.method === 'PUT');
@@ -191,7 +206,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
       http.expectNone((r) => r.method === 'PUT');
 
@@ -254,7 +269,7 @@ describe('MenuService', () => {
     }));
     http.expectOne(() => true).flush(dto({ files: eight }));
 
-    await expect(firstValueFrom(service.upload(pngFile()))).rejects.toThrow(/8 images/);
+    await expect(firstValueFrom(service.upload(pngFile()))).rejects.toThrow(/limite de fichiers/);
     http.expectNone((r) => r.method === 'POST');
   });
 
@@ -326,5 +341,44 @@ describe('MenuService', () => {
     expect(orderReq.request.body).toEqual({ fileIds: ['b', 'a'] });
     orderReq.flush(dto());
     await order;
+  });
+
+  it('un nouveau chargement efface l etiquette et l erreur de la visite precedente', () => {
+    // Le service est unique pour toute l'application : l'etat d'enregistrement d'une
+    // page quittee ne doit pas reapparaitre sur la suivante.
+    service.load(RID);
+    http.expectOne((r) => r.method === 'GET').flush(dto());
+    service.scheduleManualSave({ version: 1, sections: [] });
+    expect(service.touched()).toBe(true);
+    expect(service.saveState()).toBe('dirty');
+
+    service.load(RID);
+    expect(service.touched()).toBe(false);
+    expect(service.saveState()).toBe('saved');
+    expect(service.lastError()).toBeNull();
+    http.expectOne((r) => r.method === 'GET').flush(dto());
+  });
+
+  it('upload : refuse un PDF de trop cote client, sans aucun appel HTTP', async () => {
+    // Le back plafonne a 5 PDF : le client doit le dire tout de suite au lieu
+    // d'envoyer un fichier qui sera refuse.
+    service.load(RID);
+    http
+      .expectOne((r) => r.method === 'GET')
+      .flush(
+        dto({
+          files: Array.from({ length: 5 }, (_, i) => ({
+            id: `p${i}`,
+            kind: 'pdf' as const,
+            contentType: 'application/pdf',
+            position: i,
+            sizeBytes: 1000,
+            url: `/api/restaurants/${RID}/menu/files/p${i}`,
+          })),
+        }),
+      );
+
+    await expect(firstValueFrom(service.upload(pdfFile()))).rejects.toThrow(/limite de fichiers/);
+    http.expectNone((r) => r.method === 'POST');
   });
 });

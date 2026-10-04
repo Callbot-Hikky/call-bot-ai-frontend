@@ -24,7 +24,15 @@ export interface MenuLimits {
   imageMaxCount: number;
 }
 
+/**
+ * `key` : identite stable d'une section ou d'un plat, posee a la creation et a la
+ * lecture. Le back ne la connait pas et ne la recoit jamais (voir `withoutManualKeys`) :
+ * elle n'existe que pour `@for ... track`. Sans elle il faudrait suivre par index,
+ * et supprimer une section ferait glisser le focus et le texte d'un champ a
+ * l'autre, puisque tous les rangs suivants se decalent.
+ */
 export interface ManualItem {
+  readonly key: string;
   name: string;
   description: string;
   // Prix normalise « 12.50 », ou chaine vide : le prix est optionnel.
@@ -32,6 +40,7 @@ export interface ManualItem {
 }
 
 export interface ManualSection {
+  readonly key: string;
   name: string;
   items: ManualItem[];
 }
@@ -73,7 +82,10 @@ export function emptyManual(): ManualMenu {
 
 // Le back renvoie le document tel qu'il a ete stocke : on ne fait confiance a sa
 // forme qu'apres verification. Un document inattendu = menu vide, jamais un plantage.
-export function isManualMenu(value: unknown): value is ManualMenu {
+// Le garde ne verifie que la forme venue du dehors, donc il ne promet que celle-la :
+// un document sans cles. Affirmer `ManualMenu` ici laisserait passer un document
+// non clef jusqu'au gabarit, ou `track section.key` suivrait des `undefined`.
+export function isManualMenu(value: unknown): value is KeylessManualMenu {
   if (!value || typeof value !== 'object') return false;
   const doc = value as { version?: unknown; sections?: unknown };
   if (doc.version !== 1 || !Array.isArray(doc.sections)) return false;
@@ -94,13 +106,65 @@ export function isManualMenu(value: unknown): value is ManualMenu {
   );
 }
 
+// Compteur plutot qu'un UUID : l'unicite n'a besoin d'etre vraie que dans le
+// document ouvert, et une cle lisible aide a lire un test qui echoue.
+let keySequence = 0;
+export function newManualKey(): string {
+  return `k${++keySequence}`;
+}
+
+/** Le document tel qu'il arrive du back : sans cles, puisqu'il ne les connait pas. */
+export interface KeylessManualMenu {
+  version: 1;
+  sections: {
+    key?: string;
+    name: string;
+    items: { key?: string; name: string; description: string; price: string }[];
+  }[];
+}
+
+/** Pose les cles manquantes : seule porte d'entree d'un document venu du dehors. */
+export function withManualKeys(menu: KeylessManualMenu): ManualMenu {
+  return {
+    ...menu,
+    sections: menu.sections.map((section) => ({
+      ...section,
+      key: section.key || newManualKey(),
+      items: section.items.map((item) => ({ ...item, key: item.key || newManualKey() })),
+    })),
+  };
+}
+
+/** Retire les cles : elles sont internes a l'ecran, le back n'en veut pas. */
+export function withoutManualKeys(menu: ManualMenu): {
+  version: 1;
+  sections: { name: string; items: { name: string; description: string; price: string }[] }[];
+} {
+  return {
+    version: menu.version,
+    sections: menu.sections.map(({ name, items }) => ({
+      name,
+      items: items.map(({ name: itemName, description, price }) => ({
+        name: itemName,
+        description,
+        price,
+      })),
+    })),
+  };
+}
+
+/** Les fichiers d'un genre, dans l'ordre choisi par le restaurateur. */
+export function filesOfKind(files: readonly MenuFile[], kind: MenuFile['kind']): MenuFile[] {
+  return files.filter((f) => f.kind === kind).sort((a, b) => a.position - b.position);
+}
+
 // --- Helpers immuables : chaque appel renvoie un nouveau document. -------------
 
 export function addSection(menu: ManualMenu, name = ''): ManualMenu {
   if (menu.sections.length >= MANUAL_LIMITS.sections) {
     return menu;
   }
-  return { ...menu, sections: [...menu.sections, { name, items: [] }] };
+  return { ...menu, sections: [...menu.sections, { key: newManualKey(), name, items: [] }] };
 }
 
 export function removeSection(menu: ManualMenu, index: number): ManualMenu {
@@ -121,7 +185,10 @@ export function addItem(menu: ManualMenu, sectionIndex: number): ManualMenu {
       if (i !== sectionIndex || s.items.length >= MANUAL_LIMITS.itemsPerSection) {
         return s;
       }
-      return { ...s, items: [...s.items, { name: '', description: '', price: '' }] };
+      return {
+        ...s,
+        items: [...s.items, { key: newManualKey(), name: '', description: '', price: '' }],
+      };
     }),
   };
 }
@@ -159,6 +226,28 @@ export function updateItem(
         }),
       };
     }),
+  };
+}
+
+// Le prix tel qu'il est tape, SANS normalisation : « 18. » doit survivre a la
+// frappe. `updateItem` normalise tout prix qu'on lui donne ; celle-ci est la seule
+// porte qui ne le fait pas, et elle ne sert qu'entre deux touches.
+export function setItemPrice(
+  menu: ManualMenu,
+  sectionIndex: number,
+  itemIndex: number,
+  raw: string,
+): ManualMenu {
+  return {
+    ...menu,
+    sections: menu.sections.map((s, i) =>
+      i !== sectionIndex
+        ? s
+        : {
+            ...s,
+            items: s.items.map((item, j) => (j === itemIndex ? { ...item, price: raw } : item)),
+          },
+    ),
   };
 }
 
@@ -259,8 +348,11 @@ export function detectFileType(bytes: Uint8Array): MenuFileType | null {
 
 export const MENU_ERROR_MESSAGES: Record<string, string> = {
   unsupported_file_type: 'Seuls les fichiers PDF, JPEG, PNG et WebP sont acceptés.',
-  file_too_large: 'Fichier trop volumineux : 10 Mo maximum pour un PDF, 5 Mo pour une image.',
-  too_many_files: 'Vous avez atteint la limite de 8 images.',
+  // Sans chiffres : les limites viennent du serveur et sont deja annoncees par la
+  // zone de depot. Les recopier ici, c'est promettre « 10 Mo » le jour ou le
+  // serveur en accepte 20.
+  file_too_large: 'Fichier trop volumineux pour ce format.',
+  too_many_files: 'Vous avez atteint la limite de fichiers pour ce mode.',
   mode_not_ready: "Ajoutez d'abord du contenu avant de publier ce mode.",
   invalid_manual: 'Le menu saisi est mal formé.',
   invalid_file_order: "L'ordre des fichiers est incomplet, rechargez la page.",

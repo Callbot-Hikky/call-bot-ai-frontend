@@ -1,3 +1,5 @@
+import { MENU_GATEWAY } from '@core/services/menu-gateway';
+import { HttpMenuGateway } from '@core/services/http-menu-gateway';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { PDF_LOADER } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
@@ -10,6 +12,7 @@ import { MenuPage } from './menu-page';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { MenuDto } from '@core/models/menu-dto.model';
+import { withManualKeys } from '@core/models/menu.model';
 import { RestaurantService } from '@core/services/restaurant.service';
 
 const RID = 'r-1';
@@ -63,12 +66,15 @@ describe('MenuPage', () => {
   let http: HttpTestingController;
   let toast: ToastService;
   const restaurantId = signal<string | null>(RID);
+  const restaurant = signal<{ id: string; name: string } | null>(null);
 
   beforeEach(async () => {
     restaurantId.set(RID);
+    restaurant.set(null);
     await TestBed.configureTestingModule({
       imports: [MenuPage],
       providers: [
+        { provide: MENU_GATEWAY, useClass: HttpMenuGateway },
         { provide: PDF_LOADER, useValue: () => new Promise(() => undefined) },
         provideZonelessChangeDetection(),
         provideHttpClient(),
@@ -76,10 +82,16 @@ describe('MenuPage', () => {
         provideRouter([]),
         { provide: SessionService, useValue: { restaurantId } },
         {
+          // Volontairement fidele au vrai service : `loadRestaurant` lit le
+          // restaurant deja en memoire avant d'ecrire. Un mock qui ne lirait rien
+          // masquerait un rechargement en boucle, qu'ici `http.verify()` attrape.
           provide: RestaurantService,
           useValue: {
-            restaurant: signal({ id: RID, name: 'Le Bistrot du Coin' }),
-            loadRestaurant: vi.fn(),
+            restaurant,
+            loadRestaurant: (id: string) => {
+              if (restaurant()?.id === id) return;
+              restaurant.set({ id, name: 'Le Bistrot du Coin' });
+            },
           },
         },
       ],
@@ -157,44 +169,62 @@ describe('MenuPage', () => {
     expect(http.expectOne((r) => r.method === 'PUT').request.body).toEqual({ mode: 'pdf' });
   });
 
-  it('un PDF depose mais pas publie : encart de succes avec le bouton Publier, qui disparait une fois publie', async () => {
-    const pdf = {
-      id: 'p',
-      kind: 'pdf' as const,
-      contentType: 'application/pdf',
-      position: 0,
-      sizeBytes: 10,
-      url: '/api/restaurants/r-1/menu/files/p',
-    };
-    await render(dto({ mode: 'none', files: [pdf] }));
+  // Quand rien n'est publie, le bandeau de la page propose deja la publication :
+  // un second bouton dans la section ferait deux fois la meme chose a l'ecran.
+  it('rien n est publie : un seul bouton de publication dans toute la page', async () => {
+    await render(dto({ mode: 'none', files: [PDF] }));
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+  });
+
+  it('un PDF depose mais pas publie : le bandeau propose de publier, puis disparait', async () => {
+    await render(dto({ mode: 'none', files: [PDF] }));
+    const button: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-current"]',
+    );
+    expect(button.textContent).toContain('Publier le PDF');
+    button.click();
+    await fixture.whenStable();
+    http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [PDF] }));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Vos clients voient votre carte en PDF');
+  });
+
+  // Un autre format est en ligne : le bandeau de la page ne propose pas celui-ci,
+  // donc c'est la section qui porte le bouton. C'est le seul cas ou elle l'affiche.
+  it('un autre format est publie : la section porte le bouton, et elle seule', async () => {
+    await render(dto({ mode: 'images', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+
     const inline: HTMLElement = fixture.nativeElement.querySelector(
       '[data-testid="publish-inline"]',
     );
-    expect(inline.textContent).toContain('pas encore visible');
-    (inline.querySelector('button') as HTMLElement).click();
-    await fixture.whenStable();
-    http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [pdf] }));
-    await fixture.whenStable();
-    expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+    expect(inline).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
+    expect(inline.textContent).toContain("Votre PDF est prêt. Il n'est pas encore visible");
   });
 
   // Une apostrophe dans une interpolation fermait la chaine : Angular ne signale rien et
   // rend le {{ ... }} en texte brut. On verifie donc la phrase entiere, pas un fragment.
-  it('un seul PDF : le bandeau affiche la phrase au singulier, sans interpolation brute', async () => {
-    await render(dto({ mode: 'none', files: [PDF] }));
-    const inline: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="publish-inline"]',
-    );
+  it('le bandeau accorde la phrase au nombre de PDF, sans interpolation brute', async () => {
+    await render(dto({ mode: 'images', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+    let inline: HTMLElement = fixture.nativeElement.querySelector('[data-testid="publish-inline"]');
     expect(inline.textContent).toContain("Votre PDF est prêt. Il n'est pas encore visible");
+    expect(inline.textContent).toContain('Publier le PDF');
     expect(inline.textContent).not.toContain('{{');
-  });
 
-  it('plusieurs PDF : le bandeau passe au pluriel', async () => {
-    await render(dto({ mode: 'none', files: [PDF, { ...PDF, id: 'p2', position: 1 }] }));
-    const inline: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="publish-inline"]',
+    await render(
+      dto({ mode: 'images', files: [PDF, { ...PDF, id: 'p2', position: 1 }, ...IMAGES] }),
     );
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+    inline = fixture.nativeElement.querySelector('[data-testid="publish-inline"]');
     expect(inline.textContent).toContain('Vos PDF sont prêts. Ils ne sont pas encore visibles');
+    expect(inline.textContent).toContain('Publier les PDF');
     expect(inline.textContent).not.toContain('{{');
   });
 
@@ -372,5 +402,87 @@ describe('MenuPage', () => {
     await fixture.whenStable();
     expect(toast.show).toHaveBeenCalledTimes(1);
     expect(toast.show).toHaveBeenCalledWith(expect.stringMatching(/2 sur 3/), 'error');
+  });
+
+  it('changer de restaurant dans la session recharge la carte et met les QR a jour', async () => {
+    // Sinon les deux QR designeraient un restaurant pendant que la carte en
+    // affiche un autre : le restaurateur imprimerait le mauvais lien.
+    await render(dto({ mode: 'pdf' }));
+    const OTHER = '11111111-2222-4333-8444-555555555555';
+
+    restaurantId.set(OTHER);
+    await fixture.whenStable();
+
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith(`/restaurants/${OTHER}/menu`))
+      .flush(dto({ mode: 'manual' }));
+    await fixture.whenStable();
+
+    const qrUrls = Array.from(
+      fixture.nativeElement.querySelectorAll('[data-testid="qr-url"]') as NodeListOf<HTMLElement>,
+    ).map((el) => el.textContent ?? '');
+    expect(qrUrls.join(' ')).toContain(OTHER);
+    expect(qrUrls.join(' ')).not.toContain(RID);
+    // Et la zone ouverte repart du mode du nouveau restaurant.
+    expect(fixture.componentInstance['editing']()).toBe('manual');
+  });
+
+  it('une reponse du serveur ne referme pas la zone ouverte par l utilisateur', async () => {
+    // Un PDF est publie, mais l utilisateur prepare ses photos. La reponse a la
+    // suppression renvoie « mode: pdf » : la zone Photos doit rester ouverte.
+    await render(dto({ mode: 'pdf', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-images"]') as HTMLElement).click();
+    await fixture.whenStable();
+    expect(fixture.componentInstance['editing']()).toBe('images');
+
+    (fixture.nativeElement.querySelector('[data-testid="remove-file-a"]') as HTMLElement).click();
+    await fixture.whenStable();
+    (
+      fixture.nativeElement.querySelector('[data-testid="confirm-remove-file"]') as HTMLElement
+    ).click();
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.method === 'DELETE')
+      .flush(dto({ mode: 'pdf', files: [PDF, IMAGES[1]] }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['editing']()).toBe('images');
+    expect(fixture.nativeElement.querySelector('[aria-label="Carte en photos"]')).not.toBeNull();
+  });
+
+  it('une reponse du serveur ne fait pas reculer la saisie en cours', async () => {
+    await render(dto({ mode: 'manual' }));
+    const typed = withManualKeys({
+      version: 1,
+      sections: [{ name: 'Entrees', items: [{ name: 'Soupe', price: '8.00', description: '' }] }],
+    });
+    fixture.componentInstance['onManualChange'](typed);
+    await fixture.whenStable();
+
+    // Le serveur repond avec la version d avant la frappe : elle ne doit pas
+    // remplacer ce que l utilisateur a sous les yeux.
+    const put = await vi.waitFor(() => http.expectOne((r) => r.method === 'PUT'));
+    put.flush(dto({ mode: 'manual', manual: { version: 1, sections: [] } }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['draft']().sections).toHaveLength(1);
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Entrees');
+  });
+
+  // Recharger le MEME restaurant doit repartir de la carte fraiche. Sinon le
+  // brouillon affiche garde l'ancienne saisie, et la premiere frappe la renvoie
+  // au serveur par-dessus l'etat reel.
+  it('recharger le meme restaurant repart de la carte du serveur', async () => {
+    const avant = withManualKeys({ version: 1, sections: [{ name: 'Avant', items: [] }] });
+    const apres = withManualKeys({ version: 1, sections: [{ name: 'Apres', items: [] }] });
+    await render(dto({ mode: 'manual', manual: avant }));
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Avant');
+
+    fixture.componentInstance['retry']();
+    await fixture.whenStable();
+    http.expectOne((r) => r.method === 'GET').flush(dto({ mode: 'manual', manual: apres }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Apres');
   });
 });

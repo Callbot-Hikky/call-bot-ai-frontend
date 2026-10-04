@@ -1,0 +1,243 @@
+<hk-page-header
+  subtitle="Les liens à partager avec vos clients, et la carte qu'ils découvrent en les suivant."
+>
+  <span class="text-text-subtle text-xs" data-testid="save-state" aria-live="polite">
+    {{ saveLabel() }}
+  </span>
+</hk-page-header>
+
+@if (!restaurantId()) {
+  <div class="bg-card border-border/70 rounded-lg border p-10 text-center shadow-md">
+    <p class="text-text-strong font-medium">Aucun restaurant n'est rattaché à votre compte.</p>
+    <p class="text-muted-foreground text-sm">
+      Terminez d'abord la configuration de votre restaurant.
+    </p>
+    <a routerLink="/mon-restaurant" class="text-primary mt-3 inline-block text-sm underline">
+      Configurer mon restaurant
+    </a>
+  </div>
+} @else if (failed()) {
+  <div
+    class="bg-card border-border/70 flex flex-col items-center gap-3 rounded-lg border p-10 text-center shadow-md"
+  >
+    <hk-icon name="lucideTriangleAlert" [size]="32" class="text-st-cancelled-fg" />
+    <p class="text-text-strong text-base font-medium">Impossible de charger le menu</p>
+    <p class="text-muted-foreground text-sm">Vérifiez votre connexion et réessayez.</p>
+    <hk-button size="sm" variant="secondary" data-testid="menu-retry" (click)="retry()">
+      <hk-icon name="lucideRefreshCw" [size]="14" />
+      Réessayer
+    </hk-button>
+  </div>
+} @else if (loading() || !menu()) {
+  <div class="flex flex-col gap-6">
+    <div class="grid gap-4 sm:grid-cols-3">
+      <hk-skeleton height="7rem" />
+      <hk-skeleton height="7rem" />
+      <hk-skeleton height="7rem" />
+    </div>
+    <hk-skeleton height="12rem" />
+  </div>
+} @else {
+  <div class="flex flex-col gap-8">
+    <section class="flex flex-col gap-4" aria-labelledby="qr-title">
+      <div class="flex flex-col gap-1">
+        <h2 id="qr-title" class="text-text-strong text-lg font-semibold">Liens et QR codes</h2>
+        <p class="text-text-subtle text-sm">
+          À imprimer sur un flyer, en vitrine ou sur vos tables. Chaque QR code mène vos clients
+          directement à la bonne page, sans compte ni application.
+        </p>
+      </div>
+      <div class="grid gap-4 lg:grid-cols-2">
+        <hk-qr-card
+          title="Voir le menu"
+          description="Vos clients découvrent votre carte telle que vous l'avez publiée."
+          [url]="menuUrl()"
+          [fileName]="'menu-' + slug()"
+        />
+        <hk-qr-card
+          title="Réserver une table"
+          description="Vos clients choisissent un créneau et réservent en ligne, sans appeler."
+          [url]="bookingUrl()"
+          [fileName]="'reservation-' + slug()"
+        />
+      </div>
+      @if (!publishedMode()) {
+        <p class="text-text-subtle text-sm" data-testid="qr-hint">
+          Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
+          bientôt ».
+        </p>
+      }
+    </section>
+
+    <div class="flex flex-col gap-1">
+      <h2 class="text-text-strong text-lg font-semibold">Votre carte</h2>
+      <p class="text-text-subtle text-sm">
+        Choisissez comment vos clients la voient : des PDF, des photos ou une saisie à la main. Les
+        formats ne se mélangent pas : un seul est publié à la fois, vos clients ne voient que
+        celui-là.
+      </p>
+    </div>
+    <!-- Mobile : trois tuiles compactes sur une ligne, comme des onglets. Grand ecran : trois cartes.
+         Le contour vert suit le format ouvert ; le badge « Publié » dit lequel est en ligne. -->
+    <div class="grid grid-cols-3 gap-2 sm:gap-4" role="group" aria-label="Mode de publication">
+      @for (card of cards; track card.mode) {
+        <button
+          type="button"
+          [attr.data-testid]="'mode-' + card.mode"
+          class="bg-card hover:border-primary flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center shadow-sm transition-colors focus-visible:ring-2 sm:items-start sm:gap-2 sm:p-4 sm:text-left"
+          [class.border-primary]="editing() === card.mode"
+          [class.bg-primary/5]="editing() === card.mode"
+          [class.border-border]="editing() !== card.mode"
+          [attr.aria-pressed]="editing() === card.mode"
+          [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
+          [disabled]="saving()"
+          (click)="open(card.mode)"
+        >
+          <div class="flex w-full flex-col items-center gap-1.5 sm:flex-row sm:justify-between">
+            <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
+            @if (publishedMode() === card.mode) {
+              <span
+                class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-[11px] font-medium sm:text-xs"
+              >
+                Publié
+              </span>
+            } @else if (editing() === card.mode) {
+              <span
+                class="bg-muted text-text-subtle hidden rounded-full px-2 py-0.5 text-xs font-medium sm:inline"
+              >
+                En préparation
+              </span>
+            }
+          </div>
+          <span class="text-text-strong text-sm font-semibold sm:text-base">{{ card.title }}</span>
+          <span class="text-text-subtle hidden text-xs sm:block">{{ card.description }}</span>
+          <span class="text-text-subtle text-xs">{{ modes()[card.mode].count }}</span>
+        </button>
+      }
+    </div>
+
+    <div
+      class="bg-card border-border/70 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3"
+      data-testid="publish-state"
+      aria-live="polite"
+    >
+      @if (publishedMode(); as published) {
+        <p class="text-text-strong text-sm">
+          <span
+            class="bg-st-confirmed-bg text-st-confirmed-fg mr-2 rounded-full px-2 py-0.5 text-xs font-medium"
+          >
+            Publié
+          </span>
+          Vos clients voient {{ modes()[published].publishedLabel }}.
+        </p>
+        @if (pendingUnpublish()) {
+          <hk-inline-confirm
+            question="Vos clients verront « La carte arrive bientôt ». Confirmer ?"
+            confirmLabel="Oui, ne rien publier"
+            confirmTestId="confirm-unpublish"
+            cancelTestId="cancel-unpublish"
+            [busy]="saving()"
+            (confirmed)="confirmUnpublish()"
+            (cancelled)="pendingUnpublish.set(false)"
+          />
+        } @else {
+          <hk-button
+            variant="ghost"
+            size="sm"
+            data-testid="unpublish"
+            [disabled]="saving()"
+            (click)="pendingUnpublish.set(true)"
+          >
+            Ne rien publier pour l'instant
+          </hk-button>
+        }
+      } @else {
+        <p class="text-text-subtle text-sm" data-testid="nothing-published">
+          Rien n'est publié pour l'instant : vos clients voient « La carte arrive bientôt ».
+          @if (!editingSummary().ready) {
+            Préparez un format ci-dessous, puis publiez-le.
+          }
+        </p>
+        @if (editingSummary().ready) {
+          <hk-button
+            size="sm"
+            data-testid="publish-current"
+            [disabled]="saving()"
+            (click)="publish(editing())"
+          >
+            {{ editingSummary().publishAction }}
+          </hk-button>
+        }
+      }
+    </div>
+
+    <div class="flex flex-col gap-1">
+      <h3 class="text-text-strong text-base font-semibold">Préparation</h3>
+      <p class="text-text-subtle text-sm">
+        Préparez chaque format ici, puis choisissez celui que vos clients verront.
+      </p>
+    </div>
+
+    @switch (editing()) {
+      @case ('pdf') {
+        <section class="flex flex-col gap-4" aria-label="Carte en PDF">
+          <app-menu-pdf-section
+            [files]="pdfRows()"
+            [canPublishHere]="publishFromSection()"
+            [busy]="saving()"
+            [pendingFileId]="pendingFile()"
+            [accept]="pdfMimes"
+            [maxBytes]="limits().pdfMaxBytes"
+            [maxCount]="limits().pdfMaxCount"
+            [hint]="pdfHint()"
+            [pendingText]="modes().pdf.pendingText"
+            [publishLabel]="modes().pdf.publishAction"
+            (filesPicked)="onFiles($event)"
+            (moved)="move($event.id, $event.direction, 'pdf')"
+            (removeAsked)="askRemove($event)"
+            (removeConfirmed)="confirmRemove()"
+            (removeCancelled)="pendingFile.set(null)"
+            (publishAsked)="publish('pdf')"
+          />
+        </section>
+      }
+      @case ('images') {
+        <section class="flex flex-col gap-4" aria-label="Carte en photos">
+          <app-menu-images-section
+            [files]="imageRows()"
+            [canPublishHere]="publishFromSection()"
+            [busy]="saving()"
+            [pendingFileId]="pendingFile()"
+            [accept]="imageMimes"
+            [maxBytes]="limits().imageMaxBytes"
+            [maxCount]="limits().imageMaxCount"
+            [hint]="imageHint()"
+            [pendingText]="modes().images.pendingText"
+            [publishLabel]="modes().images.publishAction"
+            (filesPicked)="onFiles($event)"
+            (moved)="move($event.id, $event.direction, 'image')"
+            (removeAsked)="askRemove($event)"
+            (removeConfirmed)="confirmRemove()"
+            (removeCancelled)="pendingFile.set(null)"
+            (publishAsked)="publish('images')"
+          />
+        </section>
+      }
+      @case ('manual') {
+        <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
+          <app-menu-manual-section
+            [draft]="draft()"
+            [canPublishHere]="publishFromSection()"
+            [pendingText]="modes().manual.pendingText"
+            [publishLabel]="modes().manual.publishAction"
+            [busy]="saving()"
+            [loading]="loading()"
+            (draftChange)="onManualChange($event)"
+            (saveAsked)="saveNow()"
+            (publishAsked)="publish('manual')"
+          />
+        </section>
+      }
+    }
+  </div>
+}

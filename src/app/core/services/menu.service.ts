@@ -1,31 +1,17 @@
-import { inject, Injectable, signal } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import {
-  Observable,
-  catchError,
-  defer,
-  delay,
-  from,
-  map,
-  of,
-  switchMap,
-  tap,
-  throwError,
-} from 'rxjs';
-import { environment } from '@env/environment';
-import { MenuDto, PublicMenuDto, mapMenu, mapPublicMenu } from '@core/models/menu-dto.model';
+import { computed, inject, Injectable, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { MENU_GATEWAY } from './menu-gateway';
+import { humanSize } from '@core/utils/format';
+import { Observable, catchError, defer, from, switchMap, tap, throwError } from 'rxjs';
 import {
   DEFAULT_LIMITS,
-  FILE_TYPE_MIME,
   MENU_ERROR_MESSAGES,
   ManualMenu,
   Menu,
-  MenuFile,
   MenuFileType,
   MenuMode,
   PublicMenu,
   detectFileType,
-  emptyManual,
   menuErrorMessage,
   validateManual,
 } from '@core/models/menu.model';
@@ -37,14 +23,14 @@ const LOAD_FAILED = 'Impossible de charger le menu.';
 const SAVE_FAILED = "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.";
 const UPLOAD_FAILED = "L'envoi du fichier a échoué. Vérifiez votre connexion et réessayez.";
 
-// Menu du restaurateur. Mock-first : en mode mock l'etat vit en memoire avec les
-// memes regles que le back ; en mode reel le back est la source de verite et
-// chaque reponse remplace l'etat. Les fichiers sont verifies COTE CLIENT avant
-// tout envoi (type sur les octets, taille, nombre) : le back reste la garantie.
+// Menu du restaurateur. Ce service ne connait pas le transport : il parle a une
+// passerelle (MENU_GATEWAY) et ne garde que l'etat affiche a l'ecran. Chaque
+// reponse remplace cet etat, le serveur restant la source de verite. Les fichiers
+// sont verifies COTE CLIENT avant tout envoi (type sur les octets, taille,
+// nombre) ; ce n'est qu'un filtre de confort, le back reste la garantie.
 @Injectable({ providedIn: 'root' })
 export class MenuService {
-  private readonly http = inject(HttpClient);
-  private readonly baseUrl = `${environment.apiUrl}/restaurants`;
+  private readonly gateway = inject(MENU_GATEWAY);
 
   private readonly _menu = signal<Menu | null>(null);
   private readonly _loading = signal(false);
@@ -53,6 +39,7 @@ export class MenuService {
   private readonly _saveState = signal<SaveState>('saved');
   private readonly _lastError = signal<string | null>(null);
   private readonly _touched = signal(false);
+  private readonly _loadedMenu = signal<Menu | null>(null);
 
   readonly menu = this._menu.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -62,11 +49,18 @@ export class MenuService {
   readonly lastError = this._lastError.asReadonly();
   // Vrai des la premiere modification de la saisie : l'etat d'enregistrement n'a de sens qu'apres.
   readonly touched = this._touched.asReadonly();
+  // La carte telle qu'elle est sortie du serveur, remplacee a chaque chargement et
+  // par rien d'autre. C'est le point de depart des brouillons : observer `menu`
+  // les ferait repartir de zero a chaque enregistrement, et une cle construite sur
+  // l'identifiant du restaurant ne bougerait pas en rechargeant le meme.
+  readonly loadedMenu = this._loadedMenu.asReadonly();
+  // Les limites du serveur, ou celles par defaut avant son arrivee. Un seul endroit :
+  // le controle local et les phrases affichees ne peuvent pas annoncer deux chiffres.
+  readonly limits = computed(() => this._menu()?.limits ?? DEFAULT_LIMITS);
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingManual: ManualMenu | null = null;
-  private mockState: Menu | null = null;
 
   load(restaurantId: string): void {
     this.restaurantId = restaurantId;
@@ -74,9 +68,17 @@ export class MenuService {
     this._menu.set(null);
     this._loading.set(true);
     this._error.set(false);
-    this.fetch(restaurantId).subscribe({
+    // Le service est unique pour toute l'application : sans cette remise a zero, une
+    // page fraichement ouverte afficherait l'etiquette « Enregistre » ou le message
+    // d'echec d'une visite precedente, sur une carte qui n'est pas encore arrivee.
+    this.takePendingManual();
+    this._saveState.set('saved');
+    this._touched.set(false);
+    this._lastError.set(null);
+    this.gateway.fetch(restaurantId).subscribe({
       next: (menu) => {
         this._menu.set(menu);
+        this._loadedMenu.set(menu);
         this._loading.set(false);
       },
       error: () => {
@@ -87,8 +89,9 @@ export class MenuService {
     });
   }
 
-  // Le mode seul : le back conserve la saisie quand `manual` est absent.
-  // Un refus ici ne concerne pas la saisie : l'étiquette d'état de la saisie ne bouge pas.
+  // Le mode seul : le back conserve la saisie quand `manual` est absent. Si une
+  // saisie attendait son envoi, elle part dans la meme requete, et l'etiquette
+  // d'enregistrement suit alors le sort de cette requete ; sinon elle ne bouge pas.
   setMode(mode: MenuMode): Observable<Menu> {
     // Une saisie en attente part avec le mode : deux envois croises ne peuvent pas se defaire.
     const pending = this.takePendingManual();
@@ -148,12 +151,7 @@ export class MenuService {
     return defer(() => from(this.precheck(file))).pipe(
       switchMap((type) => {
         this._saving.set(true);
-        if (environment.useMock) {
-          return this.mockUpload(file, type);
-        }
-        const form = new FormData();
-        form.append('file', file);
-        return this.http.post<MenuDto>(`${this.menuUrl()}/files`, form).pipe(map(mapMenu));
+        return this.gateway.upload(this.requireRestaurantId(), file, type);
       }),
       tap((menu) => this.accept(menu)),
       catchError((err) => this.reject(err, UPLOAD_FAILED)),
@@ -162,9 +160,7 @@ export class MenuService {
 
   removeFile(fileId: string): Observable<Menu> {
     this._saving.set(true);
-    const req$ = environment.useMock
-      ? this.mockRemove(fileId)
-      : this.http.delete<MenuDto>(`${this.menuUrl()}/files/${fileId}`).pipe(map(mapMenu));
+    const req$ = this.gateway.removeFile(this.requireRestaurantId(), fileId);
     return req$.pipe(
       tap((menu) => this.accept(menu)),
       catchError((err) => this.reject(err, SAVE_FAILED)),
@@ -173,9 +169,7 @@ export class MenuService {
 
   reorder(fileIds: string[]): Observable<Menu> {
     this._saving.set(true);
-    const req$ = environment.useMock
-      ? this.mockReorder(fileIds)
-      : this.http.put<MenuDto>(`${this.menuUrl()}/files/order`, { fileIds }).pipe(map(mapMenu));
+    const req$ = this.gateway.reorder(this.requireRestaurantId(), fileIds);
     return req$.pipe(
       tap((menu) => this.accept(menu)),
       catchError((err) => this.reject(err, SAVE_FAILED)),
@@ -184,29 +178,10 @@ export class MenuService {
 
   // Lecture publique : sans session, ne touche pas a l'etat admin de ce service.
   getPublic(restaurantId: string): Observable<PublicMenu> {
-    if (environment.useMock) {
-      const state = this.mockMenu(restaurantId);
-      const kind = state.mode === 'pdf' ? 'pdf' : state.mode === 'images' ? 'image' : null;
-      return of({
-        restaurantName: 'Le Bistrot du Coin',
-        mode: state.mode,
-        manual: state.mode === 'manual' ? state.manual : null,
-        files: kind ? state.files.filter((f) => f.kind === kind) : [],
-      }).pipe(delay(300));
-    }
-    return this.http
-      .get<PublicMenuDto>(`${environment.apiUrl}/public/restaurants/${restaurantId}/menu`)
-      .pipe(map(mapPublicMenu));
+    return this.gateway.getPublic(restaurantId);
   }
 
   // --- interne ---------------------------------------------------------------
-
-  private fetch(restaurantId: string): Observable<Menu> {
-    if (environment.useMock) {
-      return of(this.mockMenu(restaurantId)).pipe(delay(300));
-    }
-    return this.http.get<MenuDto>(`${this.baseUrl}/${restaurantId}/menu`).pipe(map(mapMenu));
-  }
 
   private put(
     body: { mode: MenuMode; manual?: ManualMenu },
@@ -216,9 +191,7 @@ export class MenuService {
     if (tracksSaveState) {
       this._saveState.set('saving');
     }
-    const req$ = environment.useMock
-      ? this.mockPut(body)
-      : this.http.put<MenuDto>(this.menuUrl(), body).pipe(map(mapMenu));
+    const req$ = this.gateway.put(this.requireRestaurantId(), body);
     return req$.pipe(
       tap((menu) => this.accept(menu, tracksSaveState)),
       catchError((err) => this.reject(err, SAVE_FAILED, tracksSaveState)),
@@ -249,112 +222,35 @@ export class MenuService {
     return throwError(() => new Error(message));
   }
 
-  private menuUrl(): string {
-    return `${this.baseUrl}/${this.restaurantId}/menu`;
+  // Aucune commande ne doit partir avant que la page ait charge un restaurant :
+  // sans cette garde l'appel partirait sur une adresse contenant « null ».
+  private requireRestaurantId(): string {
+    const id = this.restaurantId;
+    if (!id) {
+      throw new Error("Aucun restaurant n'est charge.");
+    }
+    return id;
   }
 
   // Verifications cote client, memes regles que le back : type sur les octets de
-  // tete (jamais sur l'extension), taille par type, nombre d'images.
+  // tete (jamais sur l'extension), taille par type, nombre de fichiers du meme genre.
   private async precheck(file: File): Promise<MenuFileType> {
-    const limits = this._menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     const type = detectFileType(await readHead(file));
     if (!type) {
       throw new Error(MENU_ERROR_MESSAGES['unsupported_file_type']);
     }
     const max = type === 'pdf' ? limits.pdfMaxBytes : limits.imageMaxBytes;
     if (file.size > max) {
-      throw new Error(MENU_ERROR_MESSAGES['file_too_large']);
+      throw new Error(`Fichier trop volumineux : ${humanSize(max)} maximum pour ce format.`);
     }
-    if (type !== 'pdf') {
-      const images = this._menu()?.files.filter((f) => f.kind === 'image').length ?? 0;
-      if (images >= limits.imageMaxCount) {
-        throw new Error(MENU_ERROR_MESSAGES['too_many_files']);
-      }
+    const kind = type === 'pdf' ? 'pdf' : 'image';
+    const already = this._menu()?.files.filter((f) => f.kind === kind).length ?? 0;
+    const maxCount = kind === 'pdf' ? limits.pdfMaxCount : limits.imageMaxCount;
+    if (already >= maxCount) {
+      throw new Error(MENU_ERROR_MESSAGES['too_many_files']);
     }
     return type;
-  }
-
-  // --- mode mock : memes regles que le back, en memoire --------------------------
-
-  private mockMenu(restaurantId: string): Menu {
-    if (!this.mockState || this.mockState.restaurantId !== restaurantId) {
-      this.mockState = {
-        restaurantId,
-        mode: 'none',
-        manual: emptyManual(),
-        files: [],
-        limits: DEFAULT_LIMITS,
-      };
-    }
-    return structuredClone(this.mockState);
-  }
-
-  private mockPut(body: { mode: MenuMode; manual?: ManualMenu }): Observable<Menu> {
-    const state = this.mockMenu(this.restaurantId ?? '');
-    const manual = body.manual ?? state.manual;
-    const ready =
-      body.mode === 'pdf'
-        ? state.files.some((f) => f.kind === 'pdf')
-        : body.mode === 'images'
-          ? state.files.some((f) => f.kind === 'image')
-          : body.mode === 'manual'
-            ? manual.sections.length > 0
-            : true;
-    if (!ready) {
-      return throwError(
-        () => new HttpErrorResponse({ status: 409, error: { error: 'mode_not_ready' } }),
-      ).pipe(delay(200));
-    }
-    this.mockState = { ...state, mode: body.mode, manual };
-    return of(structuredClone(this.mockState)).pipe(delay(200));
-  }
-
-  // Le type vient des octets (precheck), jamais du Content-Type annonce par le navigateur.
-  private mockUpload(file: File, type: MenuFileType): Observable<Menu> {
-    const state = this.mockMenu(this.restaurantId ?? '');
-    const kind = type === 'pdf' ? 'pdf' : 'image';
-    const siblings = state.files.filter((f) => f.kind === kind);
-    const created: MenuFile = {
-      id: `mock-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      kind,
-      contentType: FILE_TYPE_MIME[type],
-      position: (siblings.at(-1)?.position ?? -1) + 1,
-      sizeBytes: file.size,
-      url: objectUrl(file),
-    };
-    this.mockState = { ...state, files: [...state.files, created] };
-    return of(structuredClone(this.mockState)).pipe(delay(300));
-  }
-
-  private mockRemove(fileId: string): Observable<Menu> {
-    const state = this.mockMenu(this.restaurantId ?? '');
-    const removed = state.files.find((f) => f.id === fileId);
-    if (removed?.url.startsWith('blob:')) {
-      URL.revokeObjectURL(removed.url);
-    }
-    const files = state.files.filter((f) => f.id !== fileId);
-    let position = 0;
-    const renumbered = files.map((f) => (f.kind === 'image' ? { ...f, position: position++ } : f));
-    const stillPublished =
-      removed &&
-      ((state.mode === 'pdf' && removed.kind === 'pdf') ||
-        (state.mode === 'images' && removed.kind === 'image'))
-        ? renumbered.some((f) => f.kind === removed.kind)
-        : true;
-    this.mockState = { ...state, files: renumbered, mode: stillPublished ? state.mode : 'none' };
-    return of(structuredClone(this.mockState)).pipe(delay(200));
-  }
-
-  // Comme le back : l'ordre porte sur un seul genre, celui du premier identifiant.
-  private mockReorder(fileIds: string[]): Observable<Menu> {
-    const state = this.mockMenu(this.restaurantId ?? '');
-    const kind = state.files.find((f) => f.id === fileIds[0])?.kind;
-    const files = state.files.map((f) =>
-      f.kind === kind ? { ...f, position: fileIds.indexOf(f.id) } : f,
-    );
-    files.sort((a, b) => a.position - b.position);
-    this.mockState = { ...state, files };
-    return of(structuredClone(this.mockState)).pipe(delay(200));
   }
 }
 
@@ -369,13 +265,4 @@ async function readHead(file: File): Promise<Uint8Array> {
     reader.onerror = () => reject(reader.error);
     reader.readAsArrayBuffer(head);
   });
-}
-
-// Apercu local en mode mock ; absent en environnement de test (jsdom).
-function objectUrl(file: File): string {
-  try {
-    return URL.createObjectURL(file);
-  } catch {
-    return `blob:mock/${file.name}`;
-  }
 }

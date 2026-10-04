@@ -1,3 +1,5 @@
+import { MENU_GATEWAY } from '@core/services/menu-gateway';
+import { HttpMenuGateway } from '@core/services/http-menu-gateway';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { provideHttpClient } from '@angular/common/http';
@@ -27,6 +29,7 @@ describe('ReservationSchedulePage', () => {
     await TestBed.configureTestingModule({
       imports: [ReservationSchedulePage],
       providers: [
+        { provide: MENU_GATEWAY, useClass: HttpMenuGateway },
         provideZonelessChangeDetection(),
         provideHttpClient(),
         provideHttpClientTesting(),
