@@ -1,0 +1,32 @@
+<div class="flex gap-1">
+  <hk-button
+    variant="ghost"
+    size="sm"
+    [attr.data-testid]="'move-up-' + fileId()"
+    [disabled]="first() || busy()"
+    (click)="moved.emit(-1)"
+  >
+    <hk-icon name="lucideChevronUp" [size]="16" />
+    <span class="sr-only">Monter {{ label() }}</span>
+  </hk-button>
+  <hk-button
+    variant="ghost"
+    size="sm"
+    [attr.data-testid]="'move-down-' + fileId()"
+    [disabled]="last() || busy()"
+    (click)="moved.emit(1)"
+  >
+    <hk-icon name="lucideChevronDown" [size]="16" />
+    <span class="sr-only">Descendre {{ label() }}</span>
+  </hk-button>
+  <hk-button
+    variant="ghost"
+    size="sm"
+    [attr.data-testid]="'remove-file-' + fileId()"
+    [disabled]="busy()"
+    (click)="removeAsked.emit()"
+  >
+    <hk-icon name="lucideTrash2" [size]="16" />
+    <span class="sr-only">Supprimer</span>
+  </hk-button>
+</div>

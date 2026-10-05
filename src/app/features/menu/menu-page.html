@@ -257,57 +257,22 @@
                 <hk-icon name="lucideExternalLink" [size]="14" />
                 Ouvrir
               </a>
-              <hk-button
-                variant="ghost"
-                size="sm"
-                [attr.data-testid]="'move-up-' + pdf.id"
-                [disabled]="first || service.saving()"
-                (click)="move(pdf.id, -1, 'pdf')"
-              >
-                <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
-                  >Monter le PDF</span
-                >
-              </hk-button>
-              <hk-button
-                variant="ghost"
-                size="sm"
-                [attr.data-testid]="'move-down-' + pdf.id"
-                [disabled]="last || service.saving()"
-                (click)="move(pdf.id, 1, 'pdf')"
-              >
-                <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
-                  >Descendre le PDF</span
-                >
-              </hk-button>
-              <hk-button
-                variant="ghost"
-                size="sm"
-                [attr.data-testid]="'remove-file-' + pdf.id"
-                [disabled]="service.saving()"
-                (click)="askRemove(pdf.id)"
-              >
-                <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only">Supprimer</span>
-              </hk-button>
+              <hk-file-row-actions
+                [fileId]="pdf.id"
+                label="le PDF"
+                [first]="first"
+                [last]="last"
+                [busy]="service.saving()"
+                (moved)="move(pdf.id, $event, 'pdf')"
+                (removeAsked)="askRemove(pdf.id)"
+              />
             </div>
             @if (pendingFile() === pdf.id) {
-              <div
-                class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
-                role="alert"
-                hkFocusOnInit
-                (keydown.escape)="pendingFile.set(null)"
-              >
-                <span>Supprimer ce PDF ?</span>
-                <hk-button
-                  variant="danger"
-                  size="sm"
-                  data-testid="confirm-remove-file"
-                  (click)="confirmRemove()"
-                  >Supprimer</hk-button
-                >
-                <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
-                  >Annuler</hk-button
-                >
-              </div>
+              <hk-inline-confirm
+                question="Supprimer ce PDF ?"
+                (confirmed)="confirmRemove()"
+                (cancelled)="pendingFile.set(null)"
+              />
             }
             @if (previewUrl(pdf); as url) {
               <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
@@ -371,61 +336,22 @@
                     <span class="text-text-subtle text-xs tabular-nums"
                       >{{ i + 1 }}/{{ images().length }}</span
                     >
-                    <div class="flex gap-1">
-                      <hk-button
-                        variant="ghost"
-                        size="sm"
-                        [attr.data-testid]="'move-up-' + file.id"
-                        [disabled]="first || service.saving()"
-                        (click)="move(file.id, -1)"
-                      >
-                        <hk-icon name="lucideChevronUp" [size]="16" /><span class="sr-only"
-                          >Monter la photo</span
-                        >
-                      </hk-button>
-                      <hk-button
-                        variant="ghost"
-                        size="sm"
-                        [attr.data-testid]="'move-down-' + file.id"
-                        [disabled]="last || service.saving()"
-                        (click)="move(file.id, 1)"
-                      >
-                        <hk-icon name="lucideChevronDown" [size]="16" /><span class="sr-only"
-                          >Descendre la photo</span
-                        >
-                      </hk-button>
-                      <hk-button
-                        variant="ghost"
-                        size="sm"
-                        [attr.data-testid]="'remove-file-' + file.id"
-                        [disabled]="service.saving()"
-                        (click)="askRemove(file.id)"
-                      >
-                        <hk-icon name="lucideTrash2" [size]="16" /><span class="sr-only"
-                          >Supprimer</span
-                        >
-                      </hk-button>
-                    </div>
+                    <hk-file-row-actions
+                      [fileId]="file.id"
+                      label="la photo"
+                      [first]="first"
+                      [last]="last"
+                      [busy]="service.saving()"
+                      (moved)="move(file.id, $event)"
+                      (removeAsked)="askRemove(file.id)"
+                    />
                   </div>
                   @if (pendingFile() === file.id) {
-                    <div
-                      class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-2 text-xs"
-                      role="alert"
-                      hkFocusOnInit
-                      (keydown.escape)="pendingFile.set(null)"
-                    >
-                      <span>Supprimer cette photo ?</span>
-                      <hk-button
-                        variant="danger"
-                        size="sm"
-                        data-testid="confirm-remove-file"
-                        (click)="confirmRemove()"
-                        >Supprimer</hk-button
-                      >
-                      <hk-button variant="secondary" size="sm" (click)="pendingFile.set(null)"
-                        >Annuler</hk-button
-                      >
-                    </div>
+                    <hk-inline-confirm
+                      question="Supprimer cette photo ?"
+                      (confirmed)="confirmRemove()"
+                      (cancelled)="pendingFile.set(null)"
+                    />
                   }
                 </li>
               }

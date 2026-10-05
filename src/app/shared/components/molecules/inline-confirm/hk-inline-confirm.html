@@ -1,0 +1,17 @@
+<div
+  class="bg-muted flex flex-wrap items-center gap-2 rounded-md p-3 text-sm"
+  role="alert"
+  hkFocusOnInit
+  (keydown.escape)="cancelled.emit()"
+>
+  <span>{{ question() }}</span>
+  <hk-button
+    variant="danger"
+    size="sm"
+    [attr.data-testid]="confirmTestId()"
+    (click)="confirmed.emit()"
+  >
+    {{ confirmLabel() }}
+  </hk-button>
+  <hk-button variant="secondary" size="sm" (click)="cancelled.emit()">Annuler</hk-button>
+</div>

@@ -14,6 +14,8 @@ import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-h
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
+import { HkFileRowActions } from '@shared/components/molecules/file-row-actions/hk-file-row-actions';
+import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
 import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
 import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
@@ -95,6 +97,8 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkQrCard,
     HkFocusOnInit,
     RouterLink,
+    HkFileRowActions,
+    HkInlineConfirm,
   ],
   templateUrl: './menu-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
