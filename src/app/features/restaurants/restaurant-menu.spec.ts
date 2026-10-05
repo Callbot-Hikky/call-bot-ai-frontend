@@ -40,7 +40,9 @@ describe('RestaurantMenuPage', () => {
     fixture = TestBed.createComponent(RestaurantMenuPage);
     fixture.componentRef.setInput('id', RID);
     if (reservation) fixture.componentRef.setInput('reservation', reservation);
-    await fixture.whenStable();
+    // La ressource part au premier rendu ; on ne peut pas attendre la stabilisation
+    // avant d'avoir repondu, sinon le test attend une reponse qu'il n'a pas encore donnee.
+    fixture.detectChanges();
     const req = http.expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`));
     if (body) req.flush(body);
     else req.flush('boom', { status: 404, statusText: 'Not Found' });

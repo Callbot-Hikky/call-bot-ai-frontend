@@ -5,19 +5,18 @@ import {
   effect,
   inject,
   input,
-  signal,
-  DestroyRef,
+  resource,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkClientHeader } from '@shared/components/molecules/client-header/hk-client-header';
 import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { MenuService } from '@core/services/menu.service';
-import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.model';
+import { formatPrice, isSafePublicFileUrl } from '@core/models/menu.model';
 
 @Component({
   selector: 'app-restaurant-menu',
@@ -29,15 +28,33 @@ import { PublicMenu, formatPrice, isSafePublicFileUrl } from '@core/models/menu.
 export class RestaurantMenuPage {
   private readonly service = inject(MenuService);
   private readonly title = inject(Title);
-  private readonly destroyRef = inject(DestroyRef);
 
   // Parametre de route et parametre de requete, lies par withComponentInputBinding.
   readonly id = input<string>();
   readonly reservation = input<string>();
 
-  protected readonly menu = signal<PublicMenu | null>(null);
-  protected readonly loading = signal(true);
-  protected readonly error = signal<'not_found' | 'failed' | null>(null);
+  /**
+   * La carte publique suit l'identifiant de route : changer d'identifiant relance
+   * le chargement et annule le precedent. Le statut et l'erreur viennent de la
+   * ressource, il n'y a pas d'etat de chargement tenu a la main.
+   */
+  private readonly menuResource = resource({
+    params: () => this.id(),
+    loader: ({ params }) => firstValueFrom(this.service.getPublic(params)),
+  });
+
+  // hasValue() avant value() : lire la valeur d'une ressource en erreur releve l'erreur.
+  protected readonly menu = computed(() =>
+    this.menuResource.hasValue() ? this.menuResource.value() : null,
+  );
+  protected readonly loading = this.menuResource.isLoading;
+
+  // Un identifiant inconnu ne se retente pas : la page le distingue d'une panne.
+  protected readonly error = computed<'not_found' | 'failed' | null>(() => {
+    const err = this.menuResource.error();
+    if (!err) return null;
+    return err instanceof HttpErrorResponse && err.status === 404 ? 'not_found' : 'failed';
+  });
 
   // Seules les URL de fichiers publics verifiees par leur forme sont rendues, jamais une valeur libre.
   // Memes filtres pour les photos que pour les PDF : genre, forme de l'URL, ordre du restaurateur.
@@ -52,6 +69,17 @@ export class RestaurantMenuPage {
       .sort((a, b) => a.position - b.position),
   );
 
+  constructor() {
+    // Le titre de l'onglet est un effet de bord sur une API hors du graphe de signaux :
+    // c'est le seul cas ou un effect est le bon outil ici.
+    effect(() => {
+      const menu = this.menu();
+      if (menu) {
+        this.title.setTitle(`La carte de ${menu.restaurantName}`);
+      }
+    });
+  }
+
   protected pdfTitle(restaurantName: string, index: number): string {
     const n = this.pdfs().length;
     return n > 1
@@ -59,35 +87,9 @@ export class RestaurantMenuPage {
       : `La carte de ${restaurantName}`;
   }
 
-  constructor() {
-    effect(() => {
-      if (this.id()) {
-        this.load();
-      }
-    });
-  }
-
+  /** Nouvelle tentative apres une panne reseau. */
   protected load(): void {
-    const restaurantId = this.id();
-    if (!restaurantId) return;
-    this.loading.set(true);
-    this.error.set(null);
-    this.service
-      .getPublic(restaurantId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (menu) => {
-          this.menu.set(menu);
-          this.title.setTitle(`La carte de ${menu.restaurantName}`);
-          this.loading.set(false);
-        },
-        error: (err: unknown) => {
-          this.error.set(
-            err instanceof HttpErrorResponse && err.status === 404 ? 'not_found' : 'failed',
-          );
-          this.loading.set(false);
-        },
-      });
+    this.menuResource.reload();
   }
 
   protected price(value: string): string {
