@@ -1,3 +1,5 @@
+import { MENU_GATEWAY } from './menu-gateway';
+import { HttpMenuGateway } from './http-menu-gateway';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -42,7 +44,11 @@ describe('MenuService', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: MENU_GATEWAY, useClass: HttpMenuGateway },
+      ],
     });
     service = TestBed.inject(MenuService);
     http = TestBed.inject(HttpTestingController);

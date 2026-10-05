@@ -68,6 +68,10 @@ import {
   lucideBookOpen,
 } from '@ng-icons/lucide';
 
+import { environment } from '@env/environment';
+import { MENU_GATEWAY } from '@core/services/menu-gateway';
+import { HttpMenuGateway } from '@core/services/http-menu-gateway';
+import { InMemoryMenuGateway } from '@core/services/in-memory-menu-gateway';
 import { routes } from './app.routes';
 
 registerLocaleData(localeFr);
@@ -138,5 +142,12 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch()),
     provideIcons(ICONS),
     provideAppInitializer(() => inject(SessionService).refresh()),
+    // Le menu parle a une passerelle, pas directement a HttpClient : le faux
+    // backend ne vit que dans la configuration de maquette et ne part donc pas
+    // dans le paquet de production.
+    {
+      provide: MENU_GATEWAY,
+      useClass: environment.useMock ? InMemoryMenuGateway : HttpMenuGateway,
+    },
   ],
 };

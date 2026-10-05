@@ -1,3 +1,5 @@
+import { MENU_GATEWAY } from '@core/services/menu-gateway';
+import { HttpMenuGateway } from '@core/services/http-menu-gateway';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { PDF_LOADER } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
@@ -24,6 +26,7 @@ describe('RestaurantMenuPage', () => {
     await TestBed.configureTestingModule({
       imports: [RestaurantMenuPage],
       providers: [
+        { provide: MENU_GATEWAY, useClass: HttpMenuGateway },
         { provide: PDF_LOADER, useValue: () => new Promise(() => undefined) },
         provideZonelessChangeDetection(),
         provideHttpClient(),
