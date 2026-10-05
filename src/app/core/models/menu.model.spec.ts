@@ -194,7 +194,7 @@ describe('menu.model', () => {
         new HttpErrorResponse({ status, error: { error: code } });
       expect(menuErrorMessage(err(415, 'unsupported_file_type'), 'x')).toContain('PDF');
       expect(menuErrorMessage(err(413, 'file_too_large'), 'x')).toContain('volumineux');
-      expect(menuErrorMessage(err(409, 'too_many_files'), 'x')).toContain('8');
+      expect(menuErrorMessage(err(409, 'too_many_files'), 'x')).toContain('limite de fichiers');
       expect(menuErrorMessage(err(409, 'mode_not_ready'), 'x')).toContain('contenu');
       expect(menuErrorMessage(err(403, 'forbidden'), 'x')).toContain('restaurant');
     });

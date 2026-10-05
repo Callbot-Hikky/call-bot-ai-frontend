@@ -74,6 +74,13 @@ export class MenuService {
     this._menu.set(null);
     this._loading.set(true);
     this._error.set(false);
+    // Le service est unique pour toute l'application : sans cette remise a zero, une
+    // page fraichement ouverte afficherait l'etiquette « Enregistre » ou le message
+    // d'echec d'une visite precedente, sur une carte qui n'est pas encore arrivee.
+    this.takePendingManual();
+    this._saveState.set('saved');
+    this._touched.set(false);
+    this._lastError.set(null);
     this.fetch(restaurantId).subscribe({
       next: (menu) => {
         this._menu.set(menu);
@@ -254,7 +261,7 @@ export class MenuService {
   }
 
   // Verifications cote client, memes regles que le back : type sur les octets de
-  // tete (jamais sur l'extension), taille par type, nombre d'images.
+  // tete (jamais sur l'extension), taille par type, nombre de fichiers du meme genre.
   private async precheck(file: File): Promise<MenuFileType> {
     const limits = this._menu()?.limits ?? DEFAULT_LIMITS;
     const type = detectFileType(await readHead(file));
@@ -265,11 +272,11 @@ export class MenuService {
     if (file.size > max) {
       throw new Error(MENU_ERROR_MESSAGES['file_too_large']);
     }
-    if (type !== 'pdf') {
-      const images = this._menu()?.files.filter((f) => f.kind === 'image').length ?? 0;
-      if (images >= limits.imageMaxCount) {
-        throw new Error(MENU_ERROR_MESSAGES['too_many_files']);
-      }
+    const kind = type === 'pdf' ? 'pdf' : 'image';
+    const already = this._menu()?.files.filter((f) => f.kind === kind).length ?? 0;
+    const maxCount = kind === 'pdf' ? limits.pdfMaxCount : limits.imageMaxCount;
+    if (already >= maxCount) {
+      throw new Error(MENU_ERROR_MESSAGES['too_many_files']);
     }
     return type;
   }

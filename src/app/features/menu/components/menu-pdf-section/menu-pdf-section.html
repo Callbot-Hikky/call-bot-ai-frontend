@@ -47,16 +47,18 @@
       </p>
       <p class="text-text-subtle text-xs">{{ row.size }}</p>
     </div>
-    <a
-      [href]="row.previewUrl"
-      target="_blank"
-      rel="noopener"
-      class="text-primary flex items-center gap-1 text-sm underline"
-      data-testid="open-pdf"
-    >
-      <hk-icon name="lucideExternalLink" [size]="14" />
-      Ouvrir
-    </a>
+    @if (row.previewUrl; as href) {
+      <a
+        [href]="href"
+        target="_blank"
+        rel="noopener"
+        class="text-primary flex items-center gap-1 text-sm underline"
+        data-testid="open-pdf"
+      >
+        <hk-icon name="lucideExternalLink" [size]="14" />
+        Ouvrir
+      </a>
+    }
     <hk-file-row-actions
       [fileId]="row.file.id"
       label="le PDF"

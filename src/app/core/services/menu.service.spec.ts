@@ -30,6 +30,12 @@ function pngFile(size = 64): File {
   return new File([bytes], 'carte.png', { type: 'image/png' });
 }
 
+function pdfFile(size = 64): File {
+  const bytes = new Uint8Array(size);
+  bytes.set([0x25, 0x50, 0x44, 0x46, 0x2d], 0); // %PDF-
+  return new File([bytes], 'carte.pdf', { type: 'application/pdf' });
+}
+
 describe('MenuService', () => {
   let service: MenuService;
   let http: HttpTestingController;
@@ -254,7 +260,7 @@ describe('MenuService', () => {
     }));
     http.expectOne(() => true).flush(dto({ files: eight }));
 
-    await expect(firstValueFrom(service.upload(pngFile()))).rejects.toThrow(/8 images/);
+    await expect(firstValueFrom(service.upload(pngFile()))).rejects.toThrow(/limite de fichiers/);
     http.expectNone((r) => r.method === 'POST');
   });
 
@@ -326,5 +332,44 @@ describe('MenuService', () => {
     expect(orderReq.request.body).toEqual({ fileIds: ['b', 'a'] });
     orderReq.flush(dto());
     await order;
+  });
+
+  it('un nouveau chargement efface l etiquette et l erreur de la visite precedente', () => {
+    // Le service est unique pour toute l'application : l'etat d'enregistrement d'une
+    // page quittee ne doit pas reapparaitre sur la suivante.
+    service.load(RID);
+    http.expectOne((r) => r.method === 'GET').flush(dto());
+    service.scheduleManualSave({ version: 1, sections: [] });
+    expect(service.touched()).toBe(true);
+    expect(service.saveState()).toBe('dirty');
+
+    service.load(RID);
+    expect(service.touched()).toBe(false);
+    expect(service.saveState()).toBe('saved');
+    expect(service.lastError()).toBeNull();
+    http.expectOne((r) => r.method === 'GET').flush(dto());
+  });
+
+  it('upload : refuse un PDF de trop cote client, sans aucun appel HTTP', async () => {
+    // Le back plafonne a 5 PDF : le client doit le dire tout de suite au lieu
+    // d'envoyer un fichier qui sera refuse.
+    service.load(RID);
+    http
+      .expectOne((r) => r.method === 'GET')
+      .flush(
+        dto({
+          files: Array.from({ length: 5 }, (_, i) => ({
+            id: `p${i}`,
+            kind: 'pdf' as const,
+            contentType: 'application/pdf',
+            position: i,
+            sizeBytes: 1000,
+            url: `/api/restaurants/${RID}/menu/files/p${i}`,
+          })),
+        }),
+      );
+
+    await expect(firstValueFrom(service.upload(pdfFile()))).rejects.toThrow(/limite de fichiers/);
+    http.expectNone((r) => r.method === 'POST');
   });
 });
