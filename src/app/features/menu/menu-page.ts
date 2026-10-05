@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  linkedSignal,
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -31,6 +32,7 @@ import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
+  Menu,
   DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
@@ -39,6 +41,9 @@ import {
   emptyManual,
   isSafeAdminFileUrl,
 } from '@core/models/menu.model';
+
+/** Les trois modes qu'on peut ouvrir a l'ecran : « none » n'en est pas un. */
+type EditableMode = Exclude<MenuMode, 'none'>;
 
 interface ModeCard {
   mode: Exclude<MenuMode, 'none'>;
@@ -138,11 +143,20 @@ export class MenuPage {
 
   protected readonly menu = this.service.menu;
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
-  protected readonly editing = signal<MenuMode>('pdf');
+  // `linkedSignal` plutot qu'un effet garde par un drapeau : la valeur repart du
+  // menu charge a chaque fois qu'il change (y compris un changement de restaurant),
+  // tout en restant modifiable par l'utilisateur entre deux chargements.
+  protected readonly editing = linkedSignal<Menu | null, EditableMode>({
+    source: this.menu,
+    computation: (menu, previous) =>
+      menu ? (menu.mode === 'none' ? (previous?.value ?? 'pdf') : menu.mode) : 'pdf',
+  });
+  protected readonly draft = linkedSignal<Menu | null, ManualMenu>({
+    source: this.menu,
+    computation: (menu) => menu?.manual ?? emptyManual(),
+  });
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
-  protected readonly draft = signal<ManualMenu>(emptyManual());
-  private draftInitialized = false;
 
   protected readonly pdfs = computed(() =>
     (this.menu()?.files ?? [])
@@ -197,17 +211,13 @@ export class MenuPage {
   });
 
   constructor() {
-    const restaurantId = this.restaurantId();
-    if (restaurantId) {
-      this.service.load(restaurantId);
-      this.restaurants.loadRestaurant(restaurantId);
-    }
+    // Le restaurant de la session peut changer pendant que la page vit : le menu
+    // doit suivre, sinon les deux QR designeraient un restaurant et la carte un autre.
     effect(() => {
-      const menu = this.menu();
-      if (menu && !this.draftInitialized) {
-        this.draft.set(menu.manual);
-        this.editing.set(menu.mode === 'none' ? 'pdf' : menu.mode);
-        this.draftInitialized = true;
+      const restaurantId = this.restaurantId();
+      if (restaurantId) {
+        this.service.load(restaurantId);
+        this.restaurants.loadRestaurant(restaurantId);
       }
     });
     // Une saisie encore en attente part avant de quitter la page.

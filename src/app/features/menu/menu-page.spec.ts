@@ -373,4 +373,27 @@ describe('MenuPage', () => {
     expect(toast.show).toHaveBeenCalledTimes(1);
     expect(toast.show).toHaveBeenCalledWith(expect.stringMatching(/2 sur 3/), 'error');
   });
+
+  it('changer de restaurant dans la session recharge la carte et met les QR a jour', async () => {
+    // Sinon les deux QR designeraient un restaurant pendant que la carte en
+    // affiche un autre : le restaurateur imprimerait le mauvais lien.
+    await render(dto({ mode: 'pdf' }));
+    const OTHER = '11111111-2222-4333-8444-555555555555';
+
+    restaurantId.set(OTHER);
+    await fixture.whenStable();
+
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith(`/restaurants/${OTHER}/menu`))
+      .flush(dto({ mode: 'manual' }));
+    await fixture.whenStable();
+
+    const qrUrls = Array.from(
+      fixture.nativeElement.querySelectorAll('[data-testid="qr-url"]') as NodeListOf<HTMLElement>,
+    ).map((el) => el.textContent ?? '');
+    expect(qrUrls.join(' ')).toContain(OTHER);
+    expect(qrUrls.join(' ')).not.toContain(RID);
+    // Et la zone ouverte repart du mode du nouveau restaurant.
+    expect(fixture.componentInstance['editing']()).toBe('manual');
+  });
 });
