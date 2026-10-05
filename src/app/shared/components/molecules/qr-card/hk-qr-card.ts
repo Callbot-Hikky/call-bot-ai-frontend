@@ -86,8 +86,12 @@ export class HkQrCard {
     },
   });
 
-  protected readonly svg = computed(() => this.images.value()?.svg ?? '');
-  protected readonly png = computed(() => this.images.value()?.png ?? null);
+  // hasValue() avant value() : lire la valeur d'une ressource en erreur releve
+  // l'erreur, ce qui rendrait inatteignable le message de repli juste en dessous.
+  protected readonly svg = computed(() => (this.images.hasValue() ? this.images.value().svg : ''));
+  protected readonly png = computed(() =>
+    this.images.hasValue() ? this.images.value().png : null,
+  );
   protected readonly failed = computed(() => this.images.error() !== undefined);
 
   // Le SVG sort de la bibliotheque qrcode a partir de NOTRE lien : il est sur par

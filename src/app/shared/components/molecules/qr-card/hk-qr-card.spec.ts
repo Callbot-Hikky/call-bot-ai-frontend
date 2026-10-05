@@ -74,4 +74,24 @@ describe('HkQrCard', () => {
     expect(link.getAttribute('target')).toBe('_blank');
     expect(link.getAttribute('rel')).toContain('noopener');
   });
+
+  it('une generation qui echoue affiche le message et laisse le lien utilisable', async () => {
+    // Une URL trop longue depasse la capacite d'un QR code : la librairie leve.
+    // L'ecran doit le dire, pas planter.
+    const huge = 'https://exemple.test/' + 'x'.repeat(5000);
+    const broken = TestBed.createComponent(HkQrCard);
+    broken.componentRef.setInput('title', 'Voir le menu');
+    broken.componentRef.setInput('url', huge);
+    broken.componentRef.setInput('fileName', 'menu-casse');
+    broken.autoDetectChanges();
+
+    await vi.waitFor(() =>
+      expect(broken.nativeElement.querySelector('[data-testid="qr-error"]')).not.toBeNull(),
+    );
+    expect(broken.nativeElement.textContent).toContain('Le lien reste valable');
+    // Le lien lui-meme reste affiche et copiable.
+    expect(broken.nativeElement.querySelector('[data-testid="qr-url"]')?.textContent).toContain(
+      huge,
+    );
+  });
 });

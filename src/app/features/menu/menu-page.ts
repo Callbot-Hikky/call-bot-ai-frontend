@@ -15,11 +15,6 @@ import { HkPageHeader } from '@shared/components/organisms/page-header/hk-page-h
 import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
-import { HkFileRowActions } from '@shared/components/molecules/file-row-actions/hk-file-row-actions';
-import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
-import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
-import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
-import { HkPdfPages } from '@shared/components/molecules/pdf-pages/hk-pdf-pages';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
 import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import { RestaurantService } from '@core/services/restaurant.service';
@@ -100,14 +95,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkButton,
     HkIcon,
     HkSkeleton,
-    HkFileDropzone,
-    HkMenuManualForm,
-    HkPdfPages,
     HkQrCard,
     HkFocusOnInit,
     RouterLink,
-    HkFileRowActions,
-    HkInlineConfirm,
     MenuPdfSection,
     MenuImagesSection,
     MenuManualSection,
@@ -406,8 +396,6 @@ export class MenuPage {
         return '';
     }
   }
-
-  protected readonly humanSize = humanSize;
 }
 
 // « Le Bistrot du Coin » -> « le-bistrot-du-coin » : minuscules, sans accents, tirets.

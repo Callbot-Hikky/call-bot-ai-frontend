@@ -10,9 +10,9 @@ import {
 } from '@angular/core';
 import { HlmTextarea } from '@spartan-ng/helm/textarea';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
+import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkInput } from '@shared/components/atoms/input/hk-input';
-import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import {
   MANUAL_LIMITS,
   ManualItem,
@@ -26,6 +26,7 @@ import {
   updateItem,
   updateSection,
   validateManual,
+  ManualSection,
 } from '@core/models/menu.model';
 
 type PendingRemoval =
@@ -39,7 +40,7 @@ type PendingRemoval =
 // confirmation inline : jamais de dialogue bloquant.
 @Component({
   selector: 'hk-menu-manual-form',
-  imports: [HkInput, HkButton, HkIcon, HlmTextarea, HkFocusOnInit],
+  imports: [HkInput, HkButton, HkIcon, HlmTextarea, HkInlineConfirm],
   templateUrl: './hk-menu-manual-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -153,5 +154,12 @@ export class HkMenuManualForm {
       p.type === 'section' ? removeSection(this.menu(), p.s) : removeItem(this.menu(), p.s, p.i),
     );
     this.pending.set(null);
+  }
+
+  /** Une suppression de section emporte ses plats : la question doit le dire. */
+  protected sectionRemovalQuestion(section: ManualSection): string {
+    const n = section.items.length;
+    if (n === 0) return 'Supprimer cette section ?';
+    return `Supprimer cette section et ${n === 1 ? 'son plat' : `ses ${n} plats`} ?`;
   }
 }

@@ -1,16 +1,8 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  input,
-  resource,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkClientHeader } from '@shared/components/molecules/client-header/hk-client-header';
@@ -35,12 +27,13 @@ export class RestaurantMenuPage {
 
   /**
    * La carte publique suit l'identifiant de route : changer d'identifiant relance
-   * le chargement et annule le precedent. Le statut et l'erreur viennent de la
+   * le chargement et annule reellement la requete precedente (`rxResource` se
+   * desabonne de l'observable abandonne). Le statut et l'erreur viennent de la
    * ressource, il n'y a pas d'etat de chargement tenu a la main.
    */
-  private readonly menuResource = resource({
+  private readonly menuResource = rxResource({
     params: () => this.id(),
-    loader: ({ params }) => firstValueFrom(this.service.getPublic(params)),
+    stream: ({ params }) => this.service.getPublic(params),
   });
 
   // hasValue() avant value() : lire la valeur d'une ressource en erreur releve l'erreur.
