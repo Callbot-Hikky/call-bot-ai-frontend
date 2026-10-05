@@ -197,217 +197,59 @@
     @switch (editing()) {
       @case ('pdf') {
         <section class="flex flex-col gap-4" aria-label="Carte en PDF">
-          @if (pdfs().length > 0 && menu()!.mode !== 'pdf') {
-            <div
-              class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-              data-testid="publish-inline"
-              role="status"
-            >
-              <span class="flex items-center gap-2">
-                <hk-icon name="lucideTriangleAlert" [size]="16" />
-                {{ pdfPendingText() }}
-              </span>
-              <hk-button size="sm" [disabled]="service.saving()" (click)="publish('pdf')">
-                {{ pdfPublishLabel() }}
-              </hk-button>
-            </div>
-          }
-          @if (pdfs().length > 0) {
-            <!-- L'ajout reste en tete : les apercus qui suivent peuvent etre longs. -->
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-text-subtle text-xs" data-testid="pdf-count">
-                {{ pdfs().length }}/{{ menu()!.limits.pdfMaxCount }} PDF. Plats, vins, desserts :
-                vos clients les voient à la suite, dans cet ordre.
-              </p>
-              @if (canAddPdf()) {
-                <hk-file-dropzone
-                  [compact]="true"
-                  label="Ajouter un PDF"
-                  [accept]="pdfMimes"
-                  [maxBytes]="menu()!.limits.pdfMaxBytes"
-                  [multiple]="true"
-                  [disabled]="service.saving()"
-                  (filesPicked)="onFiles($event)"
-                />
-              } @else {
-                <span class="text-text-subtle text-xs">Limite de PDF atteinte.</span>
-              }
-            </div>
-          }
-          @for (pdf of pdfs(); track pdf.id; let i = $index; let first = $first; let last = $last) {
-            <div
-              class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4"
-              data-testid="pdf-row"
-            >
-              <hk-icon name="lucideFileText" [size]="24" class="text-primary" />
-              <div class="flex-1">
-                <p class="text-text-strong text-sm font-medium">
-                  PDF {{ i + 1
-                  }}<span class="text-text-subtle font-normal"> / {{ pdfs().length }}</span>
-                </p>
-                <p class="text-text-subtle text-xs">{{ humanSize(pdf.sizeBytes) }}</p>
-              </div>
-              <a
-                [href]="previewUrl(pdf)"
-                target="_blank"
-                rel="noopener"
-                class="text-primary flex items-center gap-1 text-sm underline"
-                data-testid="open-pdf"
-              >
-                <hk-icon name="lucideExternalLink" [size]="14" />
-                Ouvrir
-              </a>
-              <hk-file-row-actions
-                [fileId]="pdf.id"
-                label="le PDF"
-                [first]="first"
-                [last]="last"
-                [busy]="service.saving()"
-                (moved)="move(pdf.id, $event, 'pdf')"
-                (removeAsked)="askRemove(pdf.id)"
-              />
-            </div>
-            @if (pendingFile() === pdf.id) {
-              <hk-inline-confirm
-                question="Supprimer ce PDF ?"
-                (confirmed)="confirmRemove()"
-                (cancelled)="pendingFile.set(null)"
-              />
-            }
-            @if (previewUrl(pdf); as url) {
-              <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
-              <div class="mx-auto w-full max-w-2xl">
-                <hk-pdf-pages
-                  data-testid="pdf-preview"
-                  [url]="url"
-                  [title]="'Aperçu du PDF ' + (i + 1)"
-                />
-              </div>
-            }
-          }
-          @if (pdfs().length === 0) {
-            <hk-file-dropzone
-              [accept]="pdfMimes"
-              [maxBytes]="menu()!.limits.pdfMaxBytes"
-              [multiple]="true"
-              [disabled]="service.saving()"
-              label="Glissez vos cartes en PDF ici"
-              [hint]="pdfHint()"
-              (filesPicked)="onFiles($event)"
-            />
-          }
+          <app-menu-pdf-section
+            [files]="pdfRows()"
+            [published]="menu()!.mode === 'pdf'"
+            [canAdd]="canAddPdf()"
+            [busy]="service.saving()"
+            [pendingFileId]="pendingFile()"
+            [accept]="pdfMimes"
+            [maxBytes]="menu()!.limits.pdfMaxBytes"
+            [maxCount]="menu()!.limits.pdfMaxCount"
+            [hint]="pdfHint()"
+            [pendingText]="pdfPendingText()"
+            [publishLabel]="pdfPublishLabel()"
+            (filesPicked)="onFiles($event)"
+            (moved)="move($event.id, $event.direction, 'pdf')"
+            (removeAsked)="askRemove($event)"
+            (removeConfirmed)="confirmRemove()"
+            (removeCancelled)="pendingFile.set(null)"
+            (publishAsked)="publish('pdf')"
+          />
         </section>
       }
       @case ('images') {
         <section class="flex flex-col gap-4" aria-label="Carte en photos">
-          @if (images().length > 0 && menu()!.mode !== 'images') {
-            <div
-              class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-              data-testid="publish-inline"
-              role="status"
-            >
-              <span class="flex items-center gap-2">
-                <hk-icon name="lucideTriangleAlert" [size]="16" />
-                Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.
-              </span>
-              <hk-button size="sm" [disabled]="service.saving()" (click)="publish('images')">
-                Publier les photos
-              </hk-button>
-            </div>
-          }
-          @if (images().length > 0) {
-            <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="image-list">
-              @for (
-                file of images();
-                track file.id;
-                let i = $index;
-                let first = $first;
-                let last = $last
-              ) {
-                <li class="bg-card border-border/70 flex flex-col gap-2 rounded-lg border p-2">
-                  <img
-                    data-testid="image-thumb"
-                    [src]="previewUrl(file)"
-                    [alt]="'Photo ' + (i + 1) + ' de la carte'"
-                    class="bg-muted h-56 w-full rounded-md object-contain"
-                    loading="lazy"
-                  />
-                  <div class="flex items-center justify-between gap-1">
-                    <span class="text-text-subtle text-xs tabular-nums"
-                      >{{ i + 1 }}/{{ images().length }}</span
-                    >
-                    <hk-file-row-actions
-                      [fileId]="file.id"
-                      label="la photo"
-                      [first]="first"
-                      [last]="last"
-                      [busy]="service.saving()"
-                      (moved)="move(file.id, $event)"
-                      (removeAsked)="askRemove(file.id)"
-                    />
-                  </div>
-                  @if (pendingFile() === file.id) {
-                    <hk-inline-confirm
-                      question="Supprimer cette photo ?"
-                      (confirmed)="confirmRemove()"
-                      (cancelled)="pendingFile.set(null)"
-                    />
-                  }
-                </li>
-              }
-            </ul>
-          }
-          <p class="text-text-subtle text-xs" data-testid="image-count">
-            {{ images().length }}/{{ menu()!.limits.imageMaxCount }} photos. L'ordre affiché est
-            l'ordre vu par vos clients.
-          </p>
-          <hk-file-dropzone
+          <app-menu-images-section
+            [files]="imageRows()"
+            [published]="menu()!.mode === 'images'"
+            [canAdd]="canAddImage()"
+            [busy]="service.saving()"
+            [pendingFileId]="pendingFile()"
             [accept]="imageMimes"
             [maxBytes]="menu()!.limits.imageMaxBytes"
-            [multiple]="true"
-            [disabled]="service.saving() || !canAddImage()"
-            [label]="canAddImage() ? 'Glissez vos photos ici' : 'Limite de photos atteinte'"
+            [maxCount]="menu()!.limits.imageMaxCount"
             [hint]="imageHint()"
             (filesPicked)="onFiles($event)"
+            (moved)="move($event.id, $event.direction)"
+            (removeAsked)="askRemove($event)"
+            (removeConfirmed)="confirmRemove()"
+            (removeCancelled)="pendingFile.set(null)"
+            (publishAsked)="publish('images')"
           />
         </section>
       }
       @case ('manual') {
         <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
-          @if (draft().sections.length > 0 && menu()!.mode !== 'manual') {
-            <div
-              class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-              data-testid="publish-inline"
-              role="status"
-            >
-              <span class="flex items-center gap-2">
-                <hk-icon name="lucideTriangleAlert" [size]="16" />
-                Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
-              </span>
-              <hk-button size="sm" [disabled]="service.saving()" (click)="publish('manual')">
-                Publier la saisie
-              </hk-button>
-            </div>
-          }
-          <hk-menu-manual-form
-            [menu]="draft()"
-            (menuChange)="onManualChange($event)"
-            [disabled]="service.loading()"
+          <app-menu-manual-section
+            [draft]="draft()"
+            [published]="menu()!.mode === 'manual'"
+            [busy]="service.saving()"
+            [loading]="service.loading()"
+            (draftChange)="onManualChange($event)"
+            (saveAsked)="saveNow()"
+            (publishAsked)="publish('manual')"
           />
-          <div class="flex items-center gap-3">
-            <hk-button
-              size="sm"
-              data-testid="save-manual"
-              [disabled]="service.saving()"
-              (click)="saveNow()"
-            >
-              <hk-icon name="lucideSave" [size]="16" />
-              Enregistrer maintenant
-            </hk-button>
-            <span class="text-text-subtle text-xs"
-              >Vos modifications sont enregistrées automatiquement.</span
-            >
-          </div>
         </section>
       }
     }

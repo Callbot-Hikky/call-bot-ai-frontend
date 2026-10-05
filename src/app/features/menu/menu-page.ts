@@ -23,6 +23,10 @@ import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
 import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { humanSize } from '@core/utils/format';
+import { MenuFileRow } from './components/menu-file-row';
+import { MenuPdfSection } from './components/menu-pdf-section/menu-pdf-section';
+import { MenuImagesSection } from './components/menu-images-section/menu-images-section';
+import { MenuManualSection } from './components/menu-manual-section/menu-manual-section';
 import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
@@ -99,6 +103,9 @@ const SAVE_LABELS: Record<SaveState, string> = {
     RouterLink,
     HkFileRowActions,
     HkInlineConfirm,
+    MenuPdfSection,
+    MenuImagesSection,
+    MenuManualSection,
   ],
   templateUrl: './menu-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -166,10 +173,10 @@ export class MenuPage {
   protected readonly pdfPublishLabel = computed(() =>
     this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF',
   );
-  // Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue.
-  protected previewUrl(file: MenuFile): string | null {
-    return isSafeAdminFileUrl(file.url) ? file.url : null;
-  }
+  // Lignes pretes a afficher : l'adresse d'apercu et la taille sont calculees ici,
+  // une seule fois, au lieu d'etre recalculees a chaque rendu depuis le gabarit.
+  protected readonly pdfRows = computed<MenuFileRow[]>(() => this.pdfs().map(toRow));
+  protected readonly imageRows = computed<MenuFileRow[]>(() => this.images().map(toRow));
   protected readonly images = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'image')
@@ -404,4 +411,14 @@ function toSlug(name: string): string {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40) || 'restaurant'
   );
+}
+
+// Seule l'URL admin de NOTRE fichier, verifiee par sa forme, est rendue :
+// une adresse qui ne correspond pas n'affiche rien plutot que n'importe quoi.
+function toRow(file: MenuFile): MenuFileRow {
+  return {
+    file,
+    previewUrl: isSafeAdminFileUrl(file.url) ? file.url : null,
+    size: humanSize(file.sizeBytes),
+  };
 }

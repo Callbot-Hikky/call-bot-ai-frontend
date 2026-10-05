@@ -1,0 +1,94 @@
+@if (files().length > 0 && !published()) {
+  <div
+    class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+    data-testid="publish-inline"
+    role="status"
+  >
+    <span class="flex items-center gap-2">
+      <hk-icon name="lucideTriangleAlert" [size]="16" />
+      {{ pendingText() }}
+    </span>
+    <hk-button size="sm" [disabled]="busy()" (click)="publishAsked.emit()">
+      {{ publishLabel() }}
+    </hk-button>
+  </div>
+}
+@if (files().length > 0) {
+  <!-- L'ajout reste en tete : les apercus qui suivent peuvent etre longs. -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <p class="text-text-subtle text-xs" data-testid="pdf-count">
+      {{ files().length }}/{{ maxCount() }} PDF. Plats, vins, desserts : vos clients les voient à la
+      suite, dans cet ordre.
+    </p>
+    @if (canAdd()) {
+      <hk-file-dropzone
+        [compact]="true"
+        label="Ajouter un PDF"
+        [accept]="accept()"
+        [maxBytes]="maxBytes()"
+        [multiple]="true"
+        [disabled]="busy()"
+        (filesPicked)="filesPicked.emit($event)"
+      />
+    } @else {
+      <span class="text-text-subtle text-xs">Limite de PDF atteinte.</span>
+    }
+  </div>
+}
+@for (row of files(); track row.file.id; let i = $index; let first = $first; let last = $last) {
+  <div
+    class="bg-card border-border/70 flex flex-wrap items-center gap-3 rounded-lg border p-4"
+    data-testid="pdf-row"
+  >
+    <hk-icon name="lucideFileText" [size]="24" class="text-primary" />
+    <div class="flex-1">
+      <p class="text-text-strong text-sm font-medium">
+        PDF {{ i + 1 }}<span class="text-text-subtle font-normal"> / {{ files().length }}</span>
+      </p>
+      <p class="text-text-subtle text-xs">{{ row.size }}</p>
+    </div>
+    <a
+      [href]="row.previewUrl"
+      target="_blank"
+      rel="noopener"
+      class="text-primary flex items-center gap-1 text-sm underline"
+      data-testid="open-pdf"
+    >
+      <hk-icon name="lucideExternalLink" [size]="14" />
+      Ouvrir
+    </a>
+    <hk-file-row-actions
+      [fileId]="row.file.id"
+      label="le PDF"
+      [first]="first"
+      [last]="last"
+      [busy]="busy()"
+      (moved)="moved.emit({ id: row.file.id, direction: $event })"
+      (removeAsked)="removeAsked.emit(row.file.id)"
+    />
+  </div>
+  @if (pendingFileId() === row.file.id) {
+    <hk-inline-confirm
+      question="Supprimer ce PDF ?"
+      (confirmed)="removeConfirmed.emit()"
+      (cancelled)="removeCancelled.emit()"
+    />
+  }
+  @if (row.previewUrl; as url) {
+    <!-- Le meme rendu que vos clients : page par page, sans lecteur ni barre d'outils. -->
+    <div class="mx-auto w-full max-w-2xl">
+      <hk-pdf-pages data-testid="pdf-preview" [url]="url" [title]="'Aperçu du PDF ' + (i + 1)" />
+    </div>
+  }
+}
+@if (files().length === 0) {
+  <hk-file-dropzone
+    [accept]="accept()"
+    [maxBytes]="maxBytes()"
+    [multiple]="true"
+    [disabled]="busy()"
+    label="Glissez vos cartes en PDF ici"
+    [hint]="hint()"
+    (filesPicked)="filesPicked.emit($event)"
+  />
+}

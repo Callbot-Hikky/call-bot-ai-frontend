@@ -1,0 +1,27 @@
+@if (draft().sections.length > 0 && !published()) {
+  <div
+    class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+    data-testid="publish-inline"
+    role="status"
+  >
+    <span class="flex items-center gap-2">
+      <hk-icon name="lucideTriangleAlert" [size]="16" />
+      Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
+    </span>
+    <hk-button size="sm" [disabled]="busy()" (click)="publishAsked.emit()">
+      Publier la saisie
+    </hk-button>
+  </div>
+}
+<hk-menu-manual-form
+  [menu]="draft()"
+  (menuChange)="draftChange.emit($event)"
+  [disabled]="loading()"
+/>
+<div class="flex items-center gap-3">
+  <hk-button size="sm" data-testid="save-manual" [disabled]="busy()" (click)="saveAsked.emit()">
+    <hk-icon name="lucideSave" [size]="16" />
+    Enregistrer maintenant
+  </hk-button>
+  <span class="text-text-subtle text-xs">Vos modifications sont enregistrées automatiquement.</span>
+</div>
