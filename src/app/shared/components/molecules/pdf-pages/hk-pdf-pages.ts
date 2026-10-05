@@ -48,19 +48,7 @@ const MIN_RENDER_WIDTH = 900;
 @Component({
   selector: 'hk-pdf-pages',
   imports: [HkSkeleton],
-  template: `
-    <div class="flex flex-col gap-4" role="img" [attr.aria-label]="title()">
-      @if (state() === 'loading') {
-        <hk-skeleton height="60vh" />
-      }
-      @if (state() === 'error') {
-        <p class="text-text-muted text-sm" data-testid="pdf-error">
-          La carte n'a pas pu être affichée ici. Ouvrez-la en plein écran ci-dessous.
-        </p>
-      }
-      <div #pages class="flex flex-col gap-4" [hidden]="state() !== 'ready'"></div>
-    </div>
-  `,
+  templateUrl: './hk-pdf-pages.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkPdfPages {
@@ -105,8 +93,12 @@ export class HkPdfPages {
       const container = this.pages().nativeElement;
       container.replaceChildren();
       const hostWidth = this.host.nativeElement.clientWidth;
+      // Sur telephone on ne vise que la largeur reelle de l'ecran : rendre a 900 px
+      // une page qui en fait 360 coute de la memoire pour une nettete invisible.
       const narrow = window.innerWidth < 640;
       const width = narrow ? Math.max(hostWidth, 320) : Math.max(hostWidth, MIN_RENDER_WIDTH);
+      // Densite plafonnee a 2 : au-dela, un ecran tres fin fabrique des canvas enormes
+      // (la surface croit au carre) et le systeme ferme l'onglet avant la fin du rendu.
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
       const canvases: HTMLCanvasElement[] = [];
       for (let n = 1; n <= doc.numPages; n++) {
@@ -136,6 +128,8 @@ export class HkPdfPages {
         if (!context) throw new Error('canvas');
         await page.render({ canvasContext: context, viewport }).promise;
       };
+      // Sans IntersectionObserver (environnement de test), on dessine tout d'affilee :
+      // mieux vaut un rendu complet et lent qu'une carte qui reste blanche.
       if (typeof IntersectionObserver === 'undefined') {
         for (const canvas of canvases) await paint(canvas);
         return;
@@ -149,6 +143,8 @@ export class HkPdfPages {
             }
           }
         },
+        // 600 px d'avance verticale : la page suivante est dessinee avant d'entrer dans
+        // l'ecran, donc le defilement ne tombe jamais sur un cadre encore vide.
         { rootMargin: '600px 0px' },
       );
       for (const canvas of canvases) this.observer.observe(canvas);

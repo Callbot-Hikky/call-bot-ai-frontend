@@ -10,52 +10,7 @@ import { humanSize } from '@core/utils/format';
   selector: 'hk-file-dropzone',
   imports: [HkIcon],
   host: { '[class.contents]': 'compact()' },
-  template: `
-    <label
-      data-testid="file-dropzone"
-      [class]="boxClass()"
-      [class.cursor-pointer]="!disabled()"
-      [class.hover:border-primary]="!disabled()"
-      [class.hover:bg-muted]="!disabled()"
-      [class.opacity-60]="disabled()"
-      [class.cursor-not-allowed]="disabled()"
-      [class.border-primary]="dragging()"
-      [class.bg-muted]="dragging()"
-      (dragenter)="onDragEnter($event)"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave()"
-      (drop)="onDrop($event)"
-    >
-      @if (compact()) {
-        <hk-icon name="lucideUpload" [size]="14" />
-        <span>{{ label() }}</span>
-      } @else {
-        <hk-icon name="lucideUpload" [size]="28" class="text-text-subtle" />
-        <span class="text-text-strong text-sm font-medium">{{ label() }}</span>
-        <span class="text-text-subtle text-xs">{{ hint() }}</span>
-      }
-      <input
-        type="file"
-        class="sr-only"
-        data-testid="file-input"
-        [accept]="acceptAttr()"
-        [multiple]="multiple()"
-        [disabled]="disabled()"
-        (change)="onPicked($event)"
-      />
-    </label>
-    @if (error(); as msg) {
-      <p
-        class="text-st-cancelled-fg text-sm"
-        [class.mt-2]="!compact()"
-        [class.basis-full]="compact()"
-        role="alert"
-        data-testid="dropzone-error"
-      >
-        {{ msg }}
-      </p>
-    }
-  `,
+  templateUrl: './hk-file-dropzone.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkFileDropzone {

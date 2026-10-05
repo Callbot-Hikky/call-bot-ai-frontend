@@ -1,0 +1,84 @@
+<div
+  class="bg-card border-border/70 flex flex-col gap-4 rounded-lg border p-4 shadow-sm sm:flex-row sm:items-start"
+>
+  <div
+    class="border-border/60 flex size-40 shrink-0 items-center justify-center self-center rounded-md border bg-white p-2 sm:self-start"
+  >
+    @if (png(); as src) {
+      <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
+    } @else if (svgHtml(); as html) {
+      <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
+    } @else {
+      @if (failed()) {
+        <span class="text-st-cancelled-fg text-xs" role="alert" data-testid="qr-error">
+          Le QR code n'a pas pu être généré. Le lien reste valable.
+        </span>
+      } @else {
+        <span class="text-text-subtle text-xs">Génération du QR code…</span>
+      }
+    }
+  </div>
+
+  <div class="flex min-w-0 flex-1 flex-col gap-3">
+    <div class="flex flex-col gap-1">
+      <p class="text-text-strong font-semibold">{{ title() }}</p>
+      @if (description()) {
+        <p class="text-text-subtle text-sm">{{ description() }}</p>
+      }
+    </div>
+    <p
+      class="text-text-muted bg-muted rounded-md px-2 py-1 font-mono text-xs break-all"
+      data-testid="qr-url"
+    >
+      {{ url() }}
+    </p>
+    <div class="flex flex-wrap items-center gap-2">
+      <hk-button size="sm" variant="secondary" data-testid="copy-url" (click)="copy()">
+        <hk-icon name="lucideCopy" [size]="14" />
+        {{ copied() ? 'Lien copié' : 'Copier le lien' }}
+      </hk-button>
+      @if (pngHref(); as href) {
+        <a
+          data-testid="download-png"
+          [href]="href"
+          [download]="fileName() + '.png'"
+          class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
+        >
+          <hk-icon name="lucideDownload" [size]="14" />
+          PNG
+        </a>
+      } @else {
+        <hk-button size="sm" variant="secondary" data-testid="download-png" [disabled]="true">
+          <hk-icon name="lucideDownload" [size]="14" />
+          PNG
+        </hk-button>
+      }
+      @if (svgHref(); as href) {
+        <a
+          data-testid="download-svg"
+          [href]="href"
+          [download]="fileName() + '.svg'"
+          class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
+        >
+          <hk-icon name="lucideDownload" [size]="14" />
+          SVG
+        </a>
+      }
+      <a
+        data-testid="open-url"
+        [href]="url()"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-primary inline-flex items-center gap-1 text-sm underline"
+      >
+        <hk-icon name="lucideExternalLink" [size]="14" />
+        Ouvrir la page
+      </a>
+    </div>
+    @if (copyFailed()) {
+      <p class="text-st-cancelled-fg text-xs" role="alert">
+        Copie impossible depuis ce navigateur. Sélectionnez le lien ci-dessus pour le copier.
+      </p>
+    }
+  </div>
+</div>

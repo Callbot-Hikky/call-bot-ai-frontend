@@ -24,96 +24,12 @@ const COPIED_FEEDBACK_MS = 2000;
 @Component({
   selector: 'hk-qr-card',
   imports: [HkButton, HkIcon],
-  template: `
-    <div
-      class="bg-card border-border/70 flex flex-col gap-4 rounded-lg border p-4 shadow-sm sm:flex-row sm:items-start"
-    >
-      <div
-        class="border-border/60 flex size-40 shrink-0 items-center justify-center self-center rounded-md border bg-white p-2 sm:self-start"
-      >
-        @if (png(); as src) {
-          <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
-        } @else if (svgHtml(); as html) {
-          <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
-        } @else {
-          @if (failed()) {
-            <span class="text-st-cancelled-fg text-xs" role="alert" data-testid="qr-error">
-              Le QR code n'a pas pu être généré. Le lien reste valable.
-            </span>
-          } @else {
-            <span class="text-text-subtle text-xs">Génération du QR code…</span>
-          }
-        }
-      </div>
-
-      <div class="flex min-w-0 flex-1 flex-col gap-3">
-        <div class="flex flex-col gap-1">
-          <p class="text-text-strong font-semibold">{{ title() }}</p>
-          @if (description()) {
-            <p class="text-text-subtle text-sm">{{ description() }}</p>
-          }
-        </div>
-        <p
-          class="text-text-muted bg-muted rounded-md px-2 py-1 font-mono text-xs break-all"
-          data-testid="qr-url"
-        >
-          {{ url() }}
-        </p>
-        <div class="flex flex-wrap items-center gap-2">
-          <hk-button size="sm" variant="secondary" data-testid="copy-url" (click)="copy()">
-            <hk-icon name="lucideCopy" [size]="14" />
-            {{ copied() ? 'Lien copié' : 'Copier le lien' }}
-          </hk-button>
-          @if (pngHref(); as href) {
-            <a
-              data-testid="download-png"
-              [href]="href"
-              [download]="fileName() + '.png'"
-              class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
-            >
-              <hk-icon name="lucideDownload" [size]="14" />
-              PNG
-            </a>
-          } @else {
-            <hk-button size="sm" variant="secondary" data-testid="download-png" [disabled]="true">
-              <hk-icon name="lucideDownload" [size]="14" />
-              PNG
-            </hk-button>
-          }
-          @if (svgHref(); as href) {
-            <a
-              data-testid="download-svg"
-              [href]="href"
-              [download]="fileName() + '.svg'"
-              class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-sm border px-3 text-sm font-medium"
-            >
-              <hk-icon name="lucideDownload" [size]="14" />
-              SVG
-            </a>
-          }
-          <a
-            data-testid="open-url"
-            [href]="url()"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-primary inline-flex items-center gap-1 text-sm underline"
-          >
-            <hk-icon name="lucideExternalLink" [size]="14" />
-            Ouvrir la page
-          </a>
-        </div>
-        @if (copyFailed()) {
-          <p class="text-st-cancelled-fg text-xs" role="alert">
-            Copie impossible depuis ce navigateur. Sélectionnez le lien ci-dessus pour le copier.
-          </p>
-        }
-      </div>
-    </div>
-  `,
+  templateUrl: './hk-qr-card.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HkQrCard {
   readonly title = input.required<string>();
+  // Ce que le QR encode : exactement ce lien, rien d'autre.
   readonly url = input.required<string>();
   // Nom des fichiers telecharges, sans extension : « menu-chez-hikky ».
   readonly fileName = input.required<string>();
@@ -129,7 +45,6 @@ export class HkQrCard {
   protected readonly failed = signal(false);
   protected readonly copied = signal(false);
   protected readonly copyFailed = signal(false);
-  // Ce que le QR encode : exactement le lien, rien d'autre.
 
   // Le SVG et le PNG sortent de la bibliotheque qrcode a partir de NOTRE lien :
   // ils sont surs par construction, d'ou le contournement explicite de la
@@ -166,6 +81,10 @@ export class HkQrCard {
     // PNG soit pret : sans ca, le bouton « telecharger en PNG » servirait le QR de
     // l'ancien lien pendant que l'ecran affiche deja le nouveau.
     this.png.set(null);
+    // Niveau « M » : environ 15 % du dessin peut etre abime sans empecher la lecture.
+    // C'est le bon compromis pour un code pose sur une table de restaurant ; « L » (7 %)
+    // est trop fragile, « H » (30 %) densifie le motif et impose de l'imprimer plus grand.
+    // Marge reduite a 1 module au lieu de 4 : la carte apporte deja son propre blanc.
     const options = { margin: 1, errorCorrectionLevel: 'M' as const };
     // La bibliotheque n'est chargee qu'ici : elle ne pese pas sur le bundle initial.
     // Module CommonJS : en build de production, les fonctions sont sous « default ».
@@ -182,6 +101,8 @@ export class HkQrCard {
     this.failed.set(false);
     this.svg.set(svg);
     try {
+      // 512 px : assez net pour une publication sur un reseau social, assez leger
+      // pour tenir dans une data: URL sans alourdir la page.
       const png = await QRCode.toDataURL(url, { ...options, width: 512 });
       if (run === this.generation) this.png.set(png);
     } catch {
