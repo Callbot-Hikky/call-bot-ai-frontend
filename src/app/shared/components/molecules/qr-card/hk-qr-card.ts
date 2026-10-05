@@ -63,6 +63,11 @@ export class HkQrCard {
    * Le dessin suit le lien : changer de lien relance la generation et abandonne
    * la precedente. C'est `resource` qui tient le fil, pas un compteur a la main,
    * donc un resultat en retard ne peut plus ecraser un lien plus recent.
+   *
+   * Consequence voulue : pendant une regeneration, la carte repasse par
+   * « Generation du QR code... » au lieu de garder l'ancien dessin a l'ecran.
+   * Un QR affiche ne correspond donc JAMAIS a un autre lien que celui affiche
+   * juste a cote, et le bouton de telechargement ne peut plus servir l'ancien.
    */
   private readonly images = resource<QrImages, string>({
     params: () => this.url(),

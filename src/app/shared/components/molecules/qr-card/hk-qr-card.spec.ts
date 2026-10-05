@@ -40,6 +40,15 @@ describe('HkQrCard', () => {
     );
   });
 
+  it('affiche le QR dans une image, sans injecter de HTML dans la page', () => {
+    // Le dessin passe par une balise <img> et une data: URL, jamais par innerHTML :
+    // c'est un contournement de sanitisation en moins.
+    const img: HTMLImageElement = fixture.nativeElement.querySelector('img');
+    expect(img).not.toBeNull();
+    expect(img.getAttribute('src')).toMatch(/^data:image\/(png|svg\+xml)/);
+    expect(fixture.nativeElement.innerHTML).not.toContain('<svg');
+  });
+
   it('propose les telechargements PNG et SVG avec un nom de fichier parlant', () => {
     const svgLink: HTMLAnchorElement = fixture.nativeElement.querySelector(
       '[data-testid="download-svg"]',
