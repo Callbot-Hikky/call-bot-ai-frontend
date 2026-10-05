@@ -6,8 +6,8 @@
   >
     @if (png(); as src) {
       <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
-    } @else if (svgHtml(); as html) {
-      <div class="size-full [&>svg]:size-full" [innerHTML]="html"></div>
+    } @else if (svgHref(); as src) {
+      <img [src]="src" [alt]="'QR code : ' + title()" class="size-full" />
     } @else {
       @if (failed()) {
         <span class="text-st-cancelled-fg text-xs" role="alert" data-testid="qr-error">
