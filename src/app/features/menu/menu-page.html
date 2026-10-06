@@ -131,31 +131,14 @@
           Vos clients voient {{ publishedLabel(menu()!.mode) }}.
         </p>
         @if (pendingUnpublish()) {
-          <div
-            class="flex flex-wrap items-center gap-2 text-sm"
-            role="alert"
-            hkFocusOnInit
-            (keydown.escape)="pendingUnpublish.set(false)"
-          >
-            <span>Vos clients verront « La carte arrive bientôt ». Confirmer ?</span>
-            <hk-button
-              variant="danger"
-              size="sm"
-              data-testid="confirm-unpublish"
-              [disabled]="service.saving()"
-              (click)="confirmUnpublish()"
-            >
-              Oui, ne rien publier
-            </hk-button>
-            <hk-button
-              variant="ghost"
-              size="sm"
-              data-testid="cancel-unpublish"
-              (click)="pendingUnpublish.set(false)"
-            >
-              Annuler
-            </hk-button>
-          </div>
+          <hk-inline-confirm
+            question="Vos clients verront « La carte arrive bientôt ». Confirmer ?"
+            confirmLabel="Oui, ne rien publier"
+            confirmTestId="confirm-unpublish"
+            [busy]="service.saving()"
+            (confirmed)="confirmUnpublish()"
+            (cancelled)="pendingUnpublish.set(false)"
+          />
         } @else {
           <hk-button
             variant="ghost"

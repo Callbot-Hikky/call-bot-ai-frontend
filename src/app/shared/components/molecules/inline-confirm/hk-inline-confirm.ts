@@ -17,6 +17,8 @@ export class HkInlineConfirm {
   readonly question = input.required<string>();
   readonly confirmLabel = input('Supprimer');
   readonly confirmTestId = input('confirm-remove-file');
+  /** Vrai pendant un enregistrement : confirmer deux fois n'aurait pas de sens. */
+  readonly busy = input(false);
 
   readonly confirmed = output<void>();
   readonly cancelled = output<void>();
