@@ -61,7 +61,7 @@
           [fileName]="'reservation-' + slug()"
         />
       </div>
-      @if (menu()!.mode === 'none') {
+      @if (!publishedMode()) {
         <p class="text-text-subtle text-sm" data-testid="qr-hint">
           Le QR code fonctionne déjà. Tant que rien n'est publié, la page dit « La carte arrive
           bientôt ».
@@ -95,7 +95,7 @@
         >
           <div class="flex w-full flex-col items-center gap-1.5 sm:flex-row sm:justify-between">
             <hk-icon [name]="card.icon" [size]="20" class="text-primary" />
-            @if (menu()!.mode === card.mode) {
+            @if (publishedMode() === card.mode) {
               <span
                 class="bg-st-confirmed-bg text-st-confirmed-fg rounded-full px-2 py-0.5 text-[11px] font-medium sm:text-xs"
               >
@@ -111,7 +111,7 @@
           </div>
           <span class="text-text-strong text-sm font-semibold sm:text-base">{{ card.title }}</span>
           <span class="text-text-subtle hidden text-xs sm:block">{{ card.description }}</span>
-          <span class="text-text-subtle text-xs">{{ countFor(card.mode) }}</span>
+          <span class="text-text-subtle text-xs">{{ modes()[card.mode].count }}</span>
         </button>
       }
     </div>
@@ -121,14 +121,14 @@
       data-testid="publish-state"
       aria-live="polite"
     >
-      @if (menu()!.mode !== 'none') {
+      @if (publishedMode(); as published) {
         <p class="text-text-strong text-sm">
           <span
             class="bg-st-confirmed-bg text-st-confirmed-fg mr-2 rounded-full px-2 py-0.5 text-xs font-medium"
           >
             Publié
           </span>
-          Vos clients voient {{ publishedLabel(menu()!.mode) }}.
+          Vos clients voient {{ modes()[published].publishedLabel }}.
         </p>
         @if (pendingUnpublish()) {
           <hk-inline-confirm
@@ -153,18 +153,18 @@
       } @else {
         <p class="text-text-subtle text-sm" data-testid="nothing-published">
           Rien n'est publié pour l'instant : vos clients voient « La carte arrive bientôt ».
-          @if (!isReady(editing())) {
+          @if (!editingMode().ready) {
             Préparez un format ci-dessous, puis publiez-le.
           }
         </p>
-        @if (isReady(editing())) {
+        @if (editingMode().ready) {
           <hk-button
             size="sm"
             data-testid="publish-current"
             [disabled]="service.saving()"
             (click)="publish(editing())"
           >
-            {{ publishAction(editing()) }}
+            {{ editingMode().publishAction }}
           </hk-button>
         }
       }
@@ -182,13 +182,13 @@
         <section class="flex flex-col gap-4" aria-label="Carte en PDF">
           <app-menu-pdf-section
             [files]="pdfRows()"
-            [published]="menu()!.mode === 'pdf'"
+            [published]="publishedMode() === 'pdf'"
             [canAdd]="canAddPdf()"
             [busy]="service.saving()"
             [pendingFileId]="pendingFile()"
             [accept]="pdfMimes"
-            [maxBytes]="menu()!.limits.pdfMaxBytes"
-            [maxCount]="menu()!.limits.pdfMaxCount"
+            [maxBytes]="limits().pdfMaxBytes"
+            [maxCount]="limits().pdfMaxCount"
             [hint]="pdfHint()"
             [pendingText]="pdfPendingText()"
             [publishLabel]="pdfPublishLabel()"
@@ -205,13 +205,13 @@
         <section class="flex flex-col gap-4" aria-label="Carte en photos">
           <app-menu-images-section
             [files]="imageRows()"
-            [published]="menu()!.mode === 'images'"
+            [published]="publishedMode() === 'images'"
             [canAdd]="canAddImage()"
             [busy]="service.saving()"
             [pendingFileId]="pendingFile()"
             [accept]="imageMimes"
-            [maxBytes]="menu()!.limits.imageMaxBytes"
-            [maxCount]="menu()!.limits.imageMaxCount"
+            [maxBytes]="limits().imageMaxBytes"
+            [maxCount]="limits().imageMaxCount"
             [hint]="imageHint()"
             (filesPicked)="onFiles($event)"
             (moved)="move($event.id, $event.direction)"
@@ -226,7 +226,7 @@
         <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
           <app-menu-manual-section
             [draft]="draft()"
-            [published]="menu()!.mode === 'manual'"
+            [published]="publishedMode() === 'manual'"
             [busy]="service.saving()"
             [loading]="service.loading()"
             (draftChange)="onManualChange($event)"

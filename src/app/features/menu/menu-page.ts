@@ -40,8 +40,21 @@ import {
 /** Les trois modes qu'on peut ouvrir a l'ecran : « none » n'en est pas un. */
 type EditableMode = Exclude<MenuMode, 'none'>;
 
+/**
+ * Tout ce que l'ecran dit d'un format : son decompte sur la tuile, s'il a de quoi
+ * etre publie, le libelle de son bouton et la façon de le nommer dans la phrase
+ * « Vos clients voient ... ». Regroupe ici parce que ces quatre informations
+ * dependent des memes donnees et changent ensemble.
+ */
+interface ModeSummary {
+  readonly count: string;
+  readonly ready: boolean;
+  readonly publishAction: string;
+  readonly publishedLabel: string;
+}
+
 interface ModeCard {
-  mode: Exclude<MenuMode, 'none'>;
+  mode: EditableMode;
   icon: string;
   title: string;
   description: string;
@@ -151,6 +164,43 @@ export class MenuPage {
     source: this.service.loadedRestaurantId,
     computation: () => untracked(this.menu)?.manual ?? emptyManual(),
   });
+  // Chaque format decrit en un seul endroit, au lieu de quatre methodes
+  // parallelees qu'il fallait penser a completer ensemble.
+  protected readonly modes = computed<Record<EditableMode, ModeSummary>>(() => {
+    const pdfs = this.pdfs().length;
+    const images = this.images().length;
+    const sections = this.draft().sections.length;
+    return {
+      pdf: {
+        count: pdfs === 0 ? 'Aucun fichier' : `${pdfs} PDF`,
+        ready: pdfs > 0,
+        publishAction: pdfs > 1 ? 'Publier les PDF' : 'Publier le PDF',
+        publishedLabel: pdfs > 1 ? 'vos cartes en PDF' : 'votre carte en PDF',
+      },
+      images: {
+        count: images === 0 ? 'Aucune photo' : `${images} photo${images > 1 ? 's' : ''}`,
+        ready: images > 0,
+        publishAction: 'Publier les photos',
+        publishedLabel: 'vos photos',
+      },
+      manual: {
+        count: sections === 0 ? 'Aucune section' : `${sections} section${sections > 1 ? 's' : ''}`,
+        ready: sections > 0,
+        publishAction: 'Publier la saisie',
+        publishedLabel: 'votre carte saisie',
+      },
+    };
+  });
+  // Le format en preparation, celui que le bandeau propose de publier.
+  protected readonly editingMode = computed(() => this.modes()[this.editing()]);
+  // Le format publie, ou rien. Le gabarit s'y accroche plutot qu'a `menu()!.mode` :
+  // il n'a plus a affirmer que le menu est charge, ni a traiter le cas « none ».
+  protected readonly publishedMode = computed<EditableMode | null>(() => {
+    const mode = this.menu()?.mode;
+    return mode && mode !== 'none' ? mode : null;
+  });
+  // Les limites du serveur, ou celles par defaut avant son arrivee.
+  protected readonly limits = computed(() => this.menu()?.limits ?? DEFAULT_LIMITS);
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
 
@@ -234,25 +284,6 @@ export class MenuPage {
     }
   }
 
-  protected countFor(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf': {
-        const n = this.pdfs().length;
-        return n === 0 ? 'Aucun fichier' : `${n} PDF`;
-      }
-      case 'images': {
-        const n = this.images().length;
-        return n === 0 ? 'Aucune photo' : `${n} photo${n > 1 ? 's' : ''}`;
-      }
-      case 'manual': {
-        const n = this.draft().sections.length;
-        return n === 0 ? 'Aucune section' : `${n} section${n > 1 ? 's' : ''}`;
-      }
-      default:
-        return '';
-    }
-  }
-
   protected confirmUnpublish(): void {
     this.pendingUnpublish.set(false);
     this.publish('none');
@@ -260,15 +291,13 @@ export class MenuPage {
 
   // Un clic sur une carte ouvre sa preparation, rien de plus : publier reste un geste
   // explicite (bouton « Publier ... »), pour ne jamais changer la carte visible par surprise.
-  protected open(mode: MenuMode): void {
-    if (mode !== 'none') {
-      this.editing.set(mode);
-    }
+  protected open(mode: EditableMode): void {
+    this.editing.set(mode);
   }
 
   // Le back garde son refus (409) comme garde-fou, mais on ne le provoque pas pour rien.
   protected publish(mode: MenuMode): void {
-    if (this.menu()?.mode === mode || (mode !== 'none' && !this.isReady(mode))) {
+    if (this.menu()?.mode === mode || (mode !== 'none' && !this.modes()[mode].ready)) {
       return;
     }
     this.service
@@ -368,46 +397,6 @@ export class MenuPage {
         next: () => this.toast.show('Menu enregistré.', 'success'),
         error: (err: Error) => this.toast.show(err.message, 'error'),
       });
-  }
-
-  // Un format se publie des qu'il a du contenu : le bandeau propose alors le bouton.
-  protected isReady(mode: MenuMode): boolean {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 0;
-      case 'images':
-        return this.images().length > 0;
-      case 'manual':
-        return this.draft().sections.length > 0;
-      default:
-        return false;
-    }
-  }
-
-  protected publishAction(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF';
-      case 'images':
-        return 'Publier les photos';
-      case 'manual':
-        return 'Publier la saisie';
-      default:
-        return '';
-    }
-  }
-
-  protected publishedLabel(mode: MenuMode): string {
-    switch (mode) {
-      case 'pdf':
-        return this.pdfs().length > 1 ? 'vos cartes en PDF' : 'votre carte en PDF';
-      case 'images':
-        return 'vos photos';
-      case 'manual':
-        return 'votre carte saisie';
-      default:
-        return '';
-    }
   }
 }
 
