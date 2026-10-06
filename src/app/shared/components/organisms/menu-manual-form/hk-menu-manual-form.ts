@@ -1,9 +1,11 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   ElementRef,
   inject,
+  Injector,
   input,
   model,
   signal,
@@ -56,6 +58,7 @@ export class HkMenuManualForm {
   );
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   protected addSectionToMenu(): void {
     this.menu.set(addSection(this.menu(), ''));
@@ -67,11 +70,14 @@ export class HkMenuManualForm {
     this.focusAfterRender(`item-name-${s}-${this.menu().sections[s].items.length - 1}`);
   }
 
-  // Le champ qui vient d'apparaitre recoit le focus : on enchaine la saisie sans reprendre la souris.
-  // Les identifiants sont construits ici (lettres, chiffres, tirets) : pas d'echappement a prevoir.
+  // Le champ qui vient d'apparaitre recoit le focus : on enchaine la saisie sans
+  // reprendre la souris. `afterNextRender` et non `setTimeout` : Angular garantit
+  // que le champ est dans la page quand le rappel s'execute, au lieu de parier sur
+  // l'ordre d'une file de taches. Les identifiants sont construits ici (lettres,
+  // chiffres, tirets) : pas d'echappement a prevoir.
   private focusAfterRender(id: string): void {
-    setTimeout(() => {
-      this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus();
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus(), {
+      injector: this.injector,
     });
   }
 
