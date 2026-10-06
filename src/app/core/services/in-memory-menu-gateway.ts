@@ -19,9 +19,9 @@ import { MenuGateway } from './menu-gateway';
  * regles que le vrai : un mode vide n'est pas publiable, supprimer le dernier
  * fichier depublie, l'ordre ne porte que sur un genre a la fois.
  *
- * Il vit dans son propre fichier et n'est fourni qu'en mode maquette : le code du
- * vrai service ne contient aucun branchement, et ces regles ne partent pas dans
- * le paquet de production.
+ * Il vit dans son propre fichier et n'est fourni qu'en mode maquette (voir
+ * `useMock` dans les environnements) : le service de menu, lui, ne contient
+ * aucun branchement entre vrai et faux backend.
  */
 @Injectable()
 export class InMemoryMenuGateway implements MenuGateway {
@@ -88,8 +88,11 @@ export class InMemoryMenuGateway implements MenuGateway {
       URL.revokeObjectURL(removed.url);
     }
     const files = state.files.filter((f) => f.id !== fileId);
-    let position = 0;
-    const renumbered = files.map((f) => (f.kind === 'image' ? { ...f, position: position++ } : f));
+    // Les positions se comptent par genre, comme cote back : les PDF et les photos
+    // ont chacun leur ordre. Renumeroter un seul genre laisserait des trous dans
+    // l'autre, et l'ecran afficherait « 2 » pour le premier PDF restant.
+    const next: Record<MenuFile['kind'], number> = { pdf: 0, image: 0 };
+    const renumbered = files.map((f) => ({ ...f, position: next[f.kind]++ }));
     // Supprimer le dernier fichier du mode publie depublie : sinon le client
     // verrait une carte annoncee mais vide.
     const stillPublished =
