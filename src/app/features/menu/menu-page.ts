@@ -212,9 +212,7 @@ export class MenuPage {
       .filter((f) => f.kind === 'pdf')
       .sort((a, b) => a.position - b.position),
   );
-  protected readonly canAddPdf = computed(
-    () => this.pdfs().length < (this.menu()?.limits.pdfMaxCount ?? DEFAULT_LIMITS.pdfMaxCount),
-  );
+  protected readonly canAddPdf = computed(() => this.pdfs().length < this.limits().pdfMaxCount);
   // Libelles du bandeau « pas encore publie ». Ils vivent ici et non dans le template :
   // le pluriel porte sur la phrase entiere, et une apostrophe a l'interieur d'une
   // interpolation ferme la chaine, ce qui affiche le {{ ... }} brut a l'ecran.
@@ -243,8 +241,7 @@ export class MenuPage {
       .sort((a, b) => a.position - b.position),
   );
   protected readonly canAddImage = computed(
-    () =>
-      this.images().length < (this.menu()?.limits.imageMaxCount ?? DEFAULT_LIMITS.imageMaxCount),
+    () => this.images().length < this.limits().imageMaxCount,
   );
   // Rien tant que rien n'a ete modifie : « Enregistré » sur une page intacte n'apprend rien.
   protected readonly saveLabel = computed(() => {
