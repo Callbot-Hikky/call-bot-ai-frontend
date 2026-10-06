@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { HkButton } from '@shared/components/atoms/button/hk-button';
+import { HkPublishBanner } from '@shared/components/molecules/publish-banner/hk-publish-banner';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkMenuManualForm } from '@shared/components/organisms/menu-manual-form/hk-menu-manual-form';
 import { ManualMenu } from '@core/models/menu.model';
@@ -10,7 +11,7 @@ import { ManualMenu } from '@core/models/menu.model';
  */
 @Component({
   selector: 'app-menu-manual-section',
-  imports: [HkButton, HkIcon, HkMenuManualForm],
+  imports: [HkButton, HkIcon, HkMenuManualForm, HkPublishBanner],
   templateUrl: './menu-manual-section.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { HkButton } from '@shared/components/atoms/button/hk-button';
+import { HkPublishBanner } from '@shared/components/molecules/publish-banner/hk-publish-banner';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
 import { HkFileRowActions } from '@shared/components/molecules/file-row-actions/hk-file-row-actions';
@@ -14,7 +14,7 @@ import { MenuFileMove, MenuFileRow } from '../menu-file-row';
  */
 @Component({
   selector: 'app-menu-pdf-section',
-  imports: [HkButton, HkIcon, HkFileDropzone, HkFileRowActions, HkInlineConfirm, HkPdfPages],
+  imports: [HkIcon, HkFileDropzone, HkFileRowActions, HkInlineConfirm, HkPdfPages, HkPublishBanner],
   templateUrl: './menu-pdf-section.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

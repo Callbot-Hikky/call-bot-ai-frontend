@@ -1,17 +1,10 @@
 @if (draft().sections.length > 0 && !published()) {
-  <div
-    class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-    data-testid="publish-inline"
-    role="status"
-  >
-    <span class="flex items-center gap-2">
-      <hk-icon name="lucideTriangleAlert" [size]="16" />
-      Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.
-    </span>
-    <hk-button size="sm" [disabled]="busy()" (click)="publishAsked.emit()">
-      Publier la saisie
-    </hk-button>
-  </div>
+  <hk-publish-banner
+    message="Votre carte saisie est prête. Elle n'est pas encore visible par vos clients."
+    actionLabel="Publier la saisie"
+    [busy]="busy()"
+    (publishAsked)="publishAsked.emit()"
+  />
 }
 <hk-menu-manual-form
   [menu]="draft()"

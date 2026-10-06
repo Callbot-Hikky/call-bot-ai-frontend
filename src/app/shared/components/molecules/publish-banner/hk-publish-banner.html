@@ -1,0 +1,13 @@
+<div
+  class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
+  data-testid="publish-inline"
+  role="status"
+>
+  <span class="flex items-center gap-2">
+    <hk-icon name="lucideTriangleAlert" [size]="16" />
+    {{ message() }}
+  </span>
+  <hk-button size="sm" [disabled]="busy()" (click)="publishAsked.emit()">
+    {{ actionLabel() }}
+  </hk-button>
+</div>

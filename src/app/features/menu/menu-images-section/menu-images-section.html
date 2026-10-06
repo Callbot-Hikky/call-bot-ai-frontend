@@ -1,17 +1,10 @@
 @if (files().length > 0 && !published()) {
-  <div
-    class="bg-st-pending-bg text-st-pending-fg flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm"
-    data-testid="publish-inline"
-    role="status"
-  >
-    <span class="flex items-center gap-2">
-      <hk-icon name="lucideTriangleAlert" [size]="16" />
-      Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.
-    </span>
-    <hk-button size="sm" [disabled]="busy()" (click)="publishAsked.emit()">
-      Publier les photos
-    </hk-button>
-  </div>
+  <hk-publish-banner
+    message="Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients."
+    actionLabel="Publier les photos"
+    [busy]="busy()"
+    (publishAsked)="publishAsked.emit()"
+  />
 }
 @if (files().length > 0) {
   <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="image-list">

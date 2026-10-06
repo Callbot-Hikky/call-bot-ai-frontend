@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { HkButton } from '@shared/components/atoms/button/hk-button';
-import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
+import { HkPublishBanner } from '@shared/components/molecules/publish-banner/hk-publish-banner';
 import { HkFileDropzone } from '@shared/components/molecules/file-dropzone/hk-file-dropzone';
 import { HkFileRowActions } from '@shared/components/molecules/file-row-actions/hk-file-row-actions';
 import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
@@ -12,7 +11,7 @@ import { MenuFileMove, MenuFileRow } from '../menu-file-row';
  */
 @Component({
   selector: 'app-menu-images-section',
-  imports: [HkButton, HkIcon, HkFileDropzone, HkFileRowActions, HkInlineConfirm],
+  imports: [HkFileDropzone, HkFileRowActions, HkInlineConfirm, HkPublishBanner],
   templateUrl: './menu-images-section.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
