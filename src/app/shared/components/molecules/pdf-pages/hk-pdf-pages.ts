@@ -1,4 +1,5 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
@@ -8,7 +9,7 @@ import {
   inject,
   input,
   signal,
-  viewChild,
+  viewChildren,
 } from '@angular/core';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 
@@ -41,9 +42,21 @@ export const PDF_LOADER = new InjectionToken<PdfLoader>('PDF_LOADER', {
 // Largeur de rendu minimale : une page nette meme agrandie sur un grand ecran.
 const MIN_RENDER_WIDTH = 900;
 
+/** Un cadre de page et sa taille de dessin, connue des l'ouverture du document. */
+interface PageFrame {
+  readonly n: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 /**
  * Affiche un PDF comme une suite d'images, page apres page, ajustees a la largeur.
  * Pas de barre d'outils ni de vignettes : le client voit une carte, pas un logiciel.
+ *
+ * Le gabarit possede les cadres (un @for sur `frames`) ; ce composant ne fait que
+ * dessiner dedans. Les cadres apparaissent des l'ouverture du document, mais chaque
+ * page n'est peinte qu'a l'approche de l'ecran : cinq PDF de quinze pages ne
+ * remplissent pas la memoire d'un telephone d'un coup.
  */
 @Component({
   selector: 'hk-pdf-pages',
@@ -56,11 +69,19 @@ export class HkPdfPages {
   readonly title = input('Document PDF');
 
   protected readonly state = signal<'loading' | 'ready' | 'error'>('loading');
+  protected readonly frames = signal<readonly PageFrame[]>([]);
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly pages = viewChild.required<ElementRef<HTMLElement>>('pages');
+  private readonly canvases = viewChildren<ElementRef<HTMLCanvasElement>>('page');
   private readonly loader = inject(PDF_LOADER);
+
+  // Un numero d'ouverture : tout ce qui revient d'une ouverture abandonnee est jete.
   private run = 0;
+  private doc: PdfDocumentLike | null = null;
+  private observer: IntersectionObserver | null = null;
+  // Facteurs retenus a l'ouverture, reutilises pour peindre chaque page.
+  private renderWidth = MIN_RENDER_WIDTH;
+  private renderRatio = 1;
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -70,18 +91,23 @@ export class HkPdfPages {
     });
     effect(() => {
       const url = this.url();
-      void this.render(url, ++this.run);
+      void this.open(url, ++this.run);
+    });
+    // Les canvas n'existent qu'une fois le @for rendu : c'est ici, et pas dans
+    // `open`, qu'on peut les observer. L'effet se rejoue quand leur liste change.
+    afterRenderEffect(() => {
+      const canvases = this.canvases().map((ref) => ref.nativeElement);
+      if (canvases.length > 0) {
+        this.watch(canvases, this.run);
+      }
     });
   }
 
-  private observer: IntersectionObserver | null = null;
-  private doc: PdfDocumentLike | null = null;
-
-  // Les cadres sont crees tout de suite (mise en page stable), mais chaque page n'est
-  // dessinee qu'a l'approche de l'ecran : cinq PDF de quinze pages ne remplissent pas
-  // la memoire d'un telephone d'un coup.
-  private async render(url: string, run: number): Promise<void> {
+  // Ouvre le document et calcule la taille de chaque page. Rien n'est dessine ici :
+  // seule la mise en page est posee, pour qu'elle ne bouge plus ensuite.
+  private async open(url: string, run: number): Promise<void> {
     this.state.set('loading');
+    this.frames.set([]);
     this.reset();
     try {
       const doc = await this.loader(url);
@@ -90,8 +116,6 @@ export class HkPdfPages {
         return;
       }
       this.doc = doc;
-      const container = this.pages().nativeElement;
-      container.replaceChildren();
       const hostWidth = this.host.nativeElement.clientWidth;
       // Sur telephone on ne vise que la largeur reelle de l'ecran : rendre a 900 px
       // une page qui en fait 360 coute de la memoire pour une nettete invisible.
@@ -100,57 +124,69 @@ export class HkPdfPages {
       // Densite plafonnee a 2 : au-dela, un ecran tres fin fabrique des canvas enormes
       // (la surface croit au carre) et le systeme ferme l'onglet avant la fin du rendu.
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
-      const canvases: HTMLCanvasElement[] = [];
+      const frames: PageFrame[] = [];
       for (let n = 1; n <= doc.numPages; n++) {
         const page = await doc.getPage(n);
         if (run !== this.run) return;
-        const base = page.getViewport({ scale: 1 });
-        const scale = (width / base.width) * ratio;
-        const viewport = page.getViewport({ scale });
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.floor(viewport.width);
-        canvas.height = Math.floor(viewport.height);
-        canvas.className = 'border-border/70 h-auto w-full rounded-lg border bg-white shadow-sm';
-        canvas.setAttribute('aria-label', `Page ${n}`);
-        canvas.dataset['page'] = String(n);
-        container.appendChild(canvas);
-        canvases.push(canvas);
+        const viewport = page.getViewport({ scale: this.scaleFor(page, width, ratio) });
+        frames.push({ n, width: Math.floor(viewport.width), height: Math.floor(viewport.height) });
       }
+      this.renderWidth = width;
+      this.renderRatio = ratio;
+      this.frames.set(frames);
       this.state.set('ready');
-      const paint = async (canvas: HTMLCanvasElement): Promise<void> => {
-        if (run !== this.run || canvas.dataset['painted']) return;
-        canvas.dataset['painted'] = '1';
-        const page = await doc.getPage(Number(canvas.dataset['page']));
-        if (run !== this.run) return;
-        const base = page.getViewport({ scale: 1 });
-        const viewport = page.getViewport({ scale: (width / base.width) * ratio });
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('canvas');
-        await page.render({ canvasContext: context, viewport }).promise;
-      };
-      // Sans IntersectionObserver (environnement de test), on dessine tout d'affilee :
-      // mieux vaut un rendu complet et lent qu'une carte qui reste blanche.
-      if (typeof IntersectionObserver === 'undefined') {
-        for (const canvas of canvases) await paint(canvas);
-        return;
-      }
-      this.observer = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (entry.isIntersecting) {
-              this.observer?.unobserve(entry.target);
-              void paint(entry.target as HTMLCanvasElement).catch(() => this.state.set('error'));
-            }
-          }
-        },
-        // 600 px d'avance verticale : la page suivante est dessinee avant d'entrer dans
-        // l'ecran, donc le defilement ne tombe jamais sur un cadre encore vide.
-        { rootMargin: '600px 0px' },
-      );
-      for (const canvas of canvases) this.observer.observe(canvas);
     } catch {
       if (run === this.run) this.state.set('error');
     }
+  }
+
+  // La page est dessinee a la largeur visee, puis reduite par CSS : d'ou le ratio.
+  private scaleFor(page: PdfPageLike, width: number, ratio: number): number {
+    return (width / page.getViewport({ scale: 1 }).width) * ratio;
+  }
+
+  private watch(canvases: HTMLCanvasElement[], run: number): void {
+    this.observer?.disconnect();
+    this.observer = null;
+    // Sans IntersectionObserver (environnement de test), on dessine tout d'affilee :
+    // mieux vaut un rendu complet et lent qu'une carte qui reste blanche.
+    if (typeof IntersectionObserver === 'undefined') {
+      void canvases.reduce(
+        (previous, canvas) => previous.then(() => this.paint(canvas, run)),
+        Promise.resolve(),
+      );
+      return;
+    }
+    this.observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            this.observer?.unobserve(entry.target);
+            void this.paint(entry.target as HTMLCanvasElement, run).catch(() =>
+              this.state.set('error'),
+            );
+          }
+        }
+      },
+      // 600 px d'avance verticale : la page suivante est dessinee avant d'entrer dans
+      // l'ecran, donc le defilement ne tombe jamais sur un cadre encore vide.
+      { rootMargin: '600px 0px' },
+    );
+    for (const canvas of canvases) this.observer.observe(canvas);
+  }
+
+  private async paint(canvas: HTMLCanvasElement, run: number): Promise<void> {
+    const doc = this.doc;
+    if (!doc || run !== this.run || canvas.dataset['painted']) return;
+    canvas.dataset['painted'] = '1';
+    const page = await doc.getPage(Number(canvas.dataset['page']));
+    if (run !== this.run) return;
+    const viewport = page.getViewport({
+      scale: this.scaleFor(page, this.renderWidth, this.renderRatio),
+    });
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('canvas');
+    await page.render({ canvasContext: context, viewport }).promise;
   }
 
   private reset(): void {

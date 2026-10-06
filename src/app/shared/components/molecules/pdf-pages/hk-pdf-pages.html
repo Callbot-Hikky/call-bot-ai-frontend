@@ -7,11 +7,18 @@
       La carte n'a pas pu être affichée ici. Ouvrez-la en plein écran ci-dessous.
     </p>
   }
-  <!-- Le conteneur reste dans le DOM meme cache : les pages y sont ajoutees avant la fin du
-       rendu. Un style en ligne, car l'attribut « hidden » perdrait contre la classe « flex ». -->
-  <div
-    #pages
-    class="flex flex-col gap-4"
-    [style.display]="state() === 'ready' ? null : 'none'"
-  ></div>
+  <!-- Un cadre par page, aux dimensions calculees apres l'ouverture du document :
+       la mise en page ne bouge plus ensuite, meme si le dessin arrive plus tard. -->
+  <div class="flex flex-col gap-4">
+    @for (frame of frames(); track frame.n) {
+      <canvas
+        #page
+        [width]="frame.width"
+        [height]="frame.height"
+        [attr.data-page]="frame.n"
+        [attr.aria-label]="'Page ' + frame.n"
+        class="border-border/70 h-auto w-full rounded-lg border bg-white shadow-sm"
+      ></canvas>
+    }
+  </div>
 </div>
