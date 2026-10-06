@@ -42,11 +42,15 @@ describe('HkQrCard', () => {
 
   it('affiche le QR dans une image, sans injecter de HTML dans la page', () => {
     // Le dessin passe par une balise <img> et une data: URL, jamais par innerHTML :
-    // c'est un contournement de sanitisation en moins.
-    const img: HTMLImageElement = fixture.nativeElement.querySelector('img');
+    // c'est un contournement de sanitisation en moins. L'assertion ne porte que sur
+    // la zone du QR : ailleurs, les icones de l'interface sont des <svg> legitimes,
+    // et viser tout le composant ferait passer ce test pour la mauvaise raison.
+    const figure: HTMLElement = fixture.nativeElement.querySelector('[data-testid="qr-figure"]');
+    const img = figure.querySelector('img');
     expect(img).not.toBeNull();
-    expect(img.getAttribute('src')).toMatch(/^data:image\/(png|svg\+xml)/);
-    expect(fixture.nativeElement.innerHTML).not.toContain('<svg');
+    expect(img!.getAttribute('src')).toMatch(/^data:image\/(png|svg\+xml)/);
+    expect(figure.querySelector('svg')).toBeNull();
+    expect(figure.innerHTML).not.toContain('<svg');
   });
 
   it('propose les telechargements PNG et SVG avec un nom de fichier parlant', () => {
