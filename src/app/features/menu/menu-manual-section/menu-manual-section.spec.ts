@@ -22,18 +22,20 @@ describe('MenuManualSection', () => {
   async function render(inputs: Record<string, unknown> = {}): Promise<void> {
     fixture = TestBed.createComponent(MenuManualSection);
     fixture.componentRef.setInput('draft', emptyManual());
+    fixture.componentRef.setInput('pendingText', 'Votre carte saisie est prête.');
+    fixture.componentRef.setInput('publishLabel', 'Publier la saisie');
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     fixture.autoDetectChanges();
     await fixture.whenStable();
   }
 
   it('une carte vide ne propose pas de publier : il n y aurait rien a montrer', async () => {
-    await render({ published: false });
+    await render({ canPublishHere: true });
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
   });
 
-  it('une carte saisie mais non publiee propose de publier', async () => {
-    await render({ draft: CARTE, published: false });
+  it('propose de publier quand la page le demande', async () => {
+    await render({ draft: CARTE, canPublishHere: true });
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).not.toBeNull();
   });
 

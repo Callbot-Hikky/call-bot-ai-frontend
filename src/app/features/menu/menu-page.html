@@ -182,15 +182,14 @@
         <section class="flex flex-col gap-4" aria-label="Carte en PDF">
           <app-menu-pdf-section
             [files]="pdfRows()"
-            [published]="publishedMode() === 'pdf'"
-            [canAdd]="canAddPdf()"
+            [canPublishHere]="publishFromSection()"
             [busy]="saving()"
             [pendingFileId]="pendingFile()"
             [accept]="pdfMimes"
             [maxBytes]="limits().pdfMaxBytes"
             [maxCount]="limits().pdfMaxCount"
             [hint]="pdfHint()"
-            [pendingText]="pdfPendingText()"
+            [pendingText]="modes().pdf.pendingText"
             [publishLabel]="modes().pdf.publishAction"
             (filesPicked)="onFiles($event)"
             (moved)="move($event.id, $event.direction, 'pdf')"
@@ -205,14 +204,15 @@
         <section class="flex flex-col gap-4" aria-label="Carte en photos">
           <app-menu-images-section
             [files]="imageRows()"
-            [published]="publishedMode() === 'images'"
-            [canAdd]="canAddImage()"
+            [canPublishHere]="publishFromSection()"
             [busy]="saving()"
             [pendingFileId]="pendingFile()"
             [accept]="imageMimes"
             [maxBytes]="limits().imageMaxBytes"
             [maxCount]="limits().imageMaxCount"
             [hint]="imageHint()"
+            [pendingText]="modes().images.pendingText"
+            [publishLabel]="modes().images.publishAction"
             (filesPicked)="onFiles($event)"
             (moved)="move($event.id, $event.direction)"
             (removeAsked)="askRemove($event)"
@@ -226,7 +226,9 @@
         <section class="flex flex-col gap-4" aria-label="Carte saisie à la main">
           <app-menu-manual-section
             [draft]="draft()"
-            [published]="publishedMode() === 'manual'"
+            [canPublishHere]="publishFromSection()"
+            [pendingText]="modes().manual.pendingText"
+            [publishLabel]="modes().manual.publishAction"
             [busy]="saving()"
             [loading]="loading()"
             (draftChange)="onManualChange($event)"

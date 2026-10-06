@@ -17,9 +17,15 @@ import { ManualMenu } from '@core/models/menu.model';
 })
 export class MenuManualSection {
   readonly draft = input.required<ManualMenu>();
-  readonly published = input(true);
+  /**
+   * Vrai quand la publication doit etre proposee ICI : un autre format est en
+   * ligne, donc le bandeau de la page ne propose pas celui-ci.
+   */
+  readonly canPublishHere = input(false);
   readonly busy = input(false);
   readonly loading = input(false);
+  readonly pendingText = input.required<string>();
+  readonly publishLabel = input.required<string>();
 
   readonly draftChange = output<ManualMenu>();
   readonly saveAsked = output<void>();

@@ -1,4 +1,4 @@
-@if (files().length > 0 && !published()) {
+@if (files().length > 0 && canPublishHere()) {
   <hk-publish-banner
     [message]="pendingText()"
     [actionLabel]="publishLabel()"
@@ -65,6 +65,8 @@
   @if (pendingFileId() === row.file.id) {
     <hk-inline-confirm
       question="Supprimer ce PDF ?"
+      confirmTestId="confirm-remove-file"
+      [busy]="busy()"
       (confirmed)="removeConfirmed.emit()"
       (cancelled)="removeCancelled.emit()"
     />

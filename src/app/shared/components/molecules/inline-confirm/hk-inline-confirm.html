@@ -9,9 +9,12 @@
     variant="danger"
     size="sm"
     [attr.data-testid]="confirmTestId()"
+    [disabled]="busy()"
     (click)="confirmed.emit()"
   >
     {{ confirmLabel() }}
   </hk-button>
-  <hk-button variant="secondary" size="sm" (click)="cancelled.emit()">Annuler</hk-button>
+  <hk-button variant="secondary" size="sm" [disabled]="busy()" (click)="cancelled.emit()">
+    Annuler
+  </hk-button>
 </div>

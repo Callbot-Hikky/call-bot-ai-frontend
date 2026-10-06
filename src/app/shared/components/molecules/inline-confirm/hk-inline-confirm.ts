@@ -16,7 +16,7 @@ import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 export class HkInlineConfirm {
   readonly question = input.required<string>();
   readonly confirmLabel = input('Supprimer');
-  readonly confirmTestId = input('confirm-remove-file');
+  readonly confirmTestId = input.required<string>();
   /** Vrai pendant un enregistrement : confirmer deux fois n'aurait pas de sens. */
   readonly busy = input(false);
 

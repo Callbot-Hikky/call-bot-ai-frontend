@@ -37,6 +37,8 @@ describe('MenuImagesSection', () => {
     fixture.componentRef.setInput('accept', ['image/png']);
     fixture.componentRef.setInput('maxBytes', 5_000_000);
     fixture.componentRef.setInput('maxCount', 8);
+    fixture.componentRef.setInput('pendingText', 'Vos photos sont prêtes.');
+    fixture.componentRef.setInput('publishLabel', 'Publier les photos');
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     fixture.autoDetectChanges();
     await fixture.whenStable();
@@ -66,8 +68,8 @@ describe('MenuImagesSection', () => {
     expect(fallback.textContent).toContain('Aperçu indisponible');
   });
 
-  it('des photos pretes mais non publiees proposent de publier', async () => {
-    await render({ files: [row('a')], published: false });
+  it('propose de publier quand la page le demande', async () => {
+    await render({ files: [row('a')], canPublishHere: true });
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).not.toBeNull();
   });
 

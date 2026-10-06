@@ -51,6 +51,7 @@ interface ModeSummary {
   readonly ready: boolean;
   readonly publishAction: string;
   readonly publishedLabel: string;
+  readonly pendingText: string;
 }
 
 interface ModeCard {
@@ -179,18 +180,24 @@ export class MenuPage {
         ready: pdfs > 0,
         publishAction: pdfs > 1 ? 'Publier les PDF' : 'Publier le PDF',
         publishedLabel: pdfs > 1 ? 'vos cartes en PDF' : 'votre carte en PDF',
+        pendingText:
+          pdfs > 1
+            ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
+            : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
       },
       images: {
         count: images === 0 ? 'Aucune photo' : `${images} photo${images > 1 ? 's' : ''}`,
         ready: images > 0,
         publishAction: 'Publier les photos',
         publishedLabel: 'vos photos',
+        pendingText: 'Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients.',
       },
       manual: {
         count: sections === 0 ? 'Aucune section' : `${sections} section${sections > 1 ? 's' : ''}`,
         ready: sections > 0,
         publishAction: 'Publier la saisie',
         publishedLabel: 'votre carte saisie',
+        pendingText: "Votre carte saisie est prête. Elle n'est pas encore visible par vos clients.",
       },
     };
   });
@@ -202,6 +209,14 @@ export class MenuPage {
     const mode = this.menu()?.mode;
     return mode && mode !== 'none' ? mode : null;
   });
+  // Le bandeau d'une section ne propose la publication que lorsqu'un AUTRE format
+  // est en ligne : c'est alors le seul endroit d'ou le publier. Quand rien n'est
+  // publie, le bandeau de la page le propose deja, et deux boutons identiques
+  // apparaitraient cote a cote.
+  protected readonly publishFromSection = computed(() => {
+    const published = this.publishedMode();
+    return published !== null && published !== this.editing();
+  });
   // Les limites du serveur, ou celles par defaut avant son arrivee.
   protected readonly limits = computed(() => this.menu()?.limits ?? DEFAULT_LIMITS);
   protected readonly pendingFile = signal<string | null>(null);
@@ -212,7 +227,6 @@ export class MenuPage {
       .filter((f) => f.kind === 'pdf')
       .sort((a, b) => a.position - b.position),
   );
-  protected readonly canAddPdf = computed(() => this.pdfs().length < this.limits().pdfMaxCount);
   // Libelles du bandeau « pas encore publie ». Ils vivent ici et non dans le template :
   // le pluriel porte sur la phrase entiere, et une apostrophe a l'interieur d'une
   // interpolation ferme la chaine, ce qui affiche le {{ ... }} brut a l'ecran.
@@ -226,11 +240,6 @@ export class MenuPage {
     const limits = this.limits();
     return `ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, ${humanSize(limits.imageMaxBytes)} max chacune.`;
   });
-  protected readonly pdfPendingText = computed(() =>
-    this.pdfs().length > 1
-      ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
-      : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
-  );
   // Lignes pretes a afficher : l'adresse d'apercu et la taille sont calculees ici,
   // une seule fois, au lieu d'etre recalculees a chaque rendu depuis le gabarit.
   protected readonly pdfRows = computed<MenuFileRow[]>(() => this.pdfs().map(toRow));
@@ -239,9 +248,6 @@ export class MenuPage {
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'image')
       .sort((a, b) => a.position - b.position),
-  );
-  protected readonly canAddImage = computed(
-    () => this.images().length < this.limits().imageMaxCount,
   );
   // Rien tant que rien n'a ete modifie : « Enregistré » sur une page intacte n'apprend rien.
   protected readonly saveLabel = computed(() => {

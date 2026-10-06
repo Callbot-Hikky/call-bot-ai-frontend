@@ -36,6 +36,7 @@
         <hk-inline-confirm
           [question]="sectionRemovalQuestion(section)"
           confirmTestId="confirm-remove"
+          [busy]="disabled()"
           (confirmed)="confirmRemoval()"
           (cancelled)="pending.set(null)"
         />
@@ -88,6 +89,7 @@
             <hk-inline-confirm
               question="Supprimer ce plat ?"
               confirmTestId="confirm-remove"
+              [busy]="disabled()"
               (confirmed)="confirmRemoval()"
               (cancelled)="pending.set(null)"
             />

@@ -1,7 +1,7 @@
-@if (files().length > 0 && !published()) {
+@if (files().length > 0 && canPublishHere()) {
   <hk-publish-banner
-    message="Vos photos sont prêtes. Elles ne sont pas encore visibles par vos clients."
-    actionLabel="Publier les photos"
+    [message]="pendingText()"
+    [actionLabel]="publishLabel()"
     [busy]="busy()"
     (publishAsked)="publishAsked.emit()"
   />
@@ -43,6 +43,8 @@
         @if (pendingFileId() === row.file.id) {
           <hk-inline-confirm
             question="Supprimer cette photo ?"
+            confirmTestId="confirm-remove-file"
+            [busy]="busy()"
             (confirmed)="removeConfirmed.emit()"
             (cancelled)="removeCancelled.emit()"
           />

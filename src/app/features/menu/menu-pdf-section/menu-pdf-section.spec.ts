@@ -41,6 +41,8 @@ describe('MenuPdfSection', () => {
     fixture.componentRef.setInput('accept', ['application/pdf']);
     fixture.componentRef.setInput('maxBytes', 10_000_000);
     fixture.componentRef.setInput('maxCount', 5);
+    fixture.componentRef.setInput('pendingText', 'Votre PDF est prêt.');
+    fixture.componentRef.setInput('publishLabel', 'Publier le PDF');
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     fixture.autoDetectChanges();
     await fixture.whenStable();
@@ -53,15 +55,18 @@ describe('MenuPdfSection', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
   });
 
-  it('des fichiers prets mais non publies proposent de publier', async () => {
-    await render({ files: [row('a')], published: false, pendingText: 'Votre PDF est prêt.' });
+  // La section ne decide pas d'elle-meme d'offrir la publication : c'est la page
+  // qui sait si un autre format est en ligne, donc si ce bouton est le seul.
+  it('propose de publier quand la page le demande', async () => {
+    await render({ files: [row('a')], canPublishHere: true });
     const banner = fixture.nativeElement.querySelector('[data-testid="publish-inline"]');
     expect(banner).not.toBeNull();
     expect(banner.textContent).toContain('Votre PDF est prêt.');
+    expect(banner.textContent).toContain('Publier le PDF');
   });
 
-  it('une fois publie, le bandeau disparait', async () => {
-    await render({ files: [row('a')], published: true });
+  it('ne propose rien quand la page ne le demande pas', async () => {
+    await render({ files: [row('a')], canPublishHere: false });
     expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
   });
 
@@ -72,9 +77,13 @@ describe('MenuPdfSection', () => {
     expect(fixture.nativeElement.querySelector('[data-testid="pdf-row"]')).not.toBeNull();
   });
 
+  // La limite se deduit de la liste et du maximum : la section n'a pas besoin
+  // qu'on le lui dise, et ne peut donc pas contredire le compteur qu'elle affiche.
   it('la limite atteinte retire la zone d ajout et le dit', async () => {
-    await render({ files: [row('a')], canAdd: false });
+    await render({ files: [row('a'), row('b', 1)], maxCount: 2 });
+    expect(fixture.nativeElement.textContent).toContain('2/2 PDF');
     expect(fixture.nativeElement.textContent).toContain('Limite de PDF atteinte');
+    expect(fixture.nativeElement.querySelector('[data-testid="file-dropzone"]')).toBeNull();
   });
 
   it('la confirmation ne s ouvre que sur le fichier vise', async () => {

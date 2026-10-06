@@ -17,6 +17,7 @@ describe('HkInlineConfirm', () => {
     }).compileComponents();
     fixture = TestBed.createComponent(HkInlineConfirm);
     fixture.componentRef.setInput('question', 'Supprimer ce PDF ?');
+    fixture.componentRef.setInput('confirmTestId', 'confirm-remove-file');
     fixture.autoDetectChanges();
     await fixture.whenStable();
   });
@@ -60,5 +61,16 @@ describe('HkInlineConfirm', () => {
     fixture.componentRef.setInput('confirmLabel', 'Dépublier');
     await fixture.whenStable();
     expect(fixture.nativeElement.textContent).toContain('Dépublier');
+  });
+
+  it('pendant un enregistrement, ni confirmer ni annuler ne repartent', async () => {
+    // Confirmer deux fois une suppression l'enverrait deux fois au serveur.
+    fixture.componentRef.setInput('busy', true);
+    await fixture.whenStable();
+    const buttons: HTMLButtonElement[] = Array.from(
+      fixture.nativeElement.querySelectorAll('button'),
+    );
+    expect(buttons).toHaveLength(2);
+    expect(buttons.every((b) => b.disabled)).toBe(true);
   });
 });

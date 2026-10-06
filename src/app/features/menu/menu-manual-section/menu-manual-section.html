@@ -1,7 +1,7 @@
-@if (draft().sections.length > 0 && !published()) {
+@if (draft().sections.length > 0 && canPublishHere()) {
   <hk-publish-banner
-    message="Votre carte saisie est prête. Elle n'est pas encore visible par vos clients."
-    actionLabel="Publier la saisie"
+    [message]="pendingText()"
+    [actionLabel]="publishLabel()"
     [busy]="busy()"
     (publishAsked)="publishAsked.emit()"
   />

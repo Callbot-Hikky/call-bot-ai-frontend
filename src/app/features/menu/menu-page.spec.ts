@@ -169,44 +169,62 @@ describe('MenuPage', () => {
     expect(http.expectOne((r) => r.method === 'PUT').request.body).toEqual({ mode: 'pdf' });
   });
 
-  it('un PDF depose mais pas publie : encart de succes avec le bouton Publier, qui disparait une fois publie', async () => {
-    const pdf = {
-      id: 'p',
-      kind: 'pdf' as const,
-      contentType: 'application/pdf',
-      position: 0,
-      sizeBytes: 10,
-      url: '/api/restaurants/r-1/menu/files/p',
-    };
-    await render(dto({ mode: 'none', files: [pdf] }));
+  // Quand rien n'est publie, le bandeau de la page propose deja la publication :
+  // un second bouton dans la section ferait deux fois la meme chose a l'ecran.
+  it('rien n est publie : un seul bouton de publication dans toute la page', async () => {
+    await render(dto({ mode: 'none', files: [PDF] }));
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+  });
+
+  it('un PDF depose mais pas publie : le bandeau propose de publier, puis disparait', async () => {
+    await render(dto({ mode: 'none', files: [PDF] }));
+    const button: HTMLElement = fixture.nativeElement.querySelector(
+      '[data-testid="publish-current"]',
+    );
+    expect(button.textContent).toContain('Publier le PDF');
+    button.click();
+    await fixture.whenStable();
+    http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [PDF] }));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Vos clients voient votre carte en PDF');
+  });
+
+  // Un autre format est en ligne : le bandeau de la page ne propose pas celui-ci,
+  // donc c'est la section qui porte le bouton. C'est le seul cas ou elle l'affiche.
+  it('un autre format est publie : la section porte le bouton, et elle seule', async () => {
+    await render(dto({ mode: 'images', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+
     const inline: HTMLElement = fixture.nativeElement.querySelector(
       '[data-testid="publish-inline"]',
     );
-    expect(inline.textContent).toContain('pas encore visible');
-    (inline.querySelector('button') as HTMLElement).click();
-    await fixture.whenStable();
-    http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'pdf', files: [pdf] }));
-    await fixture.whenStable();
-    expect(fixture.nativeElement.querySelector('[data-testid="publish-inline"]')).toBeNull();
+    expect(inline).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="publish-current"]')).toBeNull();
+    expect(inline.textContent).toContain("Votre PDF est prêt. Il n'est pas encore visible");
   });
 
   // Une apostrophe dans une interpolation fermait la chaine : Angular ne signale rien et
   // rend le {{ ... }} en texte brut. On verifie donc la phrase entiere, pas un fragment.
-  it('un seul PDF : le bandeau affiche la phrase au singulier, sans interpolation brute', async () => {
-    await render(dto({ mode: 'none', files: [PDF] }));
-    const inline: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="publish-inline"]',
-    );
+  it('le bandeau accorde la phrase au nombre de PDF, sans interpolation brute', async () => {
+    await render(dto({ mode: 'images', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+    let inline: HTMLElement = fixture.nativeElement.querySelector('[data-testid="publish-inline"]');
     expect(inline.textContent).toContain("Votre PDF est prêt. Il n'est pas encore visible");
+    expect(inline.textContent).toContain('Publier le PDF');
     expect(inline.textContent).not.toContain('{{');
-  });
 
-  it('plusieurs PDF : le bandeau passe au pluriel', async () => {
-    await render(dto({ mode: 'none', files: [PDF, { ...PDF, id: 'p2', position: 1 }] }));
-    const inline: HTMLElement = fixture.nativeElement.querySelector(
-      '[data-testid="publish-inline"]',
+    await render(
+      dto({ mode: 'images', files: [PDF, { ...PDF, id: 'p2', position: 1 }, ...IMAGES] }),
     );
+    (fixture.nativeElement.querySelector('[data-testid="mode-pdf"]') as HTMLElement).click();
+    await fixture.whenStable();
+    inline = fixture.nativeElement.querySelector('[data-testid="publish-inline"]');
     expect(inline.textContent).toContain('Vos PDF sont prêts. Ils ne sont pas encore visibles');
+    expect(inline.textContent).toContain('Publier les PDF');
     expect(inline.textContent).not.toContain('{{');
   });
 
