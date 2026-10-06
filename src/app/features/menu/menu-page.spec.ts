@@ -12,6 +12,7 @@ import { MenuPage } from './menu-page';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { MenuDto } from '@core/models/menu-dto.model';
+import { ManualMenu } from '@core/models/menu.model';
 import { RestaurantService } from '@core/services/restaurant.service';
 
 const RID = 'r-1';
@@ -65,9 +66,11 @@ describe('MenuPage', () => {
   let http: HttpTestingController;
   let toast: ToastService;
   const restaurantId = signal<string | null>(RID);
+  const restaurant = signal<{ id: string; name: string } | null>(null);
 
   beforeEach(async () => {
     restaurantId.set(RID);
+    restaurant.set(null);
     await TestBed.configureTestingModule({
       imports: [MenuPage],
       providers: [
@@ -79,10 +82,16 @@ describe('MenuPage', () => {
         provideRouter([]),
         { provide: SessionService, useValue: { restaurantId } },
         {
+          // Volontairement fidele au vrai service : `loadRestaurant` lit le
+          // restaurant deja en memoire avant d'ecrire. Un mock qui ne lirait rien
+          // masquerait un rechargement en boucle, qu'ici `http.verify()` attrape.
           provide: RestaurantService,
           useValue: {
-            restaurant: signal({ id: RID, name: 'Le Bistrot du Coin' }),
-            loadRestaurant: vi.fn(),
+            restaurant,
+            loadRestaurant: (id: string) => {
+              if (restaurant()?.id === id) return;
+              restaurant.set({ id, name: 'Le Bistrot du Coin' });
+            },
           },
         },
       ],
@@ -398,5 +407,47 @@ describe('MenuPage', () => {
     expect(qrUrls.join(' ')).not.toContain(RID);
     // Et la zone ouverte repart du mode du nouveau restaurant.
     expect(fixture.componentInstance['editing']()).toBe('manual');
+  });
+
+  it('une reponse du serveur ne referme pas la zone ouverte par l utilisateur', async () => {
+    // Un PDF est publie, mais l utilisateur prepare ses photos. La reponse a la
+    // suppression renvoie « mode: pdf » : la zone Photos doit rester ouverte.
+    await render(dto({ mode: 'pdf', files: [PDF, ...IMAGES] }));
+    (fixture.nativeElement.querySelector('[data-testid="mode-images"]') as HTMLElement).click();
+    await fixture.whenStable();
+    expect(fixture.componentInstance['editing']()).toBe('images');
+
+    (fixture.nativeElement.querySelector('[data-testid="remove-file-a"]') as HTMLElement).click();
+    await fixture.whenStable();
+    (
+      fixture.nativeElement.querySelector('[data-testid="confirm-remove-file"]') as HTMLElement
+    ).click();
+    await fixture.whenStable();
+    http
+      .expectOne((r) => r.method === 'DELETE')
+      .flush(dto({ mode: 'pdf', files: [PDF, IMAGES[1]] }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['editing']()).toBe('images');
+    expect(fixture.nativeElement.querySelector('[aria-label="Carte en photos"]')).not.toBeNull();
+  });
+
+  it('une reponse du serveur ne fait pas reculer la saisie en cours', async () => {
+    await render(dto({ mode: 'manual' }));
+    const typed: ManualMenu = {
+      version: 1,
+      sections: [{ name: 'Entrees', items: [{ name: 'Soupe', price: '8.00', description: '' }] }],
+    };
+    fixture.componentInstance['onManualChange'](typed);
+    await fixture.whenStable();
+
+    // Le serveur repond avec la version d avant la frappe : elle ne doit pas
+    // remplacer ce que l utilisateur a sous les yeux.
+    const put = await vi.waitFor(() => http.expectOne((r) => r.method === 'PUT'));
+    put.flush(dto({ mode: 'manual', manual: { version: 1, sections: [] } }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['draft']().sections).toHaveLength(1);
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Entrees');
   });
 });

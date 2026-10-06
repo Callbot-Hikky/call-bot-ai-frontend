@@ -2,7 +2,6 @@ import { inject, Injectable, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MENU_GATEWAY } from './menu-gateway';
 import { Observable, catchError, defer, from, switchMap, tap, throwError } from 'rxjs';
-import { environment } from '@env/environment';
 import {
   DEFAULT_LIMITS,
   MENU_ERROR_MESSAGES,
@@ -23,14 +22,14 @@ const LOAD_FAILED = 'Impossible de charger le menu.';
 const SAVE_FAILED = "L'enregistrement a échoué. Vérifiez votre connexion et réessayez.";
 const UPLOAD_FAILED = "L'envoi du fichier a échoué. Vérifiez votre connexion et réessayez.";
 
-// Menu du restaurateur. Mock-first : en mode mock l'etat vit en memoire avec les
-// memes regles que le back ; en mode reel le back est la source de verite et
-// chaque reponse remplace l'etat. Les fichiers sont verifies COTE CLIENT avant
-// tout envoi (type sur les octets, taille, nombre) : le back reste la garantie.
+// Menu du restaurateur. Ce service ne connait pas le transport : il parle a une
+// passerelle (MENU_GATEWAY) et ne garde que l'etat affiche a l'ecran. Chaque
+// reponse remplace cet etat, le serveur restant la source de verite. Les fichiers
+// sont verifies COTE CLIENT avant tout envoi (type sur les octets, taille,
+// nombre) ; ce n'est qu'un filtre de confort, le back reste la garantie.
 @Injectable({ providedIn: 'root' })
 export class MenuService {
   private readonly gateway = inject(MENU_GATEWAY);
-  private readonly baseUrl = `${environment.apiUrl}/restaurants`;
 
   private readonly _menu = signal<Menu | null>(null);
   private readonly _loading = signal(false);
@@ -39,6 +38,7 @@ export class MenuService {
   private readonly _saveState = signal<SaveState>('saved');
   private readonly _lastError = signal<string | null>(null);
   private readonly _touched = signal(false);
+  private readonly _loadedRestaurantId = signal<string | null>(null);
 
   readonly menu = this._menu.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -48,11 +48,14 @@ export class MenuService {
   readonly lastError = this._lastError.asReadonly();
   // Vrai des la premiere modification de la saisie : l'etat d'enregistrement n'a de sens qu'apres.
   readonly touched = this._touched.asReadonly();
+  // Change au terme d'un chargement, jamais a l'enregistrement d'une modification.
+  // Les pages s'y accrochent pour savoir qu'une carte *differente* est arrivee, la
+  // ou observer `menu` les ferait repartir de zero a chaque reponse du serveur.
+  readonly loadedRestaurantId = this._loadedRestaurantId.asReadonly();
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingManual: ManualMenu | null = null;
-  private mockState: Menu | null = null;
 
   load(restaurantId: string): void {
     this.restaurantId = restaurantId;
@@ -70,6 +73,7 @@ export class MenuService {
     this.fetch(restaurantId).subscribe({
       next: (menu) => {
         this._menu.set(menu);
+        this._loadedRestaurantId.set(restaurantId);
         this._loading.set(false);
       },
       error: () => {

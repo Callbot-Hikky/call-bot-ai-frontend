@@ -7,6 +7,7 @@ import {
   inject,
   linkedSignal,
   signal,
+  untracked,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -16,9 +17,9 @@ import { HkButton } from '@shared/components/atoms/button/hk-button';
 import { HkIcon } from '@shared/components/atoms/icon/hk-icon';
 import { HkSkeleton } from '@shared/components/atoms/skeleton/hk-skeleton';
 import { HkQrCard } from '@shared/components/molecules/qr-card/hk-qr-card';
-import { HkFocusOnInit } from '@shared/directives/hk-focus-on-init';
 import { RestaurantService } from '@core/services/restaurant.service';
 import { humanSize } from '@core/utils/format';
+import { HkInlineConfirm } from '@shared/components/molecules/inline-confirm/hk-inline-confirm';
 import { MenuFileRow } from './menu-file-row';
 import { MenuPdfSection } from './menu-pdf-section/menu-pdf-section';
 import { MenuImagesSection } from './menu-images-section/menu-images-section';
@@ -27,7 +28,6 @@ import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
-  Menu,
   DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
@@ -82,12 +82,13 @@ const SAVE_LABELS: Record<SaveState, string> = {
 // Cliquer une carte publie ce mode ; si son contenu manque, le back refuse et
 // la zone reste ouverte pour l'ajouter. Le back est la source de verite.
 //
-// PLAN DU GABARIT, dans l'ordre : le bandeau de publication, les trois tuiles de
-// mode, puis un @switch qui n'ouvre QUE la zone du mode consulte (PDF, photos ou
-// saisie), et enfin les deux QR. Le gabarit est long parce que les trois zones
-// sont exclusives et ne partagent ni leur contenu ni leurs actions : les extraire
-// donnerait trois composants a un seul appelant, chacun reclamant en entree la
-// moitie de l'etat de cette page.
+// PLAN DU GABARIT, dans l'ordre : les deux QR (en tete, pour rester visibles sans
+// defiler), les trois tuiles de mode, le bandeau de publication, puis un @switch
+// qui n'ouvre QUE la zone du mode consulte. Chacune de ces trois zones vit dans
+// son propre composant (MenuPdfSection, MenuImagesSection, MenuManualSection) :
+// cette page coordonne, elles affichent. Elle garde donc l'etat et les appels au
+// service ; les sections ne recoivent que de quoi dessiner et remontent des
+// intentions.
 @Component({
   selector: 'app-menu',
   imports: [
@@ -96,11 +97,11 @@ const SAVE_LABELS: Record<SaveState, string> = {
     HkIcon,
     HkSkeleton,
     HkQrCard,
-    HkFocusOnInit,
     RouterLink,
     MenuPdfSection,
     MenuImagesSection,
     MenuManualSection,
+    HkInlineConfirm,
   ],
   templateUrl: './menu-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -133,17 +134,22 @@ export class MenuPage {
 
   protected readonly menu = this.service.menu;
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
-  // `linkedSignal` plutot qu'un effet garde par un drapeau : la valeur repart du
-  // menu charge a chaque fois qu'il change (y compris un changement de restaurant),
-  // tout en restant modifiable par l'utilisateur entre deux chargements.
-  protected readonly editing = linkedSignal<Menu | null, EditableMode>({
-    source: this.menu,
-    computation: (menu, previous) =>
-      menu ? (menu.mode === 'none' ? (previous?.value ?? 'pdf') : menu.mode) : 'pdf',
+  // La source est le chargement, pas l'objet Menu : le service en remet un neuf a
+  // chaque reponse (ajout, suppression, enregistrement automatique) et repartir de
+  // celui-la refermerait la zone sous les doigts de l'utilisateur. Le menu se lit
+  // donc hors suivi reactif, juste pour la valeur de depart.
+  protected readonly editing = linkedSignal<string | null, EditableMode>({
+    source: this.service.loadedRestaurantId,
+    computation: (_restaurantId, previous) => {
+      const mode = untracked(this.menu)?.mode;
+      return mode && mode !== 'none' ? mode : (previous?.value ?? 'pdf');
+    },
   });
-  protected readonly draft = linkedSignal<Menu | null, ManualMenu>({
-    source: this.menu,
-    computation: (menu) => menu?.manual ?? emptyManual(),
+  // Meme raison : la frappe en cours ne doit pas reculer quand la reponse d'un
+  // enregistrement automatique arrive avec une version anterieure de la saisie.
+  protected readonly draft = linkedSignal<string | null, ManualMenu>({
+    source: this.service.loadedRestaurantId,
+    computation: () => untracked(this.menu)?.manual ?? emptyManual(),
   });
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
@@ -205,10 +211,17 @@ export class MenuPage {
     // doit suivre, sinon les deux QR designeraient un restaurant et la carte un autre.
     effect(() => {
       const restaurantId = this.restaurantId();
-      if (restaurantId) {
+      if (!restaurantId) {
+        return;
+      }
+      // `untracked` : `loadRestaurant` consulte le restaurant deja en memoire pour
+      // eviter un GET en double. Sans cette barriere, l'effet dependrait de cette
+      // lecture et se rejouerait a l'arrivee de la reponse, rechargeant le menu une
+      // seconde fois et jetant au passage une saisie encore en attente d'envoi.
+      untracked(() => {
         this.service.load(restaurantId);
         this.restaurants.loadRestaurant(restaurantId);
-      }
+      });
     });
     // Une saisie encore en attente part avant de quitter la page.
     this.destroyRef.onDestroy(() => this.service.flushManualSave());
