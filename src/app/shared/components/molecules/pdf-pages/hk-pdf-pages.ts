@@ -79,6 +79,11 @@ export class HkPdfPages {
   private run = 0;
   private doc: PdfDocumentLike | null = null;
   private observer: IntersectionObserver | null = null;
+  // Les cadres appartiennent au @for, qui peut reutiliser un noeud d'un document a
+  // l'autre quand les deux ont le meme nombre de pages. Marquer « deja peint » sur
+  // l'element laisserait alors le nouveau PDF a l'ecran du precedent : ce suivi
+  // vit donc ici, et repart a zero a chaque ouverture.
+  private painted = new Set<number>();
   // Facteurs retenus a l'ouverture, reutilises pour peindre chaque page.
   private renderWidth = MIN_RENDER_WIDTH;
   private renderRatio = 1;
@@ -108,6 +113,7 @@ export class HkPdfPages {
   private async open(url: string, run: number): Promise<void> {
     this.state.set('loading');
     this.frames.set([]);
+    this.painted.clear();
     this.reset();
     try {
       const doc = await this.loader(url);
@@ -151,10 +157,17 @@ export class HkPdfPages {
     // Sans IntersectionObserver (environnement de test), on dessine tout d'affilee :
     // mieux vaut un rendu complet et lent qu'une carte qui reste blanche.
     if (typeof IntersectionObserver === 'undefined') {
-      void canvases.reduce(
-        (previous, canvas) => previous.then(() => this.paint(canvas, run)),
-        Promise.resolve(),
-      );
+      // Le `catch` est indispensable : sans lui, une page qui echoue casse la
+      // chaine, les suivantes ne sont jamais dessinees et l'ecran garde des cadres
+      // blancs sans le message qui renvoie vers le plein ecran.
+      void canvases
+        .reduce(
+          (previous, canvas) => previous.then(() => this.paint(canvas, run)),
+          Promise.resolve(),
+        )
+        .catch(() => {
+          if (run === this.run) this.state.set('error');
+        });
       return;
     }
     this.observer = new IntersectionObserver(
@@ -177,9 +190,10 @@ export class HkPdfPages {
 
   private async paint(canvas: HTMLCanvasElement, run: number): Promise<void> {
     const doc = this.doc;
-    if (!doc || run !== this.run || canvas.dataset['painted']) return;
-    canvas.dataset['painted'] = '1';
-    const page = await doc.getPage(Number(canvas.dataset['page']));
+    const n = Number(canvas.dataset['page']);
+    if (!doc || run !== this.run || this.painted.has(n)) return;
+    this.painted.add(n);
+    const page = await doc.getPage(n);
     if (run !== this.run) return;
     const viewport = page.getViewport({
       scale: this.scaleFor(page, this.renderWidth, this.renderRatio),

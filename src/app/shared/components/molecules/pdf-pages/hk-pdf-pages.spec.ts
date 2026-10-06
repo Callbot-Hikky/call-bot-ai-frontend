@@ -88,15 +88,32 @@ describe('HkPdfPages', () => {
     expect(canvas.height / canvas.width).toBeCloseTo(1.4, 1);
   });
 
-  it('changer de document remplace les cadres au lieu de les empiler', async () => {
-    await setup(() => Promise.resolve(fakeDocument(2)));
+  // Compter les cadres ne prouve rien : deux documents d'une meme longueur en
+  // donnent autant, et le @for peut reutiliser les memes noeuds. Ce qu'il faut
+  // verifier, c'est que le second document est REDESSINE.
+  it('changer de document redessine les pages, meme a nombre de pages egal', async () => {
+    const render = vi.fn(() => ({ promise: Promise.resolve() }));
+    await setup(() => Promise.resolve(fakeDocument(2, render)));
     await new Promise((r) => setTimeout(r, 0));
     await fixture.whenStable();
-    expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(2);
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(2));
 
     fixture.componentInstance.url.set('/api/public/restaurants/r/menu/files/autre');
     await new Promise((r) => setTimeout(r, 0));
     await fixture.whenStable();
     expect(fixture.nativeElement.querySelectorAll('canvas')).toHaveLength(2);
+    await vi.waitFor(() => expect(render).toHaveBeenCalledTimes(4));
+  });
+
+  it('une page illisible affiche le message et ne laisse pas des cadres blancs', async () => {
+    // Sans garde, le rejet casserait la chaine de dessin en silence.
+    const render = vi.fn(() => ({ promise: Promise.reject(new Error('page')) }));
+    await setup(() => Promise.resolve(fakeDocument(2, render)));
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(fixture.nativeElement.querySelector('[data-testid="pdf-error"]')).not.toBeNull(),
+    );
   });
 });
