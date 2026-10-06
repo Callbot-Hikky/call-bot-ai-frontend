@@ -6,7 +6,8 @@ import { Menu, MenuFileType, MenuMode, ManualMenu, PublicMenu } from '@core/mode
  * Ce que le menu attend de l'exterieur, sans dire comment c'est servi.
  * Deux implementations existent : l'API reelle, et une en memoire pour
  * travailler sans backend. Le service de menu ne sait pas laquelle il utilise,
- * et le faux backend ne part donc pas dans le paquet de production.
+ * ce qui permet de le tester sans serveur ni requete simulee. Le choix est fait
+ * une fois pour toutes au demarrage, dans app.config.ts.
  */
 export interface MenuGateway {
   fetch(restaurantId: string): Observable<Menu>;
