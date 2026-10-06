@@ -268,9 +268,8 @@ describe('RestaurantMenuPage', () => {
     fixture.componentRef.setInput('id', RID);
     fixture.detectChanges();
 
-    const article: HTMLElement = fixture.nativeElement.querySelector('article');
-    expect(article.getAttribute('aria-busy') ?? article.innerHTML).toBeTruthy();
     expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(fixture.nativeElement.querySelectorAll('hk-skeleton').length).toBeGreaterThan(0);
 
     http.expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`)).flush(dto());
     await fixture.whenStable();

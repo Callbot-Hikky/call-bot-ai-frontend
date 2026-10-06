@@ -135,6 +135,7 @@
             question="Vos clients verront « La carte arrive bientôt ». Confirmer ?"
             confirmLabel="Oui, ne rien publier"
             confirmTestId="confirm-unpublish"
+            cancelTestId="cancel-unpublish"
             [busy]="saving()"
             (confirmed)="confirmUnpublish()"
             (cancelled)="pendingUnpublish.set(false)"

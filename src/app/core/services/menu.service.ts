@@ -1,6 +1,7 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MENU_GATEWAY } from './menu-gateway';
+import { humanSize } from '@core/utils/format';
 import { Observable, catchError, defer, from, switchMap, tap, throwError } from 'rxjs';
 import {
   DEFAULT_LIMITS,
@@ -53,6 +54,9 @@ export class MenuService {
   // les ferait repartir de zero a chaque enregistrement, et une cle construite sur
   // l'identifiant du restaurant ne bougerait pas en rechargeant le meme.
   readonly loadedMenu = this._loadedMenu.asReadonly();
+  // Les limites du serveur, ou celles par defaut avant son arrivee. Un seul endroit :
+  // le controle local et les phrases affichees ne peuvent pas annoncer deux chiffres.
+  readonly limits = computed(() => this._menu()?.limits ?? DEFAULT_LIMITS);
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -234,14 +238,14 @@ export class MenuService {
   // Verifications cote client, memes regles que le back : type sur les octets de
   // tete (jamais sur l'extension), taille par type, nombre de fichiers du meme genre.
   private async precheck(file: File): Promise<MenuFileType> {
-    const limits = this._menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     const type = detectFileType(await readHead(file));
     if (!type) {
       throw new Error(MENU_ERROR_MESSAGES['unsupported_file_type']);
     }
     const max = type === 'pdf' ? limits.pdfMaxBytes : limits.imageMaxBytes;
     if (file.size > max) {
-      throw new Error(MENU_ERROR_MESSAGES['file_too_large']);
+      throw new Error(`Fichier trop volumineux : ${humanSize(max)} maximum pour ce format.`);
     }
     const kind = type === 'pdf' ? 'pdf' : 'image';
     const already = this._menu()?.files.filter((f) => f.kind === kind).length ?? 0;

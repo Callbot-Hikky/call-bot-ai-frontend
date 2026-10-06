@@ -63,6 +63,20 @@ describe('HkInlineConfirm', () => {
     expect(fixture.nativeElement.textContent).toContain('Dépublier');
   });
 
+  // L'en-tete de ce fichier promet que la confirmation prend le focus : sans ce
+  // test, c'est le comportement le plus fragile du composant qui n'est pas couvert.
+  it('prend le focus a l ouverture, pour ne pas perdre la navigation au clavier', async () => {
+    const active = document.activeElement as HTMLElement | null;
+    expect(active).not.toBeNull();
+    expect(active!.tagName.toLowerCase()).toBe('button');
+    expect(fixture.nativeElement.contains(active)).toBe(true);
+  });
+
+  it('annuler est visable en test sans dependre du mot « Annuler »', () => {
+    const cancel = fixture.nativeElement.querySelector('[data-testid="cancel-remove-file"]');
+    expect(cancel).not.toBeNull();
+  });
+
   it('pendant un enregistrement, ni confirmer ni annuler ne repartent', async () => {
     // Confirmer deux fois une suppression l'enverrait deux fois au serveur.
     fixture.componentRef.setInput('busy', true);

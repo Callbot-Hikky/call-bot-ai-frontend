@@ -259,7 +259,10 @@ export function detectFileType(bytes: Uint8Array): MenuFileType | null {
 
 export const MENU_ERROR_MESSAGES: Record<string, string> = {
   unsupported_file_type: 'Seuls les fichiers PDF, JPEG, PNG et WebP sont acceptés.',
-  file_too_large: 'Fichier trop volumineux : 10 Mo maximum pour un PDF, 5 Mo pour une image.',
+  // Sans chiffres : les limites viennent du serveur et sont deja annoncees par la
+  // zone de depot. Les recopier ici, c'est promettre « 10 Mo » le jour ou le
+  // serveur en accepte 20.
+  file_too_large: 'Fichier trop volumineux pour ce format.',
   too_many_files: 'Vous avez atteint la limite de fichiers pour ce mode.',
   mode_not_ready: "Ajoutez d'abord du contenu avant de publier ce mode.",
   invalid_manual: 'Le menu saisi est mal formé.',

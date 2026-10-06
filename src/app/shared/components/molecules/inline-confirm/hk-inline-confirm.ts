@@ -17,6 +17,8 @@ export class HkInlineConfirm {
   readonly question = input.required<string>();
   readonly confirmLabel = input('Supprimer');
   readonly confirmTestId = input.required<string>();
+  /** Pour viser l'annulation en test : le texte « Annuler » revient ailleurs dans la page. */
+  readonly cancelTestId = input('cancel-remove-file');
   /** Vrai pendant un enregistrement : confirmer deux fois n'aurait pas de sens. */
   readonly busy = input(false);
 

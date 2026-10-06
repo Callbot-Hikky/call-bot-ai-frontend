@@ -28,7 +28,6 @@ import { MenuService, SaveState } from '@core/services/menu.service';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import {
-  DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
   Menu,
@@ -218,8 +217,9 @@ export class MenuPage {
     const published = this.publishedMode();
     return published !== null && published !== this.editing();
   });
-  // Les limites du serveur, ou celles par defaut avant son arrivee.
-  protected readonly limits = computed(() => this.menu()?.limits ?? DEFAULT_LIMITS);
+  // Les memes limites que celles dont le service se sert pour refuser un fichier :
+  // l'ecran ne peut donc pas annoncer un chiffre et le refus un autre.
+  protected readonly limits = this.service.limits;
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
 

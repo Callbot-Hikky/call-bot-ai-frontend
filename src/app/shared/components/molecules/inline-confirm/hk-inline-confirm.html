@@ -14,7 +14,13 @@
   >
     {{ confirmLabel() }}
   </hk-button>
-  <hk-button variant="secondary" size="sm" [disabled]="busy()" (click)="cancelled.emit()">
+  <hk-button
+    variant="secondary"
+    size="sm"
+    [attr.data-testid]="cancelTestId()"
+    [disabled]="busy()"
+    (click)="cancelled.emit()"
+  >
     Annuler
   </hk-button>
 </div>
