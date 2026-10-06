@@ -31,6 +31,7 @@ import {
   DEFAULT_LIMITS,
   FILE_TYPE_MIME,
   ManualMenu,
+  Menu,
   MenuFile,
   MenuMode,
   emptyManual,
@@ -151,22 +152,22 @@ export class MenuPage {
   protected readonly saving = this.service.saving;
   protected readonly failed = this.service.error;
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
-  // La source est le chargement, pas l'objet Menu : le service en remet un neuf a
-  // chaque reponse (ajout, suppression, enregistrement automatique) et repartir de
-  // celui-la refermerait la zone sous les doigts de l'utilisateur. Le menu se lit
-  // donc hors suivi reactif, juste pour la valeur de depart.
-  protected readonly editing = linkedSignal<string | null, EditableMode>({
-    source: this.service.loadedRestaurantId,
-    computation: (_restaurantId, previous) => {
-      const mode = untracked(this.menu)?.mode;
+  // La source est la carte *chargee*, pas `menu` : le service remet un objet neuf
+  // dans `menu` a chaque reponse (ajout, suppression, enregistrement automatique),
+  // et repartir de celui-la refermerait la zone sous les doigts de l'utilisateur.
+  // `loadedMenu`, lui, ne change qu'au terme d'un chargement.
+  protected readonly editing = linkedSignal<Menu | null, EditableMode>({
+    source: this.service.loadedMenu,
+    computation: (loaded, previous) => {
+      const mode = loaded?.mode;
       return mode && mode !== 'none' ? mode : (previous?.value ?? 'pdf');
     },
   });
   // Meme raison : la frappe en cours ne doit pas reculer quand la reponse d'un
   // enregistrement automatique arrive avec une version anterieure de la saisie.
-  protected readonly draft = linkedSignal<string | null, ManualMenu>({
-    source: this.service.loadedRestaurantId,
-    computation: () => untracked(this.menu)?.manual ?? emptyManual(),
+  protected readonly draft = linkedSignal<Menu | null, ManualMenu>({
+    source: this.service.loadedMenu,
+    computation: (loaded) => loaded?.manual ?? emptyManual(),
   });
   // Chaque format decrit en un seul endroit, au lieu de quatre methodes
   // parallelees qu'il fallait penser a completer ensemble.

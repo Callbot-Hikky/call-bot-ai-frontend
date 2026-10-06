@@ -468,4 +468,27 @@ describe('MenuPage', () => {
     expect(fixture.componentInstance['draft']().sections).toHaveLength(1);
     expect(fixture.componentInstance['draft']().sections[0].name).toBe('Entrees');
   });
+
+  // Recharger le MEME restaurant doit repartir de la carte fraiche. Sinon le
+  // brouillon affiche garde l'ancienne saisie, et la premiere frappe la renvoie
+  // au serveur par-dessus l'etat reel.
+  it('recharger le meme restaurant repart de la carte du serveur', async () => {
+    const avant: ManualMenu = {
+      version: 1,
+      sections: [{ name: 'Avant', items: [] }],
+    };
+    const apres: ManualMenu = {
+      version: 1,
+      sections: [{ name: 'Apres', items: [] }],
+    };
+    await render(dto({ mode: 'manual', manual: avant }));
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Avant');
+
+    fixture.componentInstance['retry']();
+    await fixture.whenStable();
+    http.expectOne((r) => r.method === 'GET').flush(dto({ mode: 'manual', manual: apres }));
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance['draft']().sections[0].name).toBe('Apres');
+  });
 });

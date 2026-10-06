@@ -38,7 +38,7 @@ export class MenuService {
   private readonly _saveState = signal<SaveState>('saved');
   private readonly _lastError = signal<string | null>(null);
   private readonly _touched = signal(false);
-  private readonly _loadedRestaurantId = signal<string | null>(null);
+  private readonly _loadedMenu = signal<Menu | null>(null);
 
   readonly menu = this._menu.asReadonly();
   readonly loading = this._loading.asReadonly();
@@ -48,10 +48,11 @@ export class MenuService {
   readonly lastError = this._lastError.asReadonly();
   // Vrai des la premiere modification de la saisie : l'etat d'enregistrement n'a de sens qu'apres.
   readonly touched = this._touched.asReadonly();
-  // Change au terme d'un chargement, jamais a l'enregistrement d'une modification.
-  // Les pages s'y accrochent pour savoir qu'une carte *differente* est arrivee, la
-  // ou observer `menu` les ferait repartir de zero a chaque reponse du serveur.
-  readonly loadedRestaurantId = this._loadedRestaurantId.asReadonly();
+  // La carte telle qu'elle est sortie du serveur, remplacee a chaque chargement et
+  // par rien d'autre. C'est le point de depart des brouillons : observer `menu`
+  // les ferait repartir de zero a chaque enregistrement, et une cle construite sur
+  // l'identifiant du restaurant ne bougerait pas en rechargeant le meme.
+  readonly loadedMenu = this._loadedMenu.asReadonly();
 
   private restaurantId: string | null = null;
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,7 +74,7 @@ export class MenuService {
     this.fetch(restaurantId).subscribe({
       next: (menu) => {
         this._menu.set(menu);
-        this._loadedRestaurantId.set(restaurantId);
+        this._loadedMenu.set(menu);
         this._loading.set(false);
       },
       error: () => {
