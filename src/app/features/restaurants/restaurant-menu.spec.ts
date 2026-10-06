@@ -261,4 +261,69 @@ describe('RestaurantMenuPage', () => {
     await render(null);
     expect(fixture.nativeElement.textContent).toContain('introuvable');
   });
+
+  // Le chemin panne reseau est distinct du 404 : l'un se retente, l'autre non.
+  it('avant toute reponse, la carte montre un squelette et non une page vide', async () => {
+    fixture = TestBed.createComponent(RestaurantMenuPage);
+    fixture.componentRef.setInput('id', RID);
+    fixture.detectChanges();
+
+    const article: HTMLElement = fixture.nativeElement.querySelector('article');
+    expect(article.getAttribute('aria-busy') ?? article.innerHTML).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).not.toBeNull();
+
+    http.expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`)).flush(dto());
+    await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[aria-busy="true"]')).toBeNull();
+  });
+
+  it('une panne reseau propose de reessayer, et reessayer relance la requete', async () => {
+    fixture = TestBed.createComponent(RestaurantMenuPage);
+    fixture.componentRef.setInput('id', RID);
+    fixture.detectChanges();
+    http
+      .expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`))
+      .flush('boom', { status: 500, statusText: 'Server Error' });
+    await fixture.whenStable();
+
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('Impossible de charger la carte.');
+    expect(text).not.toContain('introuvable');
+
+    const retry: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+    expect(retry.textContent).toContain('Réessayer');
+    retry.click();
+    // detectChanges et non whenStable : la ressource repart, et attendre sa
+    // stabilisation ici bloquerait sur une reponse que le test n'a pas donnee.
+    fixture.detectChanges();
+
+    // La seconde tentative reussit : la carte remplace le message d'echec.
+    http
+      .expectOne((r) => r.url.endsWith(`/public/restaurants/${RID}/menu`))
+      .flush(dto({ restaurantName: 'Chez Hikky' }));
+    await fixture.whenStable();
+    expect(fixture.nativeElement.textContent).toContain('Chez Hikky');
+    expect(fixture.nativeElement.textContent).not.toContain('Impossible de charger');
+  });
+
+  it('un identifiant introuvable ne propose pas de reessayer', async () => {
+    await render(null);
+    expect(fixture.nativeElement.textContent).toContain('introuvable');
+    expect(fixture.nativeElement.querySelector('button')).toBeNull();
+  });
+
+  it('changer d identifiant recharge la carte du bon restaurant', async () => {
+    await render(dto({ restaurantName: 'Chez Hikky' }));
+    const OTHER = '11111111-2222-4333-8444-555555555555';
+
+    fixture.componentRef.setInput('id', OTHER);
+    fixture.detectChanges();
+    http
+      .expectOne((r) => r.url.endsWith(`/public/restaurants/${OTHER}/menu`))
+      .flush(dto({ restaurantName: 'Le Bistrot du Coin' }));
+    await fixture.whenStable();
+
+    expect(fixture.nativeElement.textContent).toContain('Le Bistrot du Coin');
+    expect(fixture.nativeElement.textContent).not.toContain('Chez Hikky');
+  });
 });
