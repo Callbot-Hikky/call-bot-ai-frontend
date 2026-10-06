@@ -146,6 +146,9 @@ export class MenuPage {
   protected readonly imageMimes = [FILE_TYPE_MIME.jpeg, FILE_TYPE_MIME.png, FILE_TYPE_MIME.webp];
 
   protected readonly menu = this.service.menu;
+  protected readonly loading = this.service.loading;
+  protected readonly saving = this.service.saving;
+  protected readonly failed = this.service.error;
   // Zone ouverte a l'ecran : le mode publie par defaut, ou la carte cliquee.
   // La source est le chargement, pas l'objet Menu : le service en remet un neuf a
   // chaque reponse (ajout, suppression, enregistrement automatique) et repartir de
@@ -218,20 +221,17 @@ export class MenuPage {
   // Les limites affichees viennent du serveur : les reecrire a la main ici, c'est
   // mentir au restaurateur le jour ou le serveur change de politique.
   protected readonly pdfHint = computed(() => {
-    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     return `ou cliquez pour les choisir. Jusqu'à ${limits.pdfMaxCount} PDF (plats, vins, desserts), ${humanSize(limits.pdfMaxBytes)} maximum chacun.`;
   });
   protected readonly imageHint = computed(() => {
-    const limits = this.menu()?.limits ?? DEFAULT_LIMITS;
+    const limits = this.limits();
     return `ou cliquez pour les choisir, plusieurs à la fois. JPEG, PNG ou WebP, ${humanSize(limits.imageMaxBytes)} max chacune.`;
   });
   protected readonly pdfPendingText = computed(() =>
     this.pdfs().length > 1
       ? 'Vos PDF sont prêts. Ils ne sont pas encore visibles par vos clients.'
       : "Votre PDF est prêt. Il n'est pas encore visible par vos clients.",
-  );
-  protected readonly pdfPublishLabel = computed(() =>
-    this.pdfs().length > 1 ? 'Publier les PDF' : 'Publier le PDF',
   );
   // Lignes pretes a afficher : l'adresse d'apercu et la taille sont calculees ici,
   // une seule fois, au lieu d'etre recalculees a chaque rendu depuis le gabarit.

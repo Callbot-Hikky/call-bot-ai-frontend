@@ -16,7 +16,7 @@
       Configurer mon restaurant
     </a>
   </div>
-} @else if (service.error()) {
+} @else if (failed()) {
   <div
     class="bg-card border-border/70 flex flex-col items-center gap-3 rounded-lg border p-10 text-center shadow-md"
   >
@@ -28,7 +28,7 @@
       Réessayer
     </hk-button>
   </div>
-} @else if (service.loading() || !menu()) {
+} @else if (loading() || !menu()) {
   <div class="flex flex-col gap-6">
     <div class="grid gap-4 sm:grid-cols-3">
       <hk-skeleton height="7rem" />
@@ -90,7 +90,7 @@
           [class.border-border]="editing() !== card.mode"
           [attr.aria-pressed]="editing() === card.mode"
           [attr.aria-label]="'Ouvrir la préparation du format ' + card.title"
-          [disabled]="service.saving()"
+          [disabled]="saving()"
           (click)="open(card.mode)"
         >
           <div class="flex w-full flex-col items-center gap-1.5 sm:flex-row sm:justify-between">
@@ -135,7 +135,7 @@
             question="Vos clients verront « La carte arrive bientôt ». Confirmer ?"
             confirmLabel="Oui, ne rien publier"
             confirmTestId="confirm-unpublish"
-            [busy]="service.saving()"
+            [busy]="saving()"
             (confirmed)="confirmUnpublish()"
             (cancelled)="pendingUnpublish.set(false)"
           />
@@ -144,7 +144,7 @@
             variant="ghost"
             size="sm"
             data-testid="unpublish"
-            [disabled]="service.saving()"
+            [disabled]="saving()"
             (click)="pendingUnpublish.set(true)"
           >
             Ne rien publier pour l'instant
@@ -161,7 +161,7 @@
           <hk-button
             size="sm"
             data-testid="publish-current"
-            [disabled]="service.saving()"
+            [disabled]="saving()"
             (click)="publish(editing())"
           >
             {{ editingMode().publishAction }}
@@ -184,14 +184,14 @@
             [files]="pdfRows()"
             [published]="publishedMode() === 'pdf'"
             [canAdd]="canAddPdf()"
-            [busy]="service.saving()"
+            [busy]="saving()"
             [pendingFileId]="pendingFile()"
             [accept]="pdfMimes"
             [maxBytes]="limits().pdfMaxBytes"
             [maxCount]="limits().pdfMaxCount"
             [hint]="pdfHint()"
             [pendingText]="pdfPendingText()"
-            [publishLabel]="pdfPublishLabel()"
+            [publishLabel]="modes().pdf.publishAction"
             (filesPicked)="onFiles($event)"
             (moved)="move($event.id, $event.direction, 'pdf')"
             (removeAsked)="askRemove($event)"
@@ -207,7 +207,7 @@
             [files]="imageRows()"
             [published]="publishedMode() === 'images'"
             [canAdd]="canAddImage()"
-            [busy]="service.saving()"
+            [busy]="saving()"
             [pendingFileId]="pendingFile()"
             [accept]="imageMimes"
             [maxBytes]="limits().imageMaxBytes"
@@ -227,8 +227,8 @@
           <app-menu-manual-section
             [draft]="draft()"
             [published]="publishedMode() === 'manual'"
-            [busy]="service.saving()"
-            [loading]="service.loading()"
+            [busy]="saving()"
+            [loading]="loading()"
             (draftChange)="onManualChange($event)"
             (saveAsked)="saveNow()"
             (publishAsked)="publish('manual')"
