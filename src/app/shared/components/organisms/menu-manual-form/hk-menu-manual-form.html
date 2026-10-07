@@ -1,5 +1,5 @@
 <div class="flex flex-col gap-6" [class.opacity-60]="disabled()">
-  @for (section of menu().sections; track $index; let s = $index) {
+  @for (section of menu().sections; track section.key; let s = $index) {
     <section class="bg-card border-border/70 flex flex-col gap-4 rounded-lg border p-4">
       <div class="flex items-center gap-2">
         <div class="flex-1">
@@ -42,7 +42,7 @@
         />
       }
 
-      @for (item of section.items; track $index; let i = $index) {
+      @for (item of section.items; track item.key; let i = $index) {
         <div class="border-border/60 flex flex-col gap-2 rounded-md border p-3">
           <div class="flex items-start gap-2">
             <div class="flex-1" [attr.data-testid]="'item-name-' + s + '-' + i">

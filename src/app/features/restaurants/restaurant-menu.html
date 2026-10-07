@@ -24,7 +24,7 @@
 
     @switch (m.mode) {
       @case ('manual') {
-        @for (section of m.manual?.sections ?? []; track $index; let s = $index) {
+        @for (section of m.manual?.sections ?? []; track section.key; let s = $index) {
           <section class="reveal flex flex-col gap-4" [style.animation-delay.ms]="80 + s * 60">
             <h2
               class="text-text-subtle flex items-center gap-3 text-xs font-medium tracking-[0.18em] uppercase"
@@ -33,7 +33,7 @@
               <span class="bg-border h-px flex-1"></span>
             </h2>
             <ul class="flex flex-col gap-4">
-              @for (item of section.items; track $index) {
+              @for (item of section.items; track item.key) {
                 <li class="flex flex-col gap-1">
                   <div class="flex items-baseline gap-2">
                     <span class="text-text-strong font-medium">{{ item.name }}</span>

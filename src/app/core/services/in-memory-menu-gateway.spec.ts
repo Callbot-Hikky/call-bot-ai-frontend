@@ -3,7 +3,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { InMemoryMenuGateway } from './in-memory-menu-gateway';
-import { Menu } from '@core/models/menu.model';
+import { Menu, withManualKeys } from '@core/models/menu.model';
 
 const RID = 'r-1';
 
@@ -123,10 +123,10 @@ describe('InMemoryMenuGateway', () => {
   });
 
   it('la saisie publiee est renvoyee, et conservee quand seul le mode change', async () => {
-    const manual = {
-      version: 1 as const,
+    const manual = withManualKeys({
+      version: 1,
       sections: [{ name: 'Entrees', items: [{ name: 'Soupe', price: '8.00', description: '' }] }],
-    };
+    });
     await firstValueFrom(gateway.put(RID, { mode: 'manual', manual }));
     const pub = await firstValueFrom(gateway.getPublic(RID));
     expect(pub.mode).toBe('manual');

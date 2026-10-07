@@ -24,7 +24,15 @@ export interface MenuLimits {
   imageMaxCount: number;
 }
 
+/**
+ * `key` : identite stable d'une section ou d'un plat, posee a la creation et a la
+ * lecture. Le back ne la connait pas et ne la recoit jamais (voir `withoutKeys`) :
+ * elle n'existe que pour `@for ... track`. Sans elle il faudrait suivre par index,
+ * et supprimer une section ferait glisser le focus et le texte d'un champ a
+ * l'autre, puisque tous les rangs suivants se decalent.
+ */
 export interface ManualItem {
+  readonly key: string;
   name: string;
   description: string;
   // Prix normalise « 12.50 », ou chaine vide : le prix est optionnel.
@@ -32,6 +40,7 @@ export interface ManualItem {
 }
 
 export interface ManualSection {
+  readonly key: string;
   name: string;
   items: ManualItem[];
 }
@@ -94,13 +103,60 @@ export function isManualMenu(value: unknown): value is ManualMenu {
   );
 }
 
+// Compteur plutot qu'un UUID : l'unicite n'a besoin d'etre vraie que dans le
+// document ouvert, et une cle lisible aide a lire un test qui echoue.
+let keySequence = 0;
+export function newManualKey(): string {
+  return `k${++keySequence}`;
+}
+
+/** Le document tel qu'il arrive du back : sans cles, puisqu'il ne les connait pas. */
+export interface KeylessManualMenu {
+  version: 1;
+  sections: {
+    key?: string;
+    name: string;
+    items: { key?: string; name: string; description: string; price: string }[];
+  }[];
+}
+
+/** Pose les cles manquantes : seule porte d'entree d'un document venu du dehors. */
+export function withManualKeys(menu: KeylessManualMenu): ManualMenu {
+  return {
+    ...menu,
+    sections: menu.sections.map((section) => ({
+      ...section,
+      key: section.key || newManualKey(),
+      items: section.items.map((item) => ({ ...item, key: item.key || newManualKey() })),
+    })),
+  };
+}
+
+/** Retire les cles : elles sont internes a l'ecran, le back n'en veut pas. */
+export function withoutManualKeys(menu: ManualMenu): {
+  version: 1;
+  sections: { name: string; items: { name: string; description: string; price: string }[] }[];
+} {
+  return {
+    version: menu.version,
+    sections: menu.sections.map(({ name, items }) => ({
+      name,
+      items: items.map(({ name: itemName, description, price }) => ({
+        name: itemName,
+        description,
+        price,
+      })),
+    })),
+  };
+}
+
 // --- Helpers immuables : chaque appel renvoie un nouveau document. -------------
 
 export function addSection(menu: ManualMenu, name = ''): ManualMenu {
   if (menu.sections.length >= MANUAL_LIMITS.sections) {
     return menu;
   }
-  return { ...menu, sections: [...menu.sections, { name, items: [] }] };
+  return { ...menu, sections: [...menu.sections, { key: newManualKey(), name, items: [] }] };
 }
 
 export function removeSection(menu: ManualMenu, index: number): ManualMenu {
@@ -121,7 +177,10 @@ export function addItem(menu: ManualMenu, sectionIndex: number): ManualMenu {
       if (i !== sectionIndex || s.items.length >= MANUAL_LIMITS.itemsPerSection) {
         return s;
       }
-      return { ...s, items: [...s.items, { name: '', description: '', price: '' }] };
+      return {
+        ...s,
+        items: [...s.items, { key: newManualKey(), name: '', description: '', price: '' }],
+      };
     }),
   };
 }

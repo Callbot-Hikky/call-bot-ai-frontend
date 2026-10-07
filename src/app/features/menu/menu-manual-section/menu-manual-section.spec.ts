@@ -2,12 +2,14 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 
 import { MenuManualSection } from './menu-manual-section';
-import { ManualMenu, emptyManual } from '@core/models/menu.model';
+import { emptyManual, withManualKeys } from '@core/models/menu.model';
 
-const CARTE: ManualMenu = {
+// `withManualKeys` : la meme porte que la lecture du serveur, donc les cles de
+// suivi sont posees ici aussi, sans les ecrire a la main dans chaque fixture.
+const CARTE = withManualKeys({
   version: 1,
   sections: [{ name: 'Entrées', items: [{ name: 'Soupe', description: '', price: '9.50' }] }],
-};
+});
 
 describe('MenuManualSection', () => {
   let fixture: ComponentFixture<MenuManualSection>;

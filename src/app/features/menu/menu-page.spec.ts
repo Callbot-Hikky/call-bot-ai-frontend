@@ -12,7 +12,7 @@ import { MenuPage } from './menu-page';
 import { SessionService } from '@core/services/session.service';
 import { ToastService } from '@core/services/toast.service';
 import { MenuDto } from '@core/models/menu-dto.model';
-import { ManualMenu } from '@core/models/menu.model';
+import { withManualKeys } from '@core/models/menu.model';
 import { RestaurantService } from '@core/services/restaurant.service';
 
 const RID = 'r-1';
@@ -452,10 +452,10 @@ describe('MenuPage', () => {
 
   it('une reponse du serveur ne fait pas reculer la saisie en cours', async () => {
     await render(dto({ mode: 'manual' }));
-    const typed: ManualMenu = {
+    const typed = withManualKeys({
       version: 1,
       sections: [{ name: 'Entrees', items: [{ name: 'Soupe', price: '8.00', description: '' }] }],
-    };
+    });
     fixture.componentInstance['onManualChange'](typed);
     await fixture.whenStable();
 
@@ -473,14 +473,8 @@ describe('MenuPage', () => {
   // brouillon affiche garde l'ancienne saisie, et la premiere frappe la renvoie
   // au serveur par-dessus l'etat reel.
   it('recharger le meme restaurant repart de la carte du serveur', async () => {
-    const avant: ManualMenu = {
-      version: 1,
-      sections: [{ name: 'Avant', items: [] }],
-    };
-    const apres: ManualMenu = {
-      version: 1,
-      sections: [{ name: 'Apres', items: [] }],
-    };
+    const avant = withManualKeys({ version: 1, sections: [{ name: 'Avant', items: [] }] });
+    const apres = withManualKeys({ version: 1, sections: [{ name: 'Apres', items: [] }] });
     await render(dto({ mode: 'manual', manual: avant }));
     expect(fixture.componentInstance['draft']().sections[0].name).toBe('Avant');
 

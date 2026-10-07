@@ -1,3 +1,4 @@
+import { withManualKeys } from '@core/models/menu.model';
 import {
   MANUAL_LIMITS,
   addItem,
@@ -66,17 +67,17 @@ describe('menu.model', () => {
 
     it('refuse plus de 20 sections et plus de 50 plats par section (document venu du back)', () => {
       // Les helpers sont bornes, mais un document stocke peut depasser : la validation le refuse.
-      const tooManySections = {
-        version: 1 as const,
+      const tooManySections = withManualKeys({
+        version: 1,
         sections: Array.from({ length: MANUAL_LIMITS.sections + 1 }, (_, i) => ({
           name: `S${i}`,
           items: [],
         })),
-      };
+      });
       expect(validateManual(tooManySections).some((e) => e.includes('sections'))).toBe(true);
 
-      const dense = {
-        version: 1 as const,
+      const dense = withManualKeys({
+        version: 1,
         sections: [
           {
             name: 'Plats',
@@ -87,7 +88,7 @@ describe('menu.model', () => {
             })),
           },
         ],
-      };
+      });
       expect(validateManual(dense).some((e) => e.includes('plats'))).toBe(true);
     });
 
@@ -120,6 +121,9 @@ describe('menu.model', () => {
       menu = addItem(menu, 0);
       menu = updateItem(menu, 0, 0, { name: 'Tajine ', price: '18,5' });
       expect(menu.sections[0].items[0]).toEqual({
+        // La cle de suivi est posee a la creation : on la verifie presente sans
+        // dependre de sa valeur, qui n'a aucun sens metier.
+        key: expect.any(String),
         name: 'Tajine ',
         description: '',
         price: '18.50',
@@ -133,6 +137,7 @@ describe('menu.model', () => {
       menu = updateItem(menu, 0, 0, { name: '  Tajine  ', description: ' Aux pruneaux ' });
       menu = trimItem(menu, 0, 0);
       expect(menu.sections[0].items[0]).toEqual({
+        key: expect.any(String),
         name: 'Tajine',
         description: 'Aux pruneaux',
         price: '',

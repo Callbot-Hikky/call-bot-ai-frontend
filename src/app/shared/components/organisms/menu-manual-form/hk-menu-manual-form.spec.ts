@@ -8,6 +8,7 @@ import {
   addItem,
   addSection,
   emptyManual,
+  withManualKeys,
 } from '@core/models/menu.model';
 
 describe('HkMenuManualForm', () => {
@@ -127,5 +128,33 @@ describe('HkMenuManualForm', () => {
     menu = addItem(menu, 0);
     await setMenu(menu);
     expect(fixture.nativeElement.querySelector('b')).toBeNull();
+  });
+
+  // Avec `track $index`, supprimer une section reutilisait le noeud DOM du rang
+  // libere : le champ gardait le focus mais affichait desormais une AUTRE section.
+  // Les cles rendent l'identite stable, donc le noeud suit sa section.
+  it('supprimer une section ne deplace pas le contenu des champs restants', async () => {
+    const input = (testId: string) =>
+      fixture.nativeElement.querySelector(`[data-testid="${testId}"] input`) as HTMLInputElement;
+
+    const trois = withManualKeys({
+      version: 1,
+      sections: [
+        { name: 'Entrees', items: [] },
+        { name: 'Plats', items: [] },
+        { name: 'Desserts', items: [] },
+      ],
+    });
+    await setMenu(trois);
+    const premierNoeud = input('section-name-0');
+    expect(premierNoeud.value).toBe('Entrees');
+
+    // On retire « Entrees » : « Plats » prend le rang 0.
+    await setMenu({ ...trois, sections: trois.sections.slice(1) });
+
+    expect(input('section-name-0').value).toBe('Plats');
+    expect(input('section-name-1').value).toBe('Desserts');
+    // Le noeud de « Entrees » a disparu avec elle, il n'a pas ete recycle.
+    expect(fixture.nativeElement.contains(premierNoeud)).toBe(false);
   });
 });

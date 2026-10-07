@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '@env/environment';
 import { MenuDto, PublicMenuDto, mapMenu, mapPublicMenu } from '@core/models/menu-dto.model';
-import { Menu, MenuMode, ManualMenu, PublicMenu } from '@core/models/menu.model';
+import { Menu, MenuMode, ManualMenu, PublicMenu, withoutManualKeys } from '@core/models/menu.model';
 import { MenuGateway } from './menu-gateway';
 
 /** La vraie API. Les reponses completes remplacent l'etat, jamais des fragments. */
@@ -21,7 +21,11 @@ export class HttpMenuGateway implements MenuGateway {
   }
 
   put(restaurantId: string, body: { mode: MenuMode; manual?: ManualMenu }): Observable<Menu> {
-    return this.http.put<MenuDto>(this.menuUrl(restaurantId), body).pipe(map(mapMenu));
+    // Les cles de suivi sont internes a l'ecran : le document part sans elles.
+    const payload = body.manual
+      ? { mode: body.mode, manual: withoutManualKeys(body.manual) }
+      : { mode: body.mode };
+    return this.http.put<MenuDto>(this.menuUrl(restaurantId), payload).pipe(map(mapMenu));
   }
 
   upload(restaurantId: string, file: File): Observable<Menu> {

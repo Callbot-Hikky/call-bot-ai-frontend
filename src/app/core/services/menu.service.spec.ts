@@ -1,3 +1,4 @@
+import { withManualKeys, withoutManualKeys } from '@core/models/menu.model';
 import { MENU_GATEWAY } from './menu-gateway';
 import { HttpMenuGateway } from './http-menu-gateway';
 import { TestBed } from '@angular/core/testing';
@@ -115,13 +116,14 @@ describe('MenuService', () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto({ mode: 'manual' }));
 
-    const manual = {
-      version: 1 as const,
+    const manual = withManualKeys({
+      version: 1,
       sections: [{ name: 'Plats', items: [{ name: 'Tajine', description: '', price: '18.00' }] }],
-    };
+    });
     const promise = firstValueFrom(service.saveManual(manual));
     const req = http.expectOne((r) => r.method === 'PUT');
-    expect(req.request.body).toEqual({ mode: 'manual', manual });
+    // Les cles de suivi ne partent pas sur le reseau : le back ne les connait pas.
+    expect(req.request.body).toEqual({ mode: 'manual', manual: withoutManualKeys(manual) });
     req.flush(dto({ mode: 'manual', manual }));
 
     await promise;
@@ -133,7 +135,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
 
       service.scheduleManualSave(manual);
       expect(service.saveState()).toBe('dirty');
@@ -154,7 +156,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
       const promise = firstValueFrom(service.saveManual(manual));
       http.expectOne((r) => r.method === 'PUT').flush(dto({ mode: 'manual', manual }));
@@ -171,12 +173,13 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'none' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
 
       const promise = firstValueFrom(service.setMode('manual'));
       const req = http.expectOne((r) => r.method === 'PUT');
-      expect(req.request.body).toEqual({ mode: 'manual', manual });
+      // Les cles de suivi ne partent pas sur le reseau : le back ne les connait pas.
+      expect(req.request.body).toEqual({ mode: 'manual', manual: withoutManualKeys(manual) });
       req.flush(dto({ mode: 'manual', manual }));
       await promise;
       vi.advanceTimersByTime(1000);
@@ -189,7 +192,7 @@ describe('MenuService', () => {
   it('saveManual : une saisie videe alors qu elle est publiee depublie au lieu d echouer', async () => {
     service.load(RID);
     http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-    const empty = { version: 1 as const, sections: [] };
+    const empty = withManualKeys({ version: 1, sections: [] });
 
     const promise = firstValueFrom(service.saveManual(empty));
     const req = http.expectOne((r) => r.method === 'PUT');
@@ -203,7 +206,7 @@ describe('MenuService', () => {
     try {
       service.load(RID);
       http.expectOne(() => true).flush(dto({ mode: 'manual' }));
-      const manual = { version: 1 as const, sections: [{ name: 'Plats', items: [] }] };
+      const manual = withManualKeys({ version: 1, sections: [{ name: 'Plats', items: [] }] });
       service.scheduleManualSave(manual);
       http.expectNone((r) => r.method === 'PUT');
 
