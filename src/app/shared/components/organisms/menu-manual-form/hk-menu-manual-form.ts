@@ -76,9 +76,13 @@ export class HkMenuManualForm {
   // l'ordre d'une file de taches. Les identifiants sont construits ici (lettres,
   // chiffres, tirets) : pas d'echappement a prevoir.
   private focusAfterRender(id: string): void {
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus(), {
-      injector: this.injector,
-    });
+    afterNextRender(
+      // Phase « write » : donner le focus peut faire defiler la page, c'est une
+      // ecriture. La phase par defaut melange lecture et ecriture et coute un
+      // recalcul de mise en page inutile.
+      { write: () => this.host.nativeElement.querySelector<HTMLElement>(`#${id}`)?.focus() },
+      { injector: this.injector },
+    );
   }
 
   protected setSectionName(s: number, name: string): void {

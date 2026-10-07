@@ -22,7 +22,9 @@ export class RestaurantMenuPage {
   private readonly title = inject(Title);
 
   // Parametre de route et parametre de requete, lies par withComponentInputBinding.
-  readonly id = input<string>();
+  // `required` : la route porte toujours `:id`. Optionnel, la ressource resterait
+  // « idle » et aucune branche du gabarit ne s'afficherait : page blanche muette.
+  readonly id = input.required<string>();
   readonly reservation = input<string>();
 
   /**

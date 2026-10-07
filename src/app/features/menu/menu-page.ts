@@ -121,7 +121,7 @@ const SAVE_LABELS: Record<SaveState, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MenuPage {
-  protected readonly service = inject(MenuService);
+  private readonly service = inject(MenuService);
   private readonly session = inject(SessionService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
@@ -223,7 +223,7 @@ export class MenuPage {
   protected readonly pendingFile = signal<string | null>(null);
   protected readonly pendingUnpublish = signal(false);
 
-  protected readonly pdfs = computed(() =>
+  private readonly pdfs = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'pdf')
       .sort((a, b) => a.position - b.position),
@@ -245,7 +245,7 @@ export class MenuPage {
   // une seule fois, au lieu d'etre recalculees a chaque rendu depuis le gabarit.
   protected readonly pdfRows = computed<MenuFileRow[]>(() => this.pdfs().map(toRow));
   protected readonly imageRows = computed<MenuFileRow[]>(() => this.images().map(toRow));
-  protected readonly images = computed(() =>
+  private readonly images = computed(() =>
     (this.menu()?.files ?? [])
       .filter((f) => f.kind === 'image')
       .sort((a, b) => a.position - b.position),

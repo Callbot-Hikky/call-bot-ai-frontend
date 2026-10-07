@@ -100,11 +100,16 @@ export class HkPdfPages {
     });
     // Les canvas n'existent qu'une fois le @for rendu : c'est ici, et pas dans
     // `open`, qu'on peut les observer. L'effet se rejoue quand leur liste change.
-    afterRenderEffect(() => {
-      const canvases = this.canvases().map((ref) => ref.nativeElement);
-      if (canvases.length > 0) {
-        this.watch(canvases, this.run);
-      }
+    // Phase « read » explicite : le rappel ne fait que relever les canvas pour les
+    // observer. La phase par defaut melange lecture et ecriture et provoque des
+    // recalculs de mise en page inutiles.
+    afterRenderEffect({
+      read: () => {
+        const canvases = this.canvases().map((ref) => ref.nativeElement);
+        if (canvases.length > 0) {
+          this.watch(canvases, this.run);
+        }
+      },
     });
   }
 
